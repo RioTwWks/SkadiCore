@@ -17,6 +17,7 @@ use skadi_protocol::{
 };
 use skadi_transport::{RealityError, RealityTransport, TcpTransport, TlsTransport};
 use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use store::UserStore;
@@ -31,11 +32,21 @@ const SOCKS5_VERSION_BYTE: u8 = 0x05;
 /// Первый байт VLESS v0.
 const VLESS_VERSION_BYTE: u8 = 0x00;
 
-/// Запуск сервера с обработкой Ctrl+C / SIGTERM.
-pub async fn run(config: Config) -> Result<()> {
-    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+/// Проверить конфиг без запуска сервера.
+pub fn check_config(path: &Path) -> Result<()> {
+    let config = Config::load(path)?;
+    config.print_check_summary(path);
+    Ok(())
+}
 
-    let accept_handle = tokio::spawn(run_server(config, shutdown_rx));
+/// Запуск сервера с обработкой Ctrl+C / SIGTERM и SIGHUP reload.
+pub async fn run(config: Config, config_path: PathBuf) -> Result<()> {
+    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    let user_store = Arc::new(UserStore::from_protocol(&config.protocol));
+
+    spawn_sighup_reload(config_path, Arc::clone(&user_store));
+
+    let accept_handle = tokio::spawn(run_server_with_store(config, shutdown_rx, user_store));
 
     wait_for_shutdown().await;
     info!("shutdown signal received");
@@ -49,6 +60,16 @@ pub async fn run(config: Config) -> Result<()> {
 
 /// Запуск accept-loop до получения сигнала shutdown (для тестов).
 pub async fn run_server(config: Config, shutdown_rx: watch::Receiver<bool>) -> Result<()> {
+    let user_store = Arc::new(UserStore::from_protocol(&config.protocol));
+    run_server_with_store(config, shutdown_rx, user_store).await
+}
+
+/// Запуск accept-loop с внешним `UserStore` (для SIGHUP reload).
+pub async fn run_server_with_store(
+    config: Config,
+    shutdown_rx: watch::Receiver<bool>,
+    user_store: Arc<UserStore>,
+) -> Result<()> {
     let listen: SocketAddr = config
         .server
         .listen
@@ -78,7 +99,6 @@ pub async fn run_server(config: Config, shutdown_rx: watch::Receiver<bool>) -> R
     };
 
     let sniff_protocols = config.enabled_protocol_count() > 1;
-    let user_store = Arc::new(UserStore::from_protocol(&config.protocol));
 
     let api_handle = if config.api.enabled {
         let api_config = config.api.clone();
@@ -222,6 +242,39 @@ async fn accept_loop(
         }
     }
 }
+
+#[cfg(unix)]
+fn spawn_sighup_reload(config_path: PathBuf, user_store: Arc<UserStore>) {
+    tokio::spawn(async move {
+        let mut sighup =
+            signal::unix::signal(signal::unix::SignalKind::hangup()).expect("SIGHUP handler");
+
+        while sighup.recv().await.is_some() {
+            match Config::load(&config_path) {
+                Ok(config) => {
+                    if let Err(e) = user_store.reload_from_protocol(&config.protocol) {
+                        error!(error = %e, "SIGHUP reload failed");
+                        continue;
+                    }
+                    info!(
+                        path = %config_path.display(),
+                        vless_users = config.protocol.vless.users.len(),
+                        socks5_users = config.protocol.socks5.users.len(),
+                        "config reloaded (protocol users)"
+                    );
+                }
+                Err(e) => error!(
+                    error = %e,
+                    path = %config_path.display(),
+                    "SIGHUP config invalid"
+                ),
+            }
+        }
+    });
+}
+
+#[cfg(not(unix))]
+fn spawn_sighup_reload(_config_path: PathBuf, _user_store: Arc<UserStore>) {}
 
 async fn wait_for_shutdown() {
     #[cfg(unix)]

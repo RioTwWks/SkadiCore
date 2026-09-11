@@ -333,7 +333,8 @@ cargo audit
 | 5. REALITY | 🟢 | Inbound + fallback + Xray e2e |
 | 6. gRPC API | 🟢 | Hot reload пользователей |
 | 7. Метрики | 🟢 | Prometheus, `/healthz`, `--log-format` |
-| 8. TUN | ⏳ | Клиентский режим |
+| 8. Конфиг/CLI | 🟢 | check-config, SIGHUP reload |
+| 9. TUN | ⏳ | Клиентский режим |
 
 Легенда: ✅ готово, 🚧 в работе, 🟡 частично, ⏳ не начато.
 
