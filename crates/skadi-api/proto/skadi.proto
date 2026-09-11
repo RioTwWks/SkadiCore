@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package skadi.api.v1;
+
+// Управление пользователями и базовая статистика (hot reload без рестарта).
+service SkadiApi {
+  rpc AddVlessUser(AddVlessUserRequest) returns (UserResponse);
+  rpc RemoveVlessUser(RemoveVlessUserRequest) returns (UserResponse);
+  rpc ListVlessUsers(ListVlessUsersRequest) returns (ListVlessUsersResponse);
+
+  rpc AddSocks5User(AddSocks5UserRequest) returns (UserResponse);
+  rpc RemoveSocks5User(RemoveSocks5UserRequest) returns (UserResponse);
+  rpc ListSocks5Users(ListSocks5UsersRequest) returns (ListSocks5UsersResponse);
+
+  rpc GetStats(GetStatsRequest) returns (GetStatsResponse);
+}
+
+message VlessUser {
+  string id = 1;
+  string email = 2;
+}
+
+message Socks5User {
+  string username = 1;
+  string password = 2;
+}
+
+message AddVlessUserRequest {
+  VlessUser user = 1;
+}
+
+message RemoveVlessUserRequest {
+  string id = 1;
+}
+
+message ListVlessUsersRequest {}
+
+message ListVlessUsersResponse {
+  repeated VlessUser users = 1;
+}
+
+message AddSocks5UserRequest {
+  Socks5User user = 1;
+}
+
+message RemoveSocks5UserRequest {
+  string username = 1;
+}
+
+message ListSocks5UsersRequest {}
+
+message ListSocks5UsersResponse {
+  repeated Socks5User users = 1;
+}
+
+message UserResponse {
+  bool ok = 1;
+  string message = 2;
+}
+
+message GetStatsRequest {}
+
+message GetStatsResponse {
+  uint64 vless_users = 1;
+  uint64 socks5_users = 2;
+}

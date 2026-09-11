@@ -31,3 +31,9 @@ enabled = true
 [[protocol.vless.users]]
 id = "b831381d-6324-4d53-ad4f-8cda48b30811"
 email = "alice@example.com"
+
+# gRPC API — hot reload пользователей без рестарта.
+# [api]
+# enabled = true
+# listen = "127.0.0.1:10085"
+# token = "change-me-to-a-long-random-secret"

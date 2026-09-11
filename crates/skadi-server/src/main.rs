@@ -61,6 +61,7 @@ async fn run_server(cli: Cli) -> Result<()> {
         listen = %config.server.listen,
         tls = config.tls_enabled(),
         reality = config.reality_enabled(),
+        api = config.api.enabled,
         "SkadiCore starting"
     );
 

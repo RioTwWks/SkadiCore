@@ -44,10 +44,16 @@ base64 = "0.22"
 rcgen = "0.13"
 ring = "0.17"
 
+# gRPC
+tonic = "0.12"
+prost = "0.13"
+tonic-build = "0.12"
+
 # Внутренние крейты
 skadi-core = { path = "crates/skadi-core" }
 skadi-transport = { path = "crates/skadi-transport" }
 skadi-protocol = { path = "crates/skadi-protocol" }
+skadi-api = { path = "crates/skadi-api" }
 
 [patch.crates-io]
 rustls = { path = "third_party/rustls-reality/rustls" }

@@ -99,6 +99,7 @@ async fn reality_server_config_via_run_server() {
                 short_ids: vec!["0102030405060708".into()],
             },
         },
+        api: Default::default(),
     };
     config.validate().unwrap();
 

@@ -3,9 +3,9 @@
 Документ описывает формат TOML-конфига: все поля, значения по
 умолчанию, ограничения и типичные ошибки.
 
-**Важно**: конфиг читается один раз при старте. Горячая
-перезагрузка (`SIGHUP`) пока не реализована — для изменения
-конфига нужен перезапуск процесса.
+**Важно**: конфиг читается один раз при старте. Пользователей VLESS/SOCKS5
+можно менять без рестарта через gRPC API (`[api]`). Полная перезагрузка
+конфига (`SIGHUP`) пока не реализована.
 
 ---
 
@@ -17,6 +17,7 @@
 - [Секция `[transport.reality]`](#секция-transportreality)
 - [Секция `[protocol.socks5]`](#секция-protocolsocks5)
 - [Секция `[protocol.vless]`](#секция-protocolvless)
+- [Секция `[api]`](#секция-api)
 - [Валидация](#валидация)
 - [Примеры](#примеры)
 - [Типичные ошибки](#типичные-ошибки)
@@ -41,6 +42,7 @@ skadicore --config /etc/skadicore/config.toml
 [transport.reality]   # опционально (рекомендуется для VLESS)
 [protocol.socks5]     # опционально
 [protocol.vless]      # опционально
+[api]                 # опционально (gRPC hot reload пользователей)
 ```
 
 Хотя бы один протокол должен быть включён. Если все выключены —
@@ -400,6 +402,50 @@ Flow-режим XTLS. **Не поддерживается в текущей ве
 
 ---
 
+## Секция `[api]`
+
+gRPC management API для hot reload пользователей без перезапуска сервера.
+
+```toml
+[api]
+enabled = true
+listen = "127.0.0.1:10085"
+token = "change-me-to-a-long-random-secret"
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `enabled` | `bool` | Включить gRPC API |
+| `listen` | `string` | Адрес **только loopback** (`127.0.0.1` или `::1`) |
+| `token` | `string` | Bearer-токен; обязателен при `enabled = true` |
+
+### Методы (`skadi.api.v1.SkadiApi`)
+
+| RPC | Описание |
+|-----|----------|
+| `AddVlessUser` | Добавить VLESS-пользователя (UUID) |
+| `RemoveVlessUser` | Удалить по UUID |
+| `ListVlessUsers` | Список VLESS-пользователей |
+| `AddSocks5User` | Добавить SOCKS5 user/pass |
+| `RemoveSocks5User` | Удалить по username |
+| `ListSocks5Users` | Список SOCKS5-пользователей |
+| `GetStats` | Счётчики пользователей (`vless_users`, `socks5_users`) |
+
+Аутентификация: заголовок `authorization: Bearer <token>`.
+
+Пример с [grpcurl](https://github.com/fullstorydev/grpcurl):
+
+```bash
+grpcurl -plaintext \
+  -H "authorization: Bearer change-me-to-a-long-random-secret" \
+  -d '{"user":{"id":"b831381d-6324-4d53-ad4f-8cda48b30811","email":"alice@example.com"}}' \
+  127.0.0.1:10085 skadi.api.v1.SkadiApi/AddVlessUser
+```
+
+Автотест: `cargo test -p skadi-server --test grpc_api_e2e`.
+
+---
+
 ## Валидация
 
 Валидация происходит при загрузке конфига. При ошибке ядро
@@ -577,7 +623,7 @@ sudo ss -tlnp | grep :443
 
 - Секция `[transport.tls]` — сертификаты, ALPN, cipher suites.
 - Секция `[transport.reality]` — dest, serverNames, privateKey.
-- Секция `[api]` — gRPC endpoint, токен, TLS.
+- Секция `[api].tls` — TLS для gRPC (опционально, v2).
 - Секция `[metrics]` — Prometheus endpoint, интервал.
 - Секция `[log]` — уровень, формат, путь.
 

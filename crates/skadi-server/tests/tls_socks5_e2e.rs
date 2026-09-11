@@ -101,6 +101,7 @@ async fn socks5_over_tls_connect_and_relay() {
                 certificates: vec![],
             },
         },
+        api: Default::default(),
     };
 
     config.validate().unwrap();
