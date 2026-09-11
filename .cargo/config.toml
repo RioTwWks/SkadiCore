@@ -1,0 +1,7 @@
+# Линкеры для статической сборки под musl (нужен пакет musl-tools на x86_64).
+[target.x86_64-unknown-linux-musl]
+linker = "musl-gcc"
+
+# aarch64: установите кросс-компилятор, например с https://musl.cc/
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
