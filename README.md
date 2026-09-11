@@ -61,7 +61,8 @@ SkadiCore — это попытка собрать в одном ядре сил
 **В работе:**
 
 - [x] TLS inbound (rustls) — PEM из конфига, TLS 1.3.
-- [ ] TLS SNI-роутинг, outbound TLS.
+- [x] TLS SNI-роутинг (несколько сертификатов на порту).
+- [ ] TLS outbound.
 - [x] Интеграционный тест SOCKS5 over TLS.
 - [ ] Prometheus-метрики.
 

@@ -21,7 +21,7 @@
 - [x] TLS accept на inbound
 - [x] Handlers: `AsyncRead + AsyncWrite`
 - [x] Интеграционный тест SOCKS5 over TLS
-- [ ] SNI-роутинг (несколько сертификатов)
+- [x] SNI-роутинг (несколько сертификатов)
 - [ ] TLS outbound (клиентский режим)
 - [ ] Тесты с `openssl s_client` (документация)
 

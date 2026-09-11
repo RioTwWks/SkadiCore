@@ -4,9 +4,14 @@ listen = "0.0.0.0:443"
 # TLS inbound (рекомендуется для VLESS в продакшене).
 # [transport.tls]
 # enabled = true
-# cert = "certs/server.pem"
-# key = "certs/server.key"
+# cert = "certs/default.pem"       # fallback при неизвестном SNI
+# key = "certs/default.key"
 # alpn = ["h2", "http/1.1"]
+#
+# [[transport.tls.certificates]]
+# server_names = ["example.com"]
+# cert = "certs/example.pem"
+# key = "certs/example-key.pem"
 
 [protocol.socks5]
 enabled = false

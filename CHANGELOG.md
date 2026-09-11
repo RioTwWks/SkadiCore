@@ -11,6 +11,12 @@
 
 ### Added
 
+- **SNI-роутинг TLS**
+  - `[[transport.tls.certificates]]` с `server_names`, `cert`, `key`.
+  - `cert`/`key` верхнего уровня — fallback при неизвестном SNI.
+  - `SniCertResolver` в `skadi-transport`.
+  - Интеграционные тесты `tls_sni_e2e`.
+
 - **TLS inbound в `skadi-server`**
   - Секция `[transport.tls]` в конфиге: `enabled`, `cert`, `key`, `alpn`.
   - TLS handshake после `accept()`, до протокольного handshake.
