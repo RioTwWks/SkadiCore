@@ -5,15 +5,14 @@
 
 pub mod parse;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use parse::{parse_auth, parse_greeting, parse_request, ParseError};
 use serde::Deserialize;
 use skadi_core::Endpoint;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 use subtle::ConstantTimeEq;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tracing::{debug, trace, warn};
 
 // ─── Константы ────────────────────────────────────────────────────────
@@ -38,10 +37,6 @@ pub const REP_CONNECTION_REFUSED: u8 = 0x05;
 pub const REP_TTL_EXPIRED: u8 = 0x06;
 pub const REP_COMMAND_NOT_SUPPORTED: u8 = 0x07;
 pub const REP_ADDRESS_NOT_SUPPORTED: u8 = 0x08;
-
-/// Максимум методов аутентификации, которые мы готовы принять.
-/// RFC допускает до 255, но на практике их 1–3.
-const MAX_METHODS: usize = 16;
 
 /// Общий таймаут на всю фазу переговоров.
 const NEGOTIATION_TIMEOUT: Duration = Duration::from_secs(10);
@@ -105,25 +100,21 @@ impl Socks5Handler {
     /// Полный цикл переговоров: greeting → метод → аутентификация → запрос.
     /// Возвращает целевой endpoint. Финальный reply НЕ отправляется —
     /// это делает вызывающий код после установки upstream-соединения.
-    pub async fn negotiate(
-        client: &mut TcpStream,
-        config: &Socks5Config,
-    ) -> Result<Endpoint> {
-        match tokio::time::timeout(
-            NEGOTIATION_TIMEOUT,
-            Self::negotiate_inner(client, config),
-        )
-        .await
+    pub async fn negotiate<S>(client: &mut S, config: &Socks5Config) -> Result<Endpoint>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
+        match tokio::time::timeout(NEGOTIATION_TIMEOUT, Self::negotiate_inner(client, config)).await
         {
             Ok(result) => result,
             Err(_) => bail!("SOCKS5 negotiation timeout"),
         }
     }
 
-    async fn negotiate_inner(
-        client: &mut TcpStream,
-        config: &Socks5Config,
-    ) -> Result<Endpoint> {
+    async fn negotiate_inner<S>(client: &mut S, config: &Socks5Config) -> Result<Endpoint>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
         let methods = Self::read_greeting(client).await?;
         let selected = Self::select_method(&methods, config);
 
@@ -143,11 +134,10 @@ impl Socks5Handler {
 
     /// Отправить финальный reply. Вызывается после попытки подключения
     /// к целевому адресу — success или error.
-    pub async fn send_reply(
-        client: &mut TcpStream,
-        code: u8,
-        bound: SocketAddr,
-    ) -> Result<()> {
+    pub async fn send_reply<S>(client: &mut S, code: u8, bound: SocketAddr) -> Result<()>
+    where
+        S: AsyncWrite + Unpin,
+    {
         let mut buf = Vec::with_capacity(22);
         buf.push(SOCKS5_VERSION);
         buf.push(code);
@@ -170,14 +160,20 @@ impl Socks5Handler {
     }
 
     /// Удобная обёртка для отправки error-reply с dummy BND.
-    pub async fn send_error(client: &mut TcpStream, code: u8) -> Result<()> {
+    pub async fn send_error<S>(client: &mut S, code: u8) -> Result<()>
+    where
+        S: AsyncWrite + Unpin,
+    {
         let dummy = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
         Self::send_reply(client, code, dummy).await
     }
 
     // ─── I/O + вызов парсеров ─────────────────────────────────────────
 
-    async fn read_greeting(client: &mut TcpStream) -> Result<Vec<u8>> {
+    async fn read_greeting<S>(client: &mut S) -> Result<Vec<u8>>
+    where
+        S: AsyncRead + Unpin,
+    {
         // Читаем сначала 2 байта, чтобы узнать nmethods.
         let mut header = [0u8; 2];
         client.read_exact(&mut header).await?;
@@ -193,8 +189,8 @@ impl Socks5Handler {
         buf.resize(2 + nmethods, 0);
         client.read_exact(&mut buf[2..]).await?;
 
-        let (methods, _) = parse_greeting(&buf)
-            .map_err(|e| anyhow::anyhow!("greeting parse: {}", e))?;
+        let (methods, _) =
+            parse_greeting(&buf).map_err(|e| anyhow::anyhow!("greeting parse: {}", e))?;
         Ok(methods)
     }
 
@@ -210,7 +206,10 @@ impl Socks5Handler {
         }
     }
 
-    async fn perform_auth(client: &mut TcpStream, config: &Socks5Config) -> Result<()> {
+    async fn perform_auth<S>(client: &mut S, config: &Socks5Config) -> Result<()>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
         // Читаем header, потом uname, потом plen, потом passwd.
         let mut header = [0u8; 2];
         client.read_exact(&mut header).await?;
@@ -238,8 +237,8 @@ impl Socks5Handler {
         buf.resize(plen_offset + plen, 0);
         client.read_exact(&mut buf[plen_offset..]).await?;
 
-        let ((uname, passwd), _) = parse_auth(&buf)
-            .map_err(|e| anyhow::anyhow!("auth parse: {}", e))?;
+        let ((uname, passwd), _) =
+            parse_auth(&buf).map_err(|e| anyhow::anyhow!("auth parse: {}", e))?;
 
         // Даже если пользователя нет — сравниваем с заглушкой,
         // чтобы время ответа не выдавало существование логина.
@@ -258,7 +257,10 @@ impl Socks5Handler {
         Ok(())
     }
 
-    async fn read_request(client: &mut TcpStream) -> Result<Endpoint> {
+    async fn read_request<S>(client: &mut S) -> Result<Endpoint>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
         // Читаем 4 байта header, потом — в зависимости от atyp.
         let mut header = [0u8; 4];
         client.read_exact(&mut header).await?;
@@ -297,22 +299,24 @@ impl Socks5Handler {
             }
         }
 
-        let (endpoint, _) = parse_request(&buf)
-            .map_err(|e| {
-                // Для команд и версий отправляем осмысленный reply.
-                let code = match e {
-                    ParseError::UnsupportedCommand(_) => REP_COMMAND_NOT_SUPPORTED,
-                    ParseError::UnsupportedAddressType(_) => REP_ADDRESS_NOT_SUPPORTED,
-                    _ => REP_GENERAL_FAILURE,
-                };
-                anyhow::anyhow!("request parse (reply 0x{:02x}): {}", code, e)
-            })?;
+        let (endpoint, _) = parse_request(&buf).map_err(|e| {
+            // Для команд и версий отправляем осмысленный reply.
+            let code = match e {
+                ParseError::UnsupportedCommand(_) => REP_COMMAND_NOT_SUPPORTED,
+                ParseError::UnsupportedAddressType(_) => REP_ADDRESS_NOT_SUPPORTED,
+                _ => REP_GENERAL_FAILURE,
+            };
+            anyhow::anyhow!("request parse (reply 0x{:02x}): {}", code, e)
+        })?;
 
         debug!(target = %endpoint, "SOCKS5 CONNECT request");
         Ok(endpoint)
     }
 
-    async fn write_all(client: &mut TcpStream, buf: &[u8]) -> Result<()> {
+    async fn write_all<S>(client: &mut S, buf: &[u8]) -> Result<()>
+    where
+        S: AsyncWrite + Unpin,
+    {
         client.write_all(buf).await?;
         client.flush().await?;
         Ok(())

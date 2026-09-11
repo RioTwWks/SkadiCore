@@ -5,6 +5,7 @@ use tokio::net::TcpStream;
 use tracing::debug;
 
 /// Транспорт поверх TCP.
+#[derive(Clone)]
 pub struct TcpTransport {
     connect_timeout: Duration,
 }
@@ -23,12 +24,9 @@ impl TcpTransport {
 
         debug!(target = %addr, "connecting");
 
-        let stream = tokio::time::timeout(
-            self.connect_timeout,
-            TcpStream::connect(&addr),
-        )
-        .await
-        .map_err(|_| anyhow::anyhow!("connect timeout to {}", addr))??;
+        let stream = tokio::time::timeout(self.connect_timeout, TcpStream::connect(&addr))
+            .await
+            .map_err(|_| anyhow::anyhow!("connect timeout to {}", addr))??;
 
         // Отключаем алгоритм Нейгла — снижает latency для мелких пакетов.
         stream.set_nodelay(true)?;

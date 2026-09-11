@@ -28,6 +28,11 @@ toml = "0.8"
 # CLI
 clap = { version = "4", features = ["derive"] }
 
+# TLS
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-pemfile = "2"
+tokio-rustls = "0.26"
+
 # Внутренние крейты
 skadi-core = { path = "crates/skadi-core" }
 skadi-transport = { path = "crates/skadi-transport" }

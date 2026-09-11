@@ -1,14 +1,13 @@
 use anyhow::{bail, Context, Result};
 use skadi_core::Endpoint;
 use std::time::Duration;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tracing::{debug, warn};
 
 use super::config::VlessConfig;
 use super::parse::{
-    build_response_header, parse_request, ParseError, VLESS_VERSION,
-    ATYP_DOMAIN, ATYP_IPV4, ATYP_IPV6, MAX_ADDONS, MAX_DOMAIN,
+    build_response_header, parse_request, ATYP_DOMAIN, ATYP_IPV4, ATYP_IPV6, MAX_ADDONS,
+    MAX_DOMAIN, VLESS_VERSION,
 };
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -22,25 +21,20 @@ impl VlessHandler {
     /// При неверном UUID соединение молча закрывается — как того требует
     /// спецификация, чтобы активный зонд не мог отличить сервер от
     /// закрытого порта.
-    pub async fn handshake(
-        client: &mut TcpStream,
-        config: &VlessConfig,
-    ) -> Result<Endpoint> {
-        match tokio::time::timeout(
-            HANDSHAKE_TIMEOUT,
-            Self::handshake_inner(client, config),
-        )
-        .await
-        {
+    pub async fn handshake<S>(client: &mut S, config: &VlessConfig) -> Result<Endpoint>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
+        match tokio::time::timeout(HANDSHAKE_TIMEOUT, Self::handshake_inner(client, config)).await {
             Ok(result) => result,
             Err(_) => bail!("VLESS handshake timeout"),
         }
     }
 
-    async fn handshake_inner(
-        client: &mut TcpStream,
-        config: &VlessConfig,
-    ) -> Result<Endpoint> {
+    async fn handshake_inner<S>(client: &mut S, config: &VlessConfig) -> Result<Endpoint>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
         // Читаем фиксированную часть: version + uuid + addons_len = 18.
         let mut head = [0u8; 18];
         client
@@ -106,8 +100,8 @@ impl VlessHandler {
             .await
             .context("failed to read VLESS address")?;
 
-        let (request, _) = parse_request(&full)
-            .map_err(|e| anyhow::anyhow!("VLESS parse: {}", e))?;
+        let (request, _) =
+            parse_request(&full).map_err(|e| anyhow::anyhow!("VLESS parse: {}", e))?;
 
         debug!(
             command = request.command,
