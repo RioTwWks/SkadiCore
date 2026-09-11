@@ -97,8 +97,7 @@ mod tests {
         let idle = Duration::from_millis(50);
 
         let start = Instant::now();
-        let result =
-            copy_bidirectional_with_idle_timeout(&mut left, &mut right, idle).await;
+        let result = copy_bidirectional_with_idle_timeout(&mut left, &mut right, idle).await;
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);
