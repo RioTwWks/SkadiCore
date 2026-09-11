@@ -114,6 +114,7 @@ async fn vless_over_reality_with_xray_client() {
             },
         },
         api: Default::default(),
+        metrics: Default::default(),
     };
     config.validate().unwrap();
 

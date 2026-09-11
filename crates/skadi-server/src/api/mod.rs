@@ -29,6 +29,7 @@ pub async fn run_api_server(
         .clone()
         .expect("api.token validated at config load");
     let service = SkadiApiService::new(store);
+    #[allow(clippy::result_large_err)]
     let grpc = SkadiApiServer::with_interceptor(service, move |req| check_auth(&token, req));
 
     info!(addr = %config.listen, "gRPC API listening");

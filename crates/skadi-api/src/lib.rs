@@ -1,5 +1,7 @@
 //! gRPC API SkadiCore — protobuf-схема и сгенерированные stubs.
 
+#![allow(clippy::result_large_err)]
+
 pub mod skadi {
     pub mod api {
         pub mod v1 {

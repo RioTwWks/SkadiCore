@@ -15,6 +15,29 @@ pub struct Config {
     pub transport: TransportConfig,
     #[serde(default)]
     pub api: ApiConfig,
+    #[serde(default)]
+    pub metrics: MetricsConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MetricsConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_metrics_listen")]
+    pub listen: String,
+}
+
+fn default_metrics_listen() -> String {
+    "127.0.0.1:9090".to_string()
+}
+
+impl Default for MetricsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            listen: default_metrics_listen(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -155,6 +178,27 @@ impl Config {
 
         if self.api.enabled {
             self.validate_api()?;
+        }
+
+        if self.metrics.enabled {
+            self.validate_metrics()?;
+        }
+
+        Ok(())
+    }
+
+    fn validate_metrics(&self) -> Result<()> {
+        let addr: SocketAddr = self
+            .metrics
+            .listen
+            .parse()
+            .with_context(|| format!("invalid metrics.listen: {}", self.metrics.listen))?;
+
+        if !is_loopback(&addr) {
+            bail!(
+                "metrics.listen must bind to loopback (127.0.0.1 or ::1), got {}",
+                self.metrics.listen
+            );
         }
 
         Ok(())

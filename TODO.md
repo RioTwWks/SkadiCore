@@ -154,12 +154,13 @@
 ## 📊 Этап 7: Наблюдаемость
 
 - [x] `tracing` с JSON-логами
-- [ ] Prometheus-метрики (`metrics` + `metrics-exporter-prometheus`)
-- [ ] Health-check (`/healthz`)
-- [ ] Флаг `--log-format=json|pretty`
+- [x] Prometheus-метрики (`metrics` + `metrics-exporter-prometheus`)
+- [x] Health-check (`/healthz`)
+- [x] Флаг `--log-format=json|pretty`
+- [x] E2E `metrics_e2e`
 - [ ] OpenTelemetry (опционально)
 
-🟡 **Частично** — только логи.
+🟢 **Готово (v1)** — метрики, healthz, log format; OTel — опционально.
 
 ---
 

@@ -86,6 +86,7 @@ async fn spawn_vless_tls_server(
             },
         },
         api: Default::default(),
+        metrics: Default::default(),
     };
     config.validate().unwrap();
 
