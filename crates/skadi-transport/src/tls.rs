@@ -1,11 +1,10 @@
 //! TLS-транспорт на базе rustls + tokio-rustls.
-//!
-//! Этап 3 TODO: загрузка PEM, inbound accept, SNI-роутинг.
 
 use anyhow::{Context, Result};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::version::TLS13;
 use rustls::ServerConfig;
-use rustls_pemfile::{certs, pkcs8_private_keys};
+use rustls_pemfile::{certs, private_key};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -34,9 +33,12 @@ pub enum TlsError {
 pub struct TlsServerConfig {
     pub cert_path: String,
     pub key_path: String,
+    /// ALPN-протоколы, например `h2`, `http/1.1`.
+    pub alpn: Vec<String>,
 }
 
 /// TLS-транспорт для входящих соединений.
+#[derive(Clone)]
 pub struct TlsTransport {
     acceptor: TlsAcceptor,
 }
@@ -44,13 +46,23 @@ pub struct TlsTransport {
 impl TlsTransport {
     /// Создать acceptor из PEM-сертификата и приватного ключа.
     pub fn new(config: &TlsServerConfig) -> Result<Self> {
+        ensure_crypto_provider()?;
+
         let cert_chain = load_certs(&config.cert_path)?;
         let key = load_private_key(&config.key_path)?;
 
-        let server_config = ServerConfig::builder()
+        let mut server_config = ServerConfig::builder_with_protocol_versions(&[&TLS13])
             .with_no_client_auth()
             .with_single_cert(cert_chain, key)
             .context("invalid TLS certificate/key pair")?;
+
+        if !config.alpn.is_empty() {
+            server_config.alpn_protocols = config
+                .alpn
+                .iter()
+                .map(|proto| proto.as_bytes().to_vec())
+                .collect();
+        }
 
         Ok(Self {
             acceptor: TlsAcceptor::from(Arc::new(server_config)),
@@ -71,6 +83,20 @@ impl TlsTransport {
             .await
             .map_err(|e| anyhow::anyhow!(TlsError::Handshake(e.to_string())))
     }
+}
+
+fn ensure_crypto_provider() -> Result<()> {
+    if rustls::crypto::CryptoProvider::get_default().is_some() {
+        return Ok(());
+    }
+    if rustls::crypto::ring::default_provider()
+        .install_default()
+        .is_err()
+        && rustls::crypto::CryptoProvider::get_default().is_none()
+    {
+        anyhow::bail!("failed to install rustls ring crypto provider");
+    }
+    Ok(())
 }
 
 fn load_certs(path: &str) -> Result<Vec<CertificateDer<'static>>> {
@@ -94,14 +120,7 @@ fn load_private_key(path: &str) -> Result<PrivateKeyDer<'static>> {
         .with_context(|| format!("cannot open private key file: {}", path))?;
     let mut reader = BufReader::new(file);
 
-    let keys: Vec<_> = pkcs8_private_keys(&mut reader)
-        .collect::<Result<Vec<_>, _>>()
-        .with_context(|| format!("failed to parse private key from {}", path))?;
-
-    let key = keys
-        .into_iter()
-        .next()
-        .ok_or_else(|| anyhow::anyhow!(TlsError::NoPrivateKey))?;
-
-    Ok(PrivateKeyDer::Pkcs8(key))
+    private_key(&mut reader)
+        .with_context(|| format!("failed to parse private key from {}", path))?
+        .ok_or_else(|| anyhow::anyhow!(TlsError::NoPrivateKey))
 }

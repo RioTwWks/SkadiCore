@@ -1,6 +1,13 @@
 [server]
 listen = "0.0.0.0:443"
 
+# TLS inbound (рекомендуется для VLESS в продакшене).
+# [transport.tls]
+# enabled = true
+# cert = "certs/server.pem"
+# key = "certs/server.key"
+# alpn = ["h2", "http/1.1"]
+
 [protocol.socks5]
 enabled = false
 

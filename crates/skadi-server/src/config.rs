@@ -1,14 +1,17 @@
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use skadi_protocol::{Socks5Config, VlessConfig};
+use skadi_transport::TlsServerConfig;
 use std::net::SocketAddr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub server: ServerConfig,
     #[serde(default)]
     pub protocol: ProtocolConfig,
+    #[serde(default)]
+    pub transport: TransportConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -22,6 +25,22 @@ pub struct ProtocolConfig {
     pub socks5: Socks5Config,
     #[serde(default)]
     pub vless: VlessConfig,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct TransportConfig {
+    #[serde(default)]
+    pub tls: TlsConfig,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct TlsConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    pub cert: Option<String>,
+    pub key: Option<String>,
+    #[serde(default)]
+    pub alpn: Vec<String>,
 }
 
 impl Config {
@@ -65,6 +84,27 @@ impl Config {
             }
         }
 
+        if self.transport.tls.enabled {
+            let cert = self
+                .transport
+                .tls
+                .cert
+                .as_deref()
+                .context("transport.tls.enabled but cert is not set")?;
+            let key = self
+                .transport
+                .tls
+                .key
+                .as_deref()
+                .context("transport.tls.enabled but key is not set")?;
+
+            ensure_readable_file(cert, "transport.tls.cert")?;
+            ensure_readable_file(key, "transport.tls.key")?;
+
+            // Проверяем, что PEM парсится, до старта сервера.
+            let _ = self.tls_server_config()?;
+        }
+
         Ok(())
     }
 
@@ -79,4 +119,34 @@ impl Config {
         }
         n
     }
+
+    /// TLS включён на inbound.
+    pub fn tls_enabled(&self) -> bool {
+        self.transport.tls.enabled
+    }
+
+    /// Собрать runtime-конфиг TLS для `TlsTransport`.
+    pub fn tls_server_config(&self) -> Result<TlsServerConfig> {
+        let tls = &self.transport.tls;
+        Ok(TlsServerConfig {
+            cert_path: tls
+                .cert
+                .clone()
+                .context("transport.tls.cert is required when TLS is enabled")?,
+            key_path: tls
+                .key
+                .clone()
+                .context("transport.tls.key is required when TLS is enabled")?,
+            alpn: tls.alpn.clone(),
+        })
+    }
+}
+
+fn ensure_readable_file(path: &str, field: &str) -> Result<()> {
+    let p = PathBuf::from(path);
+    if !p.is_file() {
+        bail!("{}: file not found: {}", field, path);
+    }
+    std::fs::File::open(&p).with_context(|| format!("{}: cannot read {}", field, path))?;
+    Ok(())
 }

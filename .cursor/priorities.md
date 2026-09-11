@@ -14,15 +14,16 @@
 - [ ] **CI**: fmt, clippy, test, audit
 - [ ] Интеграционные тесты SOCKS5 e2e
 
-### 2. TLS-транспорт (этап 3) — следующий крупный шаг
+### 2. TLS-транспорт (этап 3) — в работе
 
-Без TLS VLESS небезопасен. Порядок:
-
-1. `rustls` + `tokio-rustls` в `skadi-transport`
-2. Загрузка PEM из конфига
-3. TLS accept на inbound
-4. Обобщить handlers: `AsyncRead + AsyncWrite` вместо `TcpStream`
-5. Тесты с `openssl s_client`
+- [x] `rustls` + `tokio-rustls` в `skadi-transport`
+- [x] Загрузка PEM из конфига (`[transport.tls]`)
+- [x] TLS accept на inbound
+- [x] Handlers: `AsyncRead + AsyncWrite`
+- [x] Интеграционный тест SOCKS5 over TLS
+- [ ] SNI-роутинг (несколько сертификатов)
+- [ ] TLS outbound (клиентский режим)
+- [ ] Тесты с `openssl s_client` (документация)
 
 ### 3. Наблюдаемость (этап 7, параллельно)
 
