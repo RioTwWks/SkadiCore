@@ -1,117 +1,95 @@
 # SkadiCore — контекст для AI-агентов
 
-Краткий снимок проекта. Обновляйте при существенных изменениях архитектуры.
+Краткий снимок проекта. **Обновлено: 2026-09-11.**
 
 ## Назначение
 
-Серверное ядро прокси для обхода блокировок. Замена/альтернатива Xray и sing-box:
-
-- От Xray: gRPC API, REALITY, VLESS + XHTTP
-- От sing-box: низкое потребление, TUN, множество протоколов в одном бинарнике
+Серверное ядро прокси для обхода блокировок (альтернатива Xray / sing-box).
 
 ## Workspace
 
 ```
 skadicore/
-├── Cargo.toml              # workspace root, release profile
-├── config/skadi.toml       # пример конфига
+├── .cursor/                # правила и приоритеты для AI
+├── .github/workflows/ci.yml
+├── config/skadi.toml
 ├── crates/
 │   ├── skadi-core/         # Endpoint, Session, UserId, Error
-│   ├── skadi-transport/    # TcpTransport (+ TLS в разработке)
-│   ├── skadi-protocol/     # SOCKS5, VLESS (+ fuzz workspace)
-│   └── skadi-server/       # бинарник skadicore
-└── docs/                   # ARCHITECTURE, DEVELOPMENT, PROTOCOLS, …
+│   ├── skadi-transport/    # TcpTransport, TlsTransport (+ SNI)
+│   ├── skadi-protocol/     # SOCKS5, VLESS (+ fuzz/)
+│   └── skadi-server/       # lib + bin skadicore, tests/
+└── docs/
 ```
 
-## Зависимости между крейтами
-
-```
-skadi-server
-    ├── skadi-core
-    ├── skadi-transport ──► skadi-core
-    └── skadi-protocol ──► skadi-core
-```
+Конфиг и валидация — в `skadi-server/src/config.rs` (отдельного `skadi-config` нет).
 
 ## Поток соединения
 
 ```
-accept → spawn → handle_client
-    → handshake (SOCKS5 negotiate / VLESS handshake) → Endpoint
-    → TcpTransport::connect(endpoint)
-    → (SOCKS5 only) send_reply
-    → copy_bidirectional
+accept(TCP)
+  → [опционально] TlsTransport::accept()   # TLS 1.3, SNI
+  → sniff 0x05/0x00 (если оба протокола)
+  → SOCKS5 negotiate / VLESS handshake
+  → TcpTransport::connect(upstream)
+  → [SOCKS5] send_reply
+  → copy_bidirectional
 ```
 
-## Текущий статус (MVP)
+## Текущий статус
 
 | Компонент | Статус |
 |-----------|--------|
-| Workspace + крейты | ✅ |
-| TCP transport + таймауты | ✅ |
-| SOCKS5 CONNECT + auth | ✅ |
-| VLESS парсер + handler | ✅ (код есть) |
-| VLESS в skadi-server | 🚧 подключается |
-| Fuzz-таргеты SOCKS5/VLESS | ✅ |
+| TCP + connect timeout | ✅ |
 | Graceful shutdown | ✅ |
-| TLS inbound + SNI (rustls) | ✅ |
-| TLS outbound | ⏳ |
-| CI (GitHub Actions) | 🚧 настраивается |
-| REALITY | ⏳ этап 5 |
-| gRPC API | ⏳ этап 6 |
-| Prometheus метрики | ⏳ этап 7 |
+| SOCKS5 CONNECT + auth | ✅ |
+| VLESS TCP + UUID auth | ✅ |
+| VLESS/SOCKS5 в server | ✅ |
+| TLS inbound + SNI | ✅ |
+| Fuzz SOCKS5/VLESS | ✅ |
+| CI (fmt/clippy/test/audit) | ✅ |
+| Интеграционные TLS-тесты | ✅ (5) |
+| Prometheus / healthz | ⏳ |
+| REALITY | ⏳ |
+| gRPC API | ⏳ |
 | TUN | ⏳ |
+| VLESS UDP/Mux/flow | ⏳ |
+
+**Тесты:** `cargo test --workspace` → 25 тестов (20 parser + 5 integration).
 
 ## Ключевые файлы
 
 | Файл | Роль |
 |------|------|
-| `crates/skadi-server/src/main.rs` | accept loop, handle_client, shutdown |
-| `crates/skadi-server/src/config.rs` | загрузка TOML |
-| `crates/skadi-protocol/src/socks5.rs` | SOCKS5 handler + config |
-| `crates/skadi-protocol/src/socks5/parse.rs` | чистые парсеры SOCKS5 |
-| `crates/skadi-protocol/src/vless/handler.rs` | VLESS handshake |
-| `crates/skadi-protocol/src/vless/parse.rs` | чистые парсеры VLESS |
-| `crates/skadi-transport/src/tcp.rs` | исходящий TCP с таймаутом |
+| `crates/skadi-server/src/lib.rs` | `run()`, `run_server()`, accept loop |
+| `crates/skadi-server/src/config.rs` | TOML + валидация |
+| `crates/skadi-transport/src/tls.rs` | TLS accept, SNI resolver |
+| `crates/skadi-protocol/src/vless/parse.rs` | parse + build_tcp_request |
+| `crates/skadi-server/tests/tls_*_e2e.rs` | интеграционные тесты |
 
-## Конфиг (TOML)
+## Конфиг (минимум)
 
 ```toml
 [server]
-listen = "0.0.0.0:1080"
+listen = "0.0.0.0:443"
 
-[protocol.socks5]
+[transport.tls]
 enabled = true
-auth = "no-auth"   # или "user-pass"
+cert = "certs/default.pem"
+key = "certs/default.key"
 
 [protocol.vless]
-enabled = false
-# [[protocol.vless.users]]
-# id = "uuid"
+enabled = true
+
+[[protocol.vless.users]]
+id = "uuid-here"
 ```
 
-Хотя бы один протокол должен быть `enabled = true`.
+См. `docs/CONFIGURATION.md` для SNI и SOCKS5.
 
-## Дискриминация протоколов на одном порту
-
-- SOCKS5: первый байт `0x05`
-- VLESS v0: первый байт `0x00`
-
-При включённых обоих протоколах — sniff первого байта.
-
-## Команды разработки
+## Команды
 
 ```bash
-cargo build --release
 cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
 cargo run --bin skadicore -- --config config/skadi.toml
-RUST_LOG=debug cargo run --bin skadicore -- --log-level debug
 ```
-
-Бинарник: `target/release/skadicore`
-
-## Внешние референсы
-
-- Xray-core — gRPC API, REALITY
-- sing-box — TUN, минимализм
-- rustls-reality — REALITY для Rust
-- fast-socks5 — зрелая SOCKS5 на Rust

@@ -9,6 +9,14 @@
 
 Текущая ветка разработки. Всё, что ниже, ещё не выпущено в релиз.
 
+### Changed
+
+- **Документация актуализирована** (2026-09-11):
+  - `TODO.md` — чеклисты этапов 0–10 приведены к текущему коду.
+  - `README.md` — TLS/SNI, поток соединения, тесты, дорожная карта.
+  - `docs/ARCHITECTURE.md`, `docs/DEVELOPMENT.md` — TLS inbound, e2e-тесты.
+  - `.cursor/context.md`, `.cursor/priorities.md` — снимок статуса.
+
 ### Added
 
 - **VLESS e2e over TLS**

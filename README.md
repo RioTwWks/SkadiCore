@@ -48,35 +48,31 @@ SkadiCore — это попытка собрать в одном ядре сил
 
 **Готово:**
 
-- [x] Workspace с крейтами `skadi-core`, `skadi-transport`,
-      `skadi-protocol`, `skadi-server`.
-- [x] TCP-транспорт с таймаутами и `TCP_NODELAY`.
-- [x] SOCKS5: CONNECT, no-auth, user-pass, reply-коды,
-      константное сравнение паролей.
-- [x] VLESS: парсинг заголовка, UUID-аутентификация, TCP CONNECT.
-- [x] Чистые парсеры без I/O, пригодные для fuzz-тестов.
-- [x] Fuzz-таргеты для SOCKS5 и VLESS.
-- [x] Graceful shutdown по `Ctrl+C` и `SIGTERM`.
+- [x] Workspace: `skadi-core`, `skadi-transport`, `skadi-protocol`,
+      `skadi-server` (бинарник + библиотека для тестов).
+- [x] TCP-транспорт: connect timeout, `TCP_NODELAY`, graceful shutdown.
+- [x] SOCKS5: CONNECT (IPv4/IPv6/домен), no-auth, user-pass, reply-коды.
+- [x] VLESS: TCP CONNECT, UUID-аутентификация, ответный заголовок.
+- [x] Оба протокола подключены в `skadi-server`; sniffing `0x05`/`0x00`
+      при одновременном включении.
+- [x] TLS inbound: `rustls`, TLS 1.3, PEM, ALPN, **SNI-роутинг**.
+- [x] Конфиг TOML с валидацией (listen, UUID, TLS-файлы).
+- [x] CI: `fmt`, `clippy`, `test`, `audit`.
+- [x] Fuzz-таргеты SOCKS5/VLESS; 25 автотестов (парсеры + TLS e2e).
+- [x] Документация: `docs/`, `.cursor/` для AI-агентов.
 
 **В работе:**
 
-- [x] TLS inbound (rustls) — PEM из конфига, TLS 1.3.
-- [x] TLS SNI-роутинг (несколько сертификатов на порту).
-- [ ] TLS outbound.
-- [x] Интеграционные тесты SOCKS5 и VLESS over TLS.
-- [ ] Prometheus-метрики.
+- [ ] Prometheus-метрики и `/healthz`.
+- [ ] Idle timeout, лимит соединений.
+- [ ] Проверка с реальным VLESS-клиентом (v2rayNG).
 
 **Не начато:**
 
-- [ ] REALITY.
-- [ ] gRPC API.
-- [ ] TUN-режим.
-- [ ] UDP over VLESS.
-- [ ] XHTTP.
+- [ ] REALITY, gRPC API, TUN, UDP/Mux VLESS, XHTTP, TLS outbound.
 
-⚠️ **VLESS сейчас работает без TLS**. Это означает, что трафик идёт
-в открытом виде. Для отладки это удобно, но использовать в реальных
-условиях нельзя. Следующий шаг — интеграция `rustls`.
+⚠️ **Без `[transport.tls]` трафик идёт в открытом виде.** Для продакшена
+включайте TLS. REALITY — следующий крупный шаг после метрик.
 
 ---
 
@@ -87,7 +83,7 @@ skadicore/
 ├── Cargo.toml              # workspace root
 ├── crates/
 │   ├── skadi-core/         # общие типы, трейты, ошибки
-│   ├── skadi-transport/    # TCP, позже TLS и XHTTP
+│   ├── skadi-transport/    # TCP, TLS inbound (+ SNI), позже XHTTP
 │   ├── skadi-protocol/     # SOCKS5, VLESS, позже REALITY
 │   └── skadi-server/       # бинарник: сборка всего вместе
 └── config/
@@ -108,17 +104,13 @@ skadicore/
 ### Поток обработки соединения
 
 ```
-accept() → handle_client()
-             │
-             ├─► VlessHandler::handshake()  ─► Endpoint
-             │     или
-             └─► Socks5Handler::negotiate() ─► Endpoint
-             │
-             ├─► TcpTransport::connect(Endpoint)
-             │
-             ├─► (для SOCKS5) Socks5Handler::send_reply()
-             │
-             └─► copy_bidirectional() — релей в обе стороны
+accept(TCP)
+  → [transport.tls] TlsTransport::accept()
+  → sniff 0x05 (SOCKS5) / 0x00 (VLESS), если оба включены
+  → VlessHandler::handshake() / Socks5Handler::negotiate() → Endpoint
+  → TcpTransport::connect(Endpoint)
+  → [SOCKS5] send_reply()
+  → copy_bidirectional()
 ```
 
 ---
@@ -165,35 +157,42 @@ RUST_LOG=debug ./target/release/skadicore
 
 ## Конфигурация
 
-Формат — TOML. Полный пример:
+Формат — TOML. Подробности: `docs/CONFIGURATION.md`.
 
 ```toml
 [server]
-listen = "0.0.0.0:1080"
+listen = "0.0.0.0:443"
 
-[protocol.socks5]
+[transport.tls]
 enabled = true
-auth = "no-auth"          # или "user-pass"
-
-# Раскомментировать для user-pass:
-# [[protocol.socks5.users]]
-# username = "alice"
-# password = "change-me"
+cert = "certs/server.pem"
+key = "certs/server.key"
+alpn = ["h2", "http/1.1"]
 
 [protocol.vless]
-enabled = false
+enabled = true
 
-# [[protocol.vless.users]]
-# id = "b831381d-6324-4d53-ad4f-8cda48b30811"
-# email = "alice@example.com"
+[[protocol.vless.users]]
+id = "b831381d-6324-4d53-ad4f-8cda48b30811"
+
+[protocol.socks5]
+enabled = false
+```
+
+SNI (несколько сертификатов на одном порту):
+
+```toml
+[[transport.tls.certificates]]
+server_names = ["example.com"]
+cert = "certs/example.pem"
+key = "certs/example-key.pem"
 ```
 
 ### Валидация
 
-- `server.listen` должен быть валидным `SocketAddr`.
-- Хотя бы один протокол должен быть включён.
-- UUID в VLESS-секции должен быть каноническим (32 hex-цифры с
-  дефисами или без).
+- `server.listen` — валидный `SocketAddr`.
+- Хотя бы один протокол (`socks5` или `vless`) включён.
+- VLESS UUID — канонический формат; при TLS — файлы `cert`/`key` существуют и парсятся.
 
 ---
 
@@ -220,7 +219,7 @@ Reply-коды соответствуют спецификации. Пароли
 - [ ] Mux
 - [ ] Flow `xtls-rprx-vision`
 
-⚠️ VLESS работает поверх plain TCP. TLS/REALITY — в дорожной карте.
+VLESS рекомендуется поверх `[transport.tls]`. Без TLS — только для отладки.
 
 ---
 
@@ -229,11 +228,16 @@ Reply-коды соответствуют спецификации. Пароли
 ### Тесты
 
 ```bash
-# Юнит-тесты
+# Все тесты (25: парсеры + TLS e2e)
 cargo test --workspace
 
-# Только парсеры (быстро)
+# Только парсеры
 cargo test -p skadi-protocol
+
+# Интеграционные TLS-тесты
+cargo test -p skadi-server --test tls_vless_e2e
+cargo test -p skadi-server --test tls_socks5_e2e
+cargo test -p skadi-server --test tls_sni_e2e
 ```
 
 ### Fuzz-тесты
@@ -290,8 +294,8 @@ cargo audit
 
 ### Что ещё не сделано
 
-- Нет TLS: весь трафик в открытом виде.
-- Нет rate limiting на подключения.
+- TLS outbound, REALITY.
+- Нет rate limiting и idle timeout на сессии.
 - Нет изоляции пользователей друг от друга.
 - gRPC API (когда появится) должен слушать только `127.0.0.1` и
   требовать токен.
@@ -307,15 +311,15 @@ cargo audit
 
 | Этап | Статус | Описание |
 |---|---|---|
-| 0. Фундамент | ✅ | Workspace, CI, типы |
-| 1. TCP-прокси | ✅ | Базовый релей |
-| 2. SOCKS5 | ✅ | CONNECT + auth |
-| 3. TLS | 🚧 | `rustls` + `tokio-rustls` |
-| 4. VLESS | 🟡 | TCP готов, UDP и flow — TODO |
+| 0. Фундамент | ✅ | Workspace, CI, типы, `.cursor/` |
+| 1. TCP-прокси | 🟡 | Релей есть; idle/backpressure — TODO |
+| 2. SOCKS5 | ✅ | CONNECT + auth + fuzz + TLS e2e |
+| 3. TLS inbound | ✅ | PEM, SNI, ALPN, TLS 1.3 |
+| 4. VLESS | 🟡 | TCP + server + TLS e2e; UDP/flow — TODO |
 | 5. REALITY | ⏳ | Через `rustls-reality` |
 | 6. gRPC API | ⏳ | Динамическое управление |
-| 7. Метрики | ⏳ | Prometheus |
-| 8. TUN | ⏳ | Для клиентского режима |
+| 7. Метрики | ⏳ | Prometheus, `/healthz` |
+| 8. TUN | ⏳ | Клиентский режим |
 
 Легенда: ✅ готово, 🚧 в работе, 🟡 частично, ⏳ не начато.
 

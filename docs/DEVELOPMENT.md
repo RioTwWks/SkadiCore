@@ -134,14 +134,40 @@ cargo test -p skadi-protocol parse_greeting_ok
 
 ### Интеграционные тесты
 
-Пока отсутствуют. Появятся вместе с TLS. Планируемая структура:
+Живут в `crates/skadi-server/tests/` и поднимают реальный сервер
+через `skadi_server::run_server()`:
 
+| Файл | Что проверяет |
+|------|----------------|
+| `tls_socks5_e2e.rs` | SOCKS5 CONNECT + relay поверх TLS |
+| `tls_vless_e2e.rs` | VLESS TCP + relay; отказ при неверном UUID |
+| `tls_sni_e2e.rs` | SNI-роутинг и fallback на default cert |
+
+```bash
+cargo test -p skadi-server --test tls_vless_e2e
+cargo test -p skadi-server   # все три
 ```
-crates/skadi-server/tests/
-├── socks5_e2e.rs
-├── vless_e2e.rs
-└── helpers.rs       # запуск сервера на случайном порту
+
+Тесты используют `rcgen` для self-signed сертификатов и
+`tempfile` для PEM на диске. Crypto provider: `rustls::crypto::ring`.
+
+### Ручная проверка (smoke test)
+
+SOCKS5 без TLS:
+
+```bash
+cargo run --bin skadicore -- --config config/skadi.toml
+curl --socks5 127.0.0.1:1080 https://example.com
 ```
+
+TLS (нужны `cert.pem` / `key.pem`, `transport.tls.enabled = true`):
+
+```bash
+openssl s_client -connect localhost:443 -servername localhost
+```
+
+VLESS: клиент v2rayNG / Nekoray с TLS + UUID из конфига.
+Автотест собирает запрос через `build_tcp_request()` из `skadi-protocol`.
 
 ### Покрытие
 
@@ -705,12 +731,9 @@ cargo bloat --release --crates
 
 ## Что дальше
 
-Когда появятся:
+- **Бенчмарки** (`criterion`) — когда появятся.
+- **REALITY** — отдельный раздел про `rustls-reality`.
+- **gRPC API** — как добавлять методы в `skadi-api`.
+- **Метрики** — куда вставлять инкременты в `handle_connection`.
 
-- **CI** — добавить секцию про GitHub Actions.
-- **Интеграционные тесты** — описать, как их писать.
-- **Бенчмарки** — как запускать, что измерять.
-- **REALITY** — отдельный раздел про работу с `rustls-reality`.
-- **gRPC API** — как добавлять новые методы.
-
-Документ должен помогать **новичку** сделать первый PR за один вечер. Если что-то непонятно — это баг в документе.
+CI описан в `.github/workflows/ci.yml`. Интеграционные тесты — выше.
