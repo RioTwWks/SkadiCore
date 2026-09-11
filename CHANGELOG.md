@@ -11,6 +11,10 @@
 
 ### Added
 
+- **VLESS e2e over TLS**
+  - `build_tcp_request` / `build_tcp_domain_request` в `skadi-protocol`.
+  - Интеграционные тесты `tls_vless_e2e`: relay и отказ при неверном UUID.
+
 - **SNI-роутинг TLS**
   - `[[transport.tls.certificates]]` с `server_names`, `cert`, `key`.
   - `cert`/`key` верхнего уровня — fallback при неизвестном SNI.
