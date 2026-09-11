@@ -15,12 +15,12 @@ use config::Config;
 use prefixed::PrefixedStream;
 use skadi_core::Session;
 use skadi_protocol::{
-    Socks5Handler, VlessHandler, REP_CONNECTION_REFUSED, REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE,
-    REP_SUCCEEDED,
+    Socks5Handler, VlessHandler, CMD_TCP, CMD_UDP, REP_CONNECTION_REFUSED, REP_GENERAL_FAILURE,
+    REP_HOST_UNREACHABLE, REP_SUCCEEDED,
 };
 use skadi_transport::{
-    copy_bidirectional_with_limits, RealityError, RealityTransport, RelayLimits, TcpTransport,
-    TlsTransport, IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG,
+    copy_bidirectional_with_limits, relay_vless_udp_with_limits, RealityError, RealityTransport,
+    RelayLimits, TcpTransport, TlsTransport, UdpTransport, IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG,
 };
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -98,7 +98,8 @@ pub async fn run_server_with_store(
         "listening"
     );
 
-    let outbound = TcpTransport::new(config.connect_timeout());
+    let outbound_tcp = TcpTransport::new(config.connect_timeout());
+    let outbound_udp = UdpTransport::new(config.connect_timeout());
     let relay_limits = RelayLimits {
         idle: config.idle_timeout(),
         max_lifetime: config.max_session_lifetime(),
@@ -144,7 +145,8 @@ pub async fn run_server_with_store(
 
     accept_loop(
         listener,
-        outbound,
+        outbound_tcp,
+        outbound_udp,
         inbound,
         user_store,
         sniff_protocols,
@@ -174,7 +176,8 @@ enum InboundTransport {
 
 async fn accept_loop(
     listener: TcpListener,
-    outbound: TcpTransport,
+    outbound_tcp: TcpTransport,
+    outbound_udp: UdpTransport,
     inbound: InboundTransport,
     user_store: Arc<UserStore>,
     sniff_protocols: bool,
@@ -205,7 +208,8 @@ async fn accept_loop(
                             }
                         };
 
-                        let outbound = outbound.clone();
+                        let outbound_tcp = outbound_tcp.clone();
+                        let outbound_udp = outbound_udp.clone();
                         let inbound = inbound.clone();
                         let user_store = Arc::clone(&user_store);
                         tokio::spawn(async move {
@@ -214,7 +218,8 @@ async fn accept_loop(
                             let result = match inbound {
                                 InboundTransport::Plain => handle_connection(
                                     client,
-                                    outbound,
+                                    outbound_tcp,
+                                    outbound_udp,
                                     session,
                                     user_store,
                                     sniff_protocols,
@@ -224,7 +229,8 @@ async fn accept_loop(
                                 InboundTransport::Tls(tls) => match tls.accept(client).await {
                                     Ok(tls_stream) => handle_connection(
                                         tls_stream,
-                                        outbound,
+                                        outbound_tcp,
+                                        outbound_udp,
                                         session,
                                         user_store,
                                         sniff_protocols,
@@ -240,7 +246,8 @@ async fn accept_loop(
                                     match reality.accept(client).await {
                                         Ok(tls_stream) => handle_connection(
                                             tls_stream,
-                                            outbound,
+                                            outbound_tcp,
+                                            outbound_udp,
                                             session,
                                             user_store,
                                             sniff_protocols,
@@ -327,7 +334,8 @@ async fn wait_for_shutdown() {
 
 async fn handle_connection<S>(
     mut client: S,
-    outbound: TcpTransport,
+    outbound_tcp: TcpTransport,
+    outbound_udp: UdpTransport,
     session: Session,
     user_store: Arc<UserStore>,
     sniff_protocols: bool,
@@ -352,43 +360,67 @@ where
 
     let mut stream = PrefixedStream::new(client, prefix_byte);
 
-    let (target, protocol) = if sniff_protocols {
+    let (target, protocol, vless_command) = if sniff_protocols {
         let byte = prefix_byte.expect("sniffing requires first byte");
         match byte {
             SOCKS5_VERSION_BYTE if socks_config.enabled => {
                 let endpoint = Socks5Handler::negotiate(&mut stream, &socks_config).await?;
-                (endpoint, ProtocolKind::Socks5)
+                (endpoint, ProtocolKind::Socks5, CMD_TCP)
             }
             VLESS_VERSION_BYTE if vless_config.enabled => {
-                let endpoint = VlessHandler::handshake(&mut stream, &vless_config).await?;
-                (endpoint, ProtocolKind::Vless)
+                let handshake = VlessHandler::handshake(&mut stream, &vless_config).await?;
+                (handshake.target, ProtocolKind::Vless, handshake.command)
             }
             _ => bail!("unknown or disabled protocol byte: 0x{:02x}", byte),
         }
     } else if vless_config.enabled {
-        let endpoint = VlessHandler::handshake(&mut stream, &vless_config).await?;
-        (endpoint, ProtocolKind::Vless)
+        let handshake = VlessHandler::handshake(&mut stream, &vless_config).await?;
+        (handshake.target, ProtocolKind::Vless, handshake.command)
     } else if socks_config.enabled {
         let endpoint = Socks5Handler::negotiate(&mut stream, &socks_config).await?;
-        (endpoint, ProtocolKind::Socks5)
+        (endpoint, ProtocolKind::Socks5, CMD_TCP)
     } else {
         bail!("no protocol enabled");
     };
 
-    let mut upstream = match outbound.connect(&target).await {
+    let protocol_label = match protocol {
+        ProtocolKind::Socks5 => "socks5",
+        ProtocolKind::Vless if vless_command == CMD_UDP => "vless-udp",
+        ProtocolKind::Vless => "vless",
+    };
+
+    observability::connection_opened(protocol_label);
+
+    if protocol == ProtocolKind::Vless && vless_command == CMD_UDP {
+        let mut upstream = match outbound_udp.connect(&target).await {
+            Ok(s) => s,
+            Err(e) => {
+                observability::connection_failed(protocol_label);
+                return Err(e);
+            }
+        };
+
+        info!(
+            session = ?session.id,
+            target = %target,
+            protocol = "vless-udp",
+            "connected"
+        );
+
+        let relay = relay_vless_udp_with_limits(&mut stream, &mut upstream, relay_limits).await;
+        return finish_relay(session.id, protocol_label, relay);
+    }
+
+    let mut upstream = match outbound_tcp.connect(&target).await {
         Ok(s) => s,
         Err(e) => {
             if protocol == ProtocolKind::Socks5 {
                 let code = classify_connect_error(&e);
                 let _ = Socks5Handler::send_error(&mut stream, code).await;
             }
+            observability::connection_failed(protocol_label);
             return Err(e);
         }
-    };
-
-    let protocol_label = match protocol {
-        ProtocolKind::Socks5 => "socks5",
-        ProtocolKind::Vless => "vless",
     };
 
     if protocol == ProtocolKind::Socks5 {
@@ -412,19 +444,24 @@ where
         );
     }
 
-    observability::connection_opened(protocol_label);
-
     let relay = copy_bidirectional_with_limits(&mut stream, &mut upstream, relay_limits).await;
+    finish_relay(session.id, protocol_label, relay)
+}
 
+fn finish_relay(
+    session_id: skadi_core::SessionId,
+    protocol_label: &'static str,
+    relay: std::io::Result<(u64, u64)>,
+) -> Result<()> {
     match relay {
         Ok((up, down)) => {
             observability::connection_closed(protocol_label, up, down);
-            info!(session = ?session.id, up, down, "closed");
+            info!(session = ?session_id, up, down, "closed");
             Ok(())
         }
         Err(e) if e.kind() == std::io::ErrorKind::TimedOut && e.to_string() == IDLE_TIMEOUT_MSG => {
             observability::connection_closed(protocol_label, 0, 0);
-            info!(session = ?session.id, "closed (idle timeout)");
+            info!(session = ?session_id, "closed (idle timeout)");
             Ok(())
         }
         Err(e)
@@ -432,7 +469,7 @@ where
                 && e.to_string() == SESSION_LIFETIME_MSG =>
         {
             observability::connection_closed(protocol_label, 0, 0);
-            info!(session = ?session.id, "closed (max session lifetime)");
+            info!(session = ?session_id, "closed (max session lifetime)");
             Ok(())
         }
         Err(e) => {

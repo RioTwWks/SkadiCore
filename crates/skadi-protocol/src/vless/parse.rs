@@ -205,6 +205,34 @@ pub fn build_tcp_request(uuid: &[u8; 16], addr: Ipv4Addr, port: u16) -> Vec<u8> 
     buf
 }
 
+/// Собрать VLESS UDP-запрос к IPv4-адресу (без addons).
+pub fn build_udp_request(uuid: &[u8; 16], addr: Ipv4Addr, port: u16) -> Vec<u8> {
+    let mut buf = Vec::with_capacity(26);
+    buf.push(VLESS_VERSION);
+    buf.extend_from_slice(uuid);
+    buf.push(0);
+    buf.push(CMD_UDP);
+    buf.extend_from_slice(&port.to_be_bytes());
+    buf.push(ATYP_IPV4);
+    buf.extend_from_slice(&addr.octets());
+    buf
+}
+
+/// Собрать VLESS UDP-запрос к домену (без addons).
+pub fn build_udp_domain_request(uuid: &[u8; 16], domain: &str, port: u16) -> Vec<u8> {
+    let domain_bytes = domain.as_bytes();
+    let mut buf = Vec::with_capacity(22 + domain_bytes.len());
+    buf.push(VLESS_VERSION);
+    buf.extend_from_slice(uuid);
+    buf.push(0);
+    buf.push(CMD_UDP);
+    buf.extend_from_slice(&port.to_be_bytes());
+    buf.push(ATYP_DOMAIN);
+    buf.push(domain_bytes.len() as u8);
+    buf.extend_from_slice(domain_bytes);
+    buf
+}
+
 /// Собрать VLESS TCP-запрос к домену (без addons).
 pub fn build_tcp_domain_request(uuid: &[u8; 16], domain: &str, port: u16) -> Vec<u8> {
     let domain_bytes = domain.as_bytes();
@@ -306,6 +334,13 @@ mod tests {
     fn response_header_is_two_bytes() {
         let h = build_response_header(VLESS_VERSION);
         assert_eq!(h, [0x00, 0x00]);
+    }
+
+    #[test]
+    fn parse_udp_ok() {
+        let buf = build_request(CMD_UDP, ATYP_IPV4, &[127, 0, 0, 1], 53);
+        let (req, _) = parse_request(&buf).unwrap();
+        assert_eq!(req.command, CMD_UDP);
     }
 
     #[test]
