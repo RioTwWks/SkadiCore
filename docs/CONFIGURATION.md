@@ -215,10 +215,24 @@ short_ids = ["0123456789abcdef"]
 | `enabled` | `bool` | Включить REALITY inbound |
 | `dest` | `string` | Fallback `host:port` (реальный сайт) |
 | `server_names` | `string[]` | Разрешённые SNI (Xray: `serverNames`) |
-| `private_key` | `string` | X25519 private key, base64 (32 байта) |
+| `private_key` | `string` | X25519 private key, standard base64 (32 байта) |
 | `short_ids` | `string[]` | Short ID в hex (1..8 байт каждый) |
 
-`public_key` — только на клиенте (из пары, сгенерированной `genkey`).
+### Клиент (Xray / Nekoray / v2rayNG)
+
+| Поле клиента | Значение |
+|--------------|----------|
+| `password` | RawURL base64 публичного X25519 ключа — вывод `skadicore genkey reality` |
+| `serverName` | Один из `server_names` |
+| `shortId` | Один из `short_ids` (hex) |
+| `fingerprint` | `chrome` (рекомендуется) |
+
+В Xray 25+ поле называется `password` (раньше `publicKey`). Это **не**
+standard base64 — используйте значение из `genkey`, не кодируйте pubkey вручную.
+
+Не задавайте `flow=xtls-rprx-vision` — SkadiCore не поддерживает.
+
+Пример: `examples/reality-vless/`.
 
 **Порядок обработки**:
 

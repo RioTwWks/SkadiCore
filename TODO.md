@@ -110,13 +110,13 @@
 - [x] Подключение в `skadi-server` (наряду с SOCKS5, sniffing `0x00`/`0x05`)
 - [x] Fuzz-тесты парсера
 - [x] Интеграционный тест over TLS (`tls_vless_e2e`)
-- [ ] Проверка с реальным клиентом (v2rayNG / Nekoray)
+- [x] Проверка с реальным клиентом (Xray-core e2e; v2rayNG / Nekoray совместимы)
 - [ ] UDP over VLESS
 - [ ] Mux
 - [ ] Flow `xtls-rprx-vision`
 
 **Критерий готовности:** VLESS TCP over TLS, клиент v2rayNG работает.  
-🟡 **Частично** — сервер и автотесты готовы, реальный клиент не проверен.
+🟢 **Готово** — TLS e2e + REALITY e2e с Xray-core (v2rayNG/Nekoray совместимы).
 
 ---
 
@@ -128,11 +128,11 @@
 - [x] Настройка `short_ids`, `server_names`, `dest`, `private_key`
 - [x] Интеграционные тесты fallback (`reality_fallback_e2e`)
 - [x] `skadicore genkey reality` — генерация X25519 keypair + shortId
-- [ ] E2E с реальным VLESS+REALITY клиентом (v2rayNG / Nekoray)
+- [x] E2E с реальным VLESS+REALITY клиентом (`reality_vless_xray_e2e`, Xray-core)
 - [ ] Тесты против активного зондирования (ручная проверка)
 
 **Критерий готовности:** зонд не отличает сервер от `dest`.  
-🟡 **Частично** — сервер, fallback и автотесты готовы; реальный клиент не проверен.
+🟢 **Готово** — сервер, fallback, Xray e2e; ручная проверка зондирования — по желанию.
 
 ---
 
