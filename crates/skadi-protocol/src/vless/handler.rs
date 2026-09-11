@@ -4,24 +4,31 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tracing::{debug, warn};
 
+use super::addons::{parse_addons, validate_flow};
 use super::config::VlessConfig;
 use super::parse::{
     build_response_header, parse_request, ATYP_DOMAIN, ATYP_IPV4, ATYP_IPV6, MAX_ADDONS,
-    MAX_DOMAIN, VLESS_VERSION,
+    VLESS_VERSION,
 };
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Результат VLESS handshake.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VlessHandshake {
+    pub command: u8,
+    pub target: Endpoint,
+}
 
 pub struct VlessHandler;
 
 impl VlessHandler {
     /// Выполнить VLESS handshake: прочитать заголовок, аутентифицировать
-    /// пользователя и вернуть целевой endpoint.
+    /// пользователя и вернуть команду с целевым endpoint.
     ///
-    /// При неверном UUID соединение молча закрывается — как того требует
-    /// спецификация, чтобы активный зонд не мог отличить сервер от
-    /// закрытого порта.
-    pub async fn handshake<S>(client: &mut S, config: &VlessConfig) -> Result<Endpoint>
+    /// При неверном UUID или неподдерживаемом flow соединение молча
+    /// закрывается — как того требует спецификация.
+    pub async fn handshake<S>(client: &mut S, config: &VlessConfig) -> Result<VlessHandshake>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
@@ -31,7 +38,7 @@ impl VlessHandler {
         }
     }
 
-    async fn handshake_inner<S>(client: &mut S, config: &VlessConfig) -> Result<Endpoint>
+    async fn handshake_inner<S>(client: &mut S, config: &VlessConfig) -> Result<VlessHandshake>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
@@ -69,11 +76,12 @@ impl VlessHandler {
 
         // Аутентификация до чтения адреса — экономим работу на мусорных
         // соединениях и не даём зонду увидеть разницу в таймингах.
-        if config.authenticate(&uuid).is_none() {
+        let user = config.authenticate(&uuid);
+        if user.is_none() {
             warn!(uuid = ?uuid, "VLESS auth failed, closing silently");
-            // Никакого ответа. Просто разрываем соединение.
             bail!("authentication failed");
         }
+        let user = user.unwrap();
 
         // Дочитываем адрес в зависимости от ATYP.
         let atyp = full[full.len() - 1];
@@ -89,7 +97,7 @@ impl VlessHandler {
             other => bail!("unsupported address type: 0x{:02x}", other),
         };
 
-        if addr_len > MAX_DOMAIN {
+        if addr_len > super::parse::MAX_DOMAIN {
             bail!("address too long: {}", addr_len);
         }
 
@@ -103,9 +111,18 @@ impl VlessHandler {
         let (request, _) =
             parse_request(&full).map_err(|e| anyhow::anyhow!("VLESS parse: {}", e))?;
 
+        let addons =
+            parse_addons(&request.addons).map_err(|e| anyhow::anyhow!("VLESS addons: {}", e))?;
+
+        if let Err(flow_err) = validate_flow(addons.flow.as_deref(), user.flow.as_deref()) {
+            warn!(flow_error = ?flow_err, "unsupported VLESS flow, closing silently");
+            bail!("unsupported flow");
+        }
+
         debug!(
             command = request.command,
             addons_len = request.addons.len(),
+            flow = ?addons.flow,
             target = %request.target,
             "VLESS request decoded"
         );
@@ -115,6 +132,9 @@ impl VlessHandler {
         client.write_all(&resp).await?;
         client.flush().await?;
 
-        Ok(request.target)
+        Ok(VlessHandshake {
+            command: request.command,
+            target: request.target,
+        })
     }
 }

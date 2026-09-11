@@ -112,9 +112,9 @@
 - [x] Fuzz-тесты парсера
 - [x] Интеграционный тест over TLS (`tls_vless_e2e`)
 - [x] Проверка с реальным клиентом (Xray-core e2e; v2rayNG / Nekoray совместимы)
-- [ ] UDP over VLESS
+- [x] UDP over VLESS
 - [ ] Mux
-- [ ] Flow `xtls-rprx-vision`
+- [x] Flow `xtls-rprx-vision` (явный reject + парсинг addons)
 
 **Критерий готовности:** VLESS TCP over TLS, клиент v2rayNG работает.  
 🟢 **Готово** — TLS e2e + REALITY e2e с Xray-core (v2rayNG/Nekoray совместимы).
@@ -248,7 +248,7 @@
 ## 📍 Следующие приоритеты
 
 1. **Кросс-компиляция musl** (этап 10) — статический Linux-бинарник
-2. **UDP/Mux/Vision** (этап 4) — расширенная совместимость с Xray
+2. ~~**UDP/Mux/Vision** (этап 4)~~ — UDP + flow reject ✅; Mux — TODO
 3. **TLS outbound** (этап 3) — клиентский режим
 4. **cargo miri + criterion** (этап 9) — глубокая проверка и бенчмарки
 5. **Smoke-доки** — `curl --socks5`, `openssl s_client` в DEVELOPMENT.md

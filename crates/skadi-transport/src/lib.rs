@@ -4,6 +4,7 @@ pub mod reality;
 pub mod relay;
 pub mod tcp;
 pub mod tls;
+pub mod udp;
 
 pub use reality::{RealityError, RealityServerConfig, RealityTransport};
 pub use relay::{
@@ -12,3 +13,4 @@ pub use relay::{
 };
 pub use tcp::TcpTransport;
 pub use tls::{TlsCertPaths, TlsError, TlsServerConfig, TlsSniCert, TlsTransport};
+pub use udp::{relay_vless_udp_with_limits, UdpTransport};
