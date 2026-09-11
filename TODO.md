@@ -188,13 +188,13 @@
 - [x] Fuzz-таргеты для SOCKS5 и VLESS
 - [x] `cargo audit` в CI
 - [x] Покрытие ≥ 70% (tarpaulin, CI, exclude third_party)
-- [ ] `cargo miri`
-- [ ] Бенчмарки (`criterion`)
+- [x] `cargo miri` (CI: skadi-protocol + connection_gate)
+- [x] Бенчмарки (`criterion`: parse + relay)
 - [x] Нагрузочные тесты (64 conn CI, 512 `#[ignore]`; 10k — ручной прогон)
 - [x] `cargo deny` (CI + deny.toml)
 - [ ] Soak-тесты на утечки памяти
 
-🟡 **Частично** — tarpaulin/deny в CI; miri/benchmarks/soak — нет.
+🟡 **Частично** — tarpaulin/deny/miri/benchmarks в CI; soak — нет.
 
 ---
 
@@ -250,7 +250,7 @@
 1. **Кросс-компиляция musl** (этап 10) — статический Linux-бинарник
 2. ~~**UDP/Mux/Vision** (этап 4)~~ — UDP + flow reject ✅; Mux — TODO
 3. **TLS outbound** (этап 3) — клиентский режим
-4. **cargo miri + criterion** (этап 9) — глубокая проверка и бенчмарки
+4. ~~**cargo miri + criterion** (этап 9)~~ ✅
 5. **Smoke-доки** — `curl --socks5`, `openssl s_client` в DEVELOPMENT.md
 
 ---

@@ -69,6 +69,48 @@ jobs:
       - name: cargo deny check
         run: cargo deny check
 
+  miri:
+    name: Miri (memory safety)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust nightly + Miri
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: miri
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo miri setup
+        # rust-toolchain.toml pins stable; Miri lives on nightly only.
+        run: cargo +nightly miri setup
+
+      - name: cargo miri test (parsers)
+        env:
+          MIRIFLAGS: -Zmiri-disable-isolation
+        run: |
+          cargo +nightly miri test -p skadi-protocol
+          cargo +nightly miri test -p skadi-server --lib connection_gate
+
+  benchmarks:
+    name: Benchmarks (criterion smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo bench --test
+        run: |
+          cargo bench -p skadi-protocol -- --test
+          cargo bench -p skadi-transport -- --test
+
   coverage:
     name: Coverage (tarpaulin)
     runs-on: ubuntu-latest

@@ -20,3 +20,11 @@ aes-gcm.workspace = true
 hex.workspace = true
 rcgen.workspace = true
 ring.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "io-util"] }
+
+[[bench]]
+name = "relay"
+harness = false

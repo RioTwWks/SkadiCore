@@ -793,8 +793,16 @@ cargo test -- --nocapture
 # Конкретный тест
 cargo test -p skadi-protocol parse_request_domain_ok
 
-# Бенчмарки (когда появятся)
-cargo bench
+# Miri (парсеры, memory safety)
+./scripts/miri-test.sh
+# или вручную:
+cargo +nightly miri test -p skadi-protocol
+
+# Бенчмарки (criterion)
+cargo bench -p skadi-protocol
+cargo bench -p skadi-transport
+# smoke в CI (1 итерация):
+cargo bench -p skadi-protocol -- --test
 
 # Размер бинарника
 ls -lh target/release/skadicore
@@ -813,7 +821,8 @@ cargo bloat --release --crates
 
 ## Что дальше
 
-- **Бенчмарки** (`criterion`) — когда появятся.
+- **Miri** — `./scripts/miri-test.sh`; CI job `miri`.
+- **Бенчмарки** (`criterion`) — `crates/skadi-protocol/benches/`, `crates/skadi-transport/benches/relay.rs`.
 - **REALITY** — отдельный раздел про `rustls-reality`.
 - **gRPC API** — `crates/skadi-api/proto/skadi.proto`, реализация в `skadi-server/src/api/`.
   Тест: `cargo test -p skadi-server --test grpc_api_e2e`.
