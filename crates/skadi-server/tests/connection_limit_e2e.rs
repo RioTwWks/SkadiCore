@@ -1,4 +1,4 @@
-//! Интеграционный тест: idle timeout закрывает неактивную сессию.
+//! Интеграционный тест: лимит одновременных соединений (backpressure).
 
 use skadi_protocol::vless::{build_response_header, build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
@@ -13,26 +13,20 @@ use tokio::sync::watch;
 
 const TEST_USER_ID: &str = "b831381d-6324-4d53-ad4f-8cda48b30811";
 
-async fn spawn_echo_server() -> std::net::SocketAddr {
+/// Upstream, который держит соединение открытым.
+async fn spawn_hold_server() -> std::net::SocketAddr {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
 
     tokio::spawn(async move {
         loop {
-            let Ok((mut socket, _)) = listener.accept().await else {
+            let Ok((mut stream, _)) = listener.accept().await else {
                 break;
             };
             tokio::spawn(async move {
-                let mut buf = [0u8; 1024];
-                loop {
-                    match socket.read(&mut buf).await {
-                        Ok(0) | Err(_) => break,
-                        Ok(n) => {
-                            if socket.write_all(&buf[..n]).await.is_err() {
-                                break;
-                            }
-                        }
-                    }
+                let mut buf = [0u8; 64];
+                while stream.read(&mut buf).await.unwrap_or(0) > 0 {
+                    tokio::time::sleep(Duration::from_secs(60)).await;
                 }
             });
         }
@@ -41,9 +35,21 @@ async fn spawn_echo_server() -> std::net::SocketAddr {
     addr
 }
 
+fn vless_request_to(addr: std::net::SocketAddr) -> Vec<u8> {
+    let uuid = *Uuid::parse(TEST_USER_ID).unwrap().as_bytes();
+    build_tcp_request(&uuid, addr.ip().to_string().parse().unwrap(), addr.port())
+}
+
+async fn vless_handshake(stream: &mut TcpStream, target: std::net::SocketAddr) {
+    stream.write_all(&vless_request_to(target)).await.unwrap();
+    let mut response = [0u8; 2];
+    stream.read_exact(&mut response).await.unwrap();
+    assert_eq!(response, build_response_header(VLESS_VERSION));
+}
+
 #[tokio::test]
-async fn idle_timeout_closes_inactive_vless_session() {
-    let echo_addr = spawn_echo_server().await;
+async fn rejects_connection_when_limit_reached() {
+    let hold_addr = spawn_hold_server().await;
     let proxy_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let proxy_addr = proxy_listener.local_addr().unwrap();
     drop(proxy_listener);
@@ -51,11 +57,8 @@ async fn idle_timeout_closes_inactive_vless_session() {
     let config = Config {
         server: ServerConfig {
             listen: proxy_addr.to_string(),
-            timeouts: ServerTimeoutsConfig {
-                connect_timeout_secs: 10,
-                idle_timeout_secs: Some(1),
-            },
-            max_connections: None,
+            timeouts: ServerTimeoutsConfig::default(),
+            max_connections: Some(1),
         },
         protocol: ProtocolConfig {
             socks5: Socks5Config {
@@ -82,30 +85,16 @@ async fn idle_timeout_closes_inactive_vless_session() {
     let server = tokio::spawn(run_server(config, shutdown_rx));
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let mut stream = TcpStream::connect(proxy_addr).await.unwrap();
-    let uuid = *Uuid::parse(TEST_USER_ID).unwrap().as_bytes();
-    let request = build_tcp_request(
-        &uuid,
-        echo_addr.ip().to_string().parse().unwrap(),
-        echo_addr.port(),
-    );
-    stream.write_all(&request).await.unwrap();
+    let mut client1 = TcpStream::connect(proxy_addr).await.unwrap();
+    vless_handshake(&mut client1, hold_addr).await;
 
-    let mut response = [0u8; 2];
-    stream.read_exact(&mut response).await.unwrap();
-    assert_eq!(response, build_response_header(VLESS_VERSION));
-
-    stream.write_all(b"ping").await.unwrap();
-    let mut buf = [0u8; 4];
-    stream.read_exact(&mut buf).await.unwrap();
-    assert_eq!(&buf, b"ping");
-
-    tokio::time::sleep(Duration::from_millis(1500)).await;
-
-    let read_result = stream.read(&mut buf).await;
+    let mut client2 = TcpStream::connect(proxy_addr).await.unwrap();
+    let write_result = client2.write_all(&vless_request_to(hold_addr)).await;
+    let read_result = client2.read(&mut [0u8; 1]).await;
     assert!(
-        matches!(read_result, Ok(0) | Err(_)),
-        "expected idle-closed connection, got {:?}",
+        write_result.is_err() || matches!(read_result, Ok(0) | Err(_)),
+        "second connection should be rejected, write={:?} read={:?}",
+        write_result,
         read_result
     );
 
@@ -114,15 +103,12 @@ async fn idle_timeout_closes_inactive_vless_session() {
 }
 
 #[tokio::test]
-async fn rejects_zero_idle_timeout_in_config() {
+async fn rejects_zero_max_connections_in_config() {
     let config = Config {
         server: ServerConfig {
             listen: "127.0.0.1:0".to_string(),
-            timeouts: ServerTimeoutsConfig {
-                connect_timeout_secs: 10,
-                idle_timeout_secs: Some(0),
-            },
-            max_connections: None,
+            timeouts: ServerTimeoutsConfig::default(),
+            max_connections: Some(0),
         },
         protocol: ProtocolConfig {
             socks5: Socks5Config {
@@ -141,5 +127,5 @@ async fn rejects_zero_idle_timeout_in_config() {
     };
 
     let err = config.validate().unwrap_err().to_string();
-    assert!(err.contains("idle_timeout_secs"));
+    assert!(err.contains("max_connections"));
 }

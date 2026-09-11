@@ -2,10 +2,13 @@
 
 pub mod api;
 pub mod config;
+mod connection_gate;
 pub mod genkey;
 pub mod observability;
 mod prefixed;
 pub mod store;
+
+use connection_gate::ConnectionGate;
 
 use anyhow::{bail, Context, Result};
 use config::Config;
@@ -28,7 +31,7 @@ use tokio::io::{copy_bidirectional, AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::sync::watch;
-use tracing::{error, info, info_span, Instrument};
+use tracing::{debug, error, info, info_span, Instrument};
 
 /// Первый байт SOCKS5 greeting.
 const SOCKS5_VERSION_BYTE: u8 = 0x05;
@@ -90,11 +93,13 @@ pub async fn run_server_with_store(
         api = config.api.enabled,
         metrics = config.metrics.enabled,
         idle_timeout_secs = ?config.server.timeouts.idle_timeout_secs,
+        max_connections = ?config.max_connections(),
         "listening"
     );
 
     let outbound = TcpTransport::new(config.connect_timeout());
     let idle_timeout = config.idle_timeout();
+    let connection_gate = ConnectionGate::new(config.max_connections());
     let inbound = if config.reality_enabled() {
         InboundTransport::Reality(RealityTransport::new(&config.reality_server_config()?)?)
     } else if config.tls_enabled() {
@@ -140,6 +145,7 @@ pub async fn run_server_with_store(
         user_store,
         sniff_protocols,
         idle_timeout,
+        connection_gate,
         shutdown_rx,
     )
     .await;
@@ -169,6 +175,7 @@ async fn accept_loop(
     user_store: Arc<UserStore>,
     sniff_protocols: bool,
     idle_timeout: Option<Duration>,
+    connection_gate: ConnectionGate,
     mut shutdown_rx: watch::Receiver<bool>,
 ) {
     loop {
@@ -185,10 +192,20 @@ async fn accept_loop(
             result = listener.accept() => {
                 match result {
                     Ok((client, peer)) => {
+                        let permit = match connection_gate.try_acquire() {
+                            Some(permit) => permit,
+                            None => {
+                                observability::connection_rejected();
+                                debug!(peer = %peer, "connection rejected (limit reached)");
+                                continue;
+                            }
+                        };
+
                         let outbound = outbound.clone();
                         let inbound = inbound.clone();
                         let user_store = Arc::clone(&user_store);
                         tokio::spawn(async move {
+                            let _permit = permit;
                             let session = Session::new(peer);
                             let result = match inbound {
                                 InboundTransport::Plain => handle_connection(

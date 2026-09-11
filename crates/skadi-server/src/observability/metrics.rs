@@ -22,6 +22,10 @@ pub fn install_recorder() -> anyhow::Result<PrometheusHandle> {
         "skadicore_transfer_bytes_total",
         "Total bytes relayed through the proxy"
     );
+    describe_counter!(
+        "skadicore_connections_rejected_total",
+        "Inbound connections rejected because max_connections limit was reached"
+    );
 
     Ok(handle)
 }
@@ -68,4 +72,8 @@ pub fn connection_failed(protocol: &str) {
         "event" => "failed"
     )
     .increment(1);
+}
+
+pub fn connection_rejected() {
+    counter!("skadicore_connections_rejected_total").increment(1);
 }

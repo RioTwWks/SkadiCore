@@ -69,6 +69,9 @@ pub struct ServerConfig {
     pub listen: String,
     #[serde(default)]
     pub timeouts: ServerTimeoutsConfig,
+    /// Максимум одновременных inbound-сессий. Не задано — без лимита.
+    #[serde(default)]
+    pub max_connections: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -99,6 +102,7 @@ impl ServerConfig {
         Self {
             listen: listen.into(),
             timeouts: ServerTimeoutsConfig::default(),
+            max_connections: None,
         }
     }
 }
@@ -183,6 +187,9 @@ impl Config {
             .is_some_and(|secs| secs == 0)
         {
             bail!("server.timeouts.idle_timeout_secs must be greater than 0 when set");
+        }
+        if self.server.max_connections.is_some_and(|n| n == 0) {
+            bail!("server.max_connections must be greater than 0 when set");
         }
 
         let socks_on = self.protocol.socks5.enabled;
@@ -347,6 +354,11 @@ impl Config {
             .map(Duration::from_secs)
     }
 
+    /// Лимит одновременных inbound-сессий. `None` — без ограничения.
+    pub fn max_connections(&self) -> Option<u32> {
+        self.server.max_connections.filter(|&n| n > 0)
+    }
+
     /// Сколько протоколов включено.
     pub fn enabled_protocol_count(&self) -> usize {
         let mut n = 0;
@@ -483,6 +495,13 @@ impl Config {
             match self.idle_timeout() {
                 Some(d) => format!("{}s", d.as_secs()),
                 None => "disabled".to_string(),
+            }
+        );
+        println!(
+            "  max_connections: {}",
+            match self.max_connections() {
+                Some(n) => n.to_string(),
+                None => "unlimited".to_string(),
             }
         );
         println!(
