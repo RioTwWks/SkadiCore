@@ -80,9 +80,7 @@ async fn socks5_over_tls_connect_and_relay() {
     drop(proxy_listener);
 
     let config = Config {
-        server: ServerConfig {
-            listen: proxy_addr.to_string(),
-        },
+        server: ServerConfig::with_listen(proxy_addr.to_string()),
         protocol: ProtocolConfig {
             socks5: Socks5Config {
                 enabled: true,

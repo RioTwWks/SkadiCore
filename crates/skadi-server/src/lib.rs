@@ -15,7 +15,10 @@ use skadi_protocol::{
     Socks5Handler, VlessHandler, REP_CONNECTION_REFUSED, REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE,
     REP_SUCCEEDED,
 };
-use skadi_transport::{RealityError, RealityTransport, TcpTransport, TlsTransport};
+use skadi_transport::{
+    copy_bidirectional_with_idle_timeout, RealityError, RealityTransport, TcpTransport,
+    TlsTransport,
+};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -86,10 +89,12 @@ pub async fn run_server_with_store(
         reality = config.reality_enabled(),
         api = config.api.enabled,
         metrics = config.metrics.enabled,
+        idle_timeout_secs = ?config.server.timeouts.idle_timeout_secs,
         "listening"
     );
 
-    let outbound = TcpTransport::new(Duration::from_secs(10));
+    let outbound = TcpTransport::new(config.connect_timeout());
+    let idle_timeout = config.idle_timeout();
     let inbound = if config.reality_enabled() {
         InboundTransport::Reality(RealityTransport::new(&config.reality_server_config()?)?)
     } else if config.tls_enabled() {
@@ -134,6 +139,7 @@ pub async fn run_server_with_store(
         inbound,
         user_store,
         sniff_protocols,
+        idle_timeout,
         shutdown_rx,
     )
     .await;
@@ -162,6 +168,7 @@ async fn accept_loop(
     inbound: InboundTransport,
     user_store: Arc<UserStore>,
     sniff_protocols: bool,
+    idle_timeout: Option<Duration>,
     mut shutdown_rx: watch::Receiver<bool>,
 ) {
     loop {
@@ -190,6 +197,7 @@ async fn accept_loop(
                                     session,
                                     user_store,
                                     sniff_protocols,
+                                    idle_timeout,
                                 )
                                 .await,
                                 InboundTransport::Tls(tls) => match tls.accept(client).await {
@@ -199,6 +207,7 @@ async fn accept_loop(
                                         session,
                                         user_store,
                                         sniff_protocols,
+                                        idle_timeout,
                                     )
                                     .await,
                                     Err(e) => {
@@ -214,6 +223,7 @@ async fn accept_loop(
                                             session,
                                             user_store,
                                             sniff_protocols,
+                                            idle_timeout,
                                         )
                                         .await,
                                         Err(e) => {
@@ -300,6 +310,7 @@ async fn handle_connection<S>(
     session: Session,
     user_store: Arc<UserStore>,
     sniff_protocols: bool,
+    idle_timeout: Option<Duration>,
 ) -> Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -382,11 +393,21 @@ where
 
     observability::connection_opened(protocol_label);
 
-    let relay = copy_bidirectional(&mut stream, &mut upstream).await;
+    let relay = if let Some(idle) = idle_timeout {
+        copy_bidirectional_with_idle_timeout(&mut stream, &mut upstream, idle).await
+    } else {
+        copy_bidirectional(&mut stream, &mut upstream).await
+    };
+
     match relay {
         Ok((up, down)) => {
             observability::connection_closed(protocol_label, up, down);
             info!(session = ?session.id, up, down, "closed");
+            Ok(())
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {
+            observability::connection_closed(protocol_label, 0, 0);
+            info!(session = ?session.id, "closed (idle timeout)");
             Ok(())
         }
         Err(e) => {

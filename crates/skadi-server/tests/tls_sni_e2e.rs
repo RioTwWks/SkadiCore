@@ -62,9 +62,7 @@ async fn sni_routes_to_matching_certificate() {
     drop(proxy_listener);
 
     let config = Config {
-        server: ServerConfig {
-            listen: proxy_addr.to_string(),
-        },
+        server: ServerConfig::with_listen(proxy_addr.to_string()),
         protocol: ProtocolConfig {
             socks5: Socks5Config {
                 enabled: true,
@@ -157,9 +155,7 @@ async fn sni_unknown_name_falls_back_to_default_cert() {
     drop(proxy_listener);
 
     let config = Config {
-        server: ServerConfig {
-            listen: proxy_addr.to_string(),
-        },
+        server: ServerConfig::with_listen(proxy_addr.to_string()),
         protocol: ProtocolConfig {
             socks5: Socks5Config {
                 enabled: true,

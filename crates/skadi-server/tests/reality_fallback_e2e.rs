@@ -31,6 +31,8 @@ async fn reality_fallback_to_dest() {
         dest: dest_addr.to_string(),
         server_names: vec!["example.com".into()],
         short_ids: vec![vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]],
+        connect_timeout: Duration::from_secs(10),
+        idle_timeout: None,
     })
     .unwrap();
 
@@ -75,9 +77,7 @@ async fn reality_server_config_via_run_server() {
     drop(proxy_listener);
 
     let config = Config {
-        server: ServerConfig {
-            listen: proxy_addr.to_string(),
-        },
+        server: ServerConfig::with_listen(proxy_addr.to_string()),
         protocol: ProtocolConfig {
             socks5: Default::default(),
             vless: VlessConfig {

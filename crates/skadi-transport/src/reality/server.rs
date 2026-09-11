@@ -4,6 +4,7 @@ use super::auth::verify_client_reality;
 use super::cert::generate_reality_cert;
 use super::hello_parser::{parse_client_hello, ClientHelloInfo};
 use super::prefixed::BufferedPrefixStream;
+use crate::relay::copy_bidirectional_with_idle_timeout;
 use crate::tls::crypto_provider;
 use anyhow::{bail, Context, Result};
 use rustls::reality::RealityConfig;
@@ -44,6 +45,10 @@ pub struct RealityServerConfig {
     pub server_names: Vec<String>,
     /// Short IDs (raw bytes, обычно 8 байт).
     pub short_ids: Vec<Vec<u8>>,
+    /// Таймаут подключения к fallback `dest`.
+    pub connect_timeout: Duration,
+    /// Таймаут неактивности relay после fallback.
+    pub idle_timeout: Option<Duration>,
 }
 
 /// REALITY inbound transport.
@@ -53,6 +58,8 @@ pub struct RealityTransport {
     server_names: Vec<String>,
     private_key: [u8; 32],
     short_ids: Vec<Vec<u8>>,
+    connect_timeout: Duration,
+    idle_timeout: Option<Duration>,
 }
 
 impl RealityTransport {
@@ -87,6 +94,8 @@ impl RealityTransport {
                 .collect(),
             private_key: config.private_key,
             short_ids: short_ids_bytes,
+            connect_timeout: config.connect_timeout,
+            idle_timeout: config.idle_timeout,
         })
     }
 
@@ -121,7 +130,14 @@ impl RealityTransport {
             .as_deref()
             .unwrap_or("www.microsoft.com:443");
         debug!(dest, "REALITY fallback to dest");
-        fallback(stream, &buffer, dest).await?;
+        fallback(
+            stream,
+            &buffer,
+            dest,
+            self.connect_timeout,
+            self.idle_timeout,
+        )
+        .await?;
         Err(RealityError::FallbackHandled.into())
     }
 
@@ -235,17 +251,27 @@ where
     Ok(buffer)
 }
 
-async fn fallback<S>(mut stream: S, prefix: &[u8], dest: &str) -> Result<()>
+async fn fallback<S>(
+    mut stream: S,
+    prefix: &[u8],
+    dest: &str,
+    connect_timeout: Duration,
+    idle_timeout: Option<Duration>,
+) -> Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     let mut dest_stream =
-        match tokio::time::timeout(Duration::from_secs(10), TcpStream::connect(dest)).await {
+        match tokio::time::timeout(connect_timeout, TcpStream::connect(dest)).await {
             Ok(Ok(s)) => s,
             Ok(Err(e)) => return Err(e.into()),
             Err(_) => bail!("fallback connection timeout"),
         };
     dest_stream.write_all(prefix).await?;
-    tokio::io::copy_bidirectional(&mut stream, &mut dest_stream).await?;
+    if let Some(idle) = idle_timeout {
+        copy_bidirectional_with_idle_timeout(&mut stream, &mut dest_stream, idle).await?;
+    } else {
+        tokio::io::copy_bidirectional(&mut stream, &mut dest_stream).await?;
+    }
     Ok(())
 }
