@@ -117,7 +117,7 @@ async fn healthz_and_metrics_endpoints() {
         .await
         .unwrap();
     let mut header = [0u8; 2];
-    stream.read(&mut header).await.unwrap();
+    stream.read_exact(&mut header).await.unwrap();
     assert_eq!(header[0], VLESS_VERSION);
     stream.write_all(b"ping").await.unwrap();
     let mut buf = [0u8; 4];
