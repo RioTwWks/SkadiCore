@@ -1,4 +1,4 @@
-//! Интеграционный тест: idle timeout закрывает неактивную сессию.
+//! Интеграционный тест: max session lifetime закрывает активную сессию.
 
 use skadi_protocol::vless::{build_response_header, build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
@@ -42,7 +42,7 @@ async fn spawn_echo_server() -> std::net::SocketAddr {
 }
 
 #[tokio::test]
-async fn idle_timeout_closes_inactive_vless_session() {
+async fn max_session_lifetime_closes_active_vless_session() {
     let echo_addr = spawn_echo_server().await;
     let proxy_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let proxy_addr = proxy_listener.local_addr().unwrap();
@@ -53,8 +53,8 @@ async fn idle_timeout_closes_inactive_vless_session() {
             listen: proxy_addr.to_string(),
             timeouts: ServerTimeoutsConfig {
                 connect_timeout_secs: 10,
-                idle_timeout_secs: Some(1),
-                max_session_lifetime_secs: None,
+                idle_timeout_secs: None,
+                max_session_lifetime_secs: Some(1),
             },
             max_connections: None,
         },
@@ -96,18 +96,27 @@ async fn idle_timeout_closes_inactive_vless_session() {
     stream.read_exact(&mut response).await.unwrap();
     assert_eq!(response, build_response_header(VLESS_VERSION));
 
-    stream.write_all(b"ping").await.unwrap();
-    let mut buf = [0u8; 4];
-    stream.read_exact(&mut buf).await.unwrap();
-    assert_eq!(&buf, b"ping");
+    let start = std::time::Instant::now();
+    while start.elapsed() < Duration::from_secs(3) {
+        if stream.write_all(b"ping").await.is_err() {
+            break;
+        }
+        let mut buf = [0u8; 4];
+        match stream.read_exact(&mut buf).await {
+            Ok(_) => assert_eq!(&buf, b"ping"),
+            Err(_) => break,
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
 
-    tokio::time::sleep(Duration::from_millis(1500)).await;
-
-    let read_result = stream.read(&mut buf).await;
     assert!(
-        matches!(read_result, Ok(0) | Err(_)),
-        "expected idle-closed connection, got {:?}",
-        read_result
+        start.elapsed() >= Duration::from_millis(900),
+        "session closed too early: {:?}",
+        start.elapsed()
+    );
+    assert!(
+        start.elapsed() < Duration::from_secs(3),
+        "session did not close within lifetime window"
     );
 
     let _ = shutdown_tx.send(true);
@@ -115,14 +124,14 @@ async fn idle_timeout_closes_inactive_vless_session() {
 }
 
 #[tokio::test]
-async fn rejects_zero_idle_timeout_in_config() {
+async fn rejects_zero_max_session_lifetime_in_config() {
     let config = Config {
         server: ServerConfig {
             listen: "127.0.0.1:0".to_string(),
             timeouts: ServerTimeoutsConfig {
                 connect_timeout_secs: 10,
-                idle_timeout_secs: Some(0),
-                max_session_lifetime_secs: None,
+                idle_timeout_secs: None,
+                max_session_lifetime_secs: Some(0),
             },
             max_connections: None,
         },
@@ -143,5 +152,5 @@ async fn rejects_zero_idle_timeout_in_config() {
     };
 
     let err = config.validate().unwrap_err().to_string();
-    assert!(err.contains("idle_timeout_secs"));
+    assert!(err.contains("max_session_lifetime_secs"));
 }

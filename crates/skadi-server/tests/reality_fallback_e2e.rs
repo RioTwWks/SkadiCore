@@ -33,6 +33,7 @@ async fn reality_fallback_to_dest() {
         short_ids: vec![vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]],
         connect_timeout: Duration::from_secs(10),
         idle_timeout: None,
+        max_session_lifetime: None,
     })
     .unwrap();
 

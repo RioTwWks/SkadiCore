@@ -327,7 +327,7 @@ cargo audit
 | Этап | Статус | Описание |
 |---|---|---|
 | 0. Фундамент | ✅ | Workspace, CI, типы, `.cursor/` |
-| 1. TCP-прокси | 🟡 | Релей, idle timeout, max_connections; load — TODO |
+| 1. TCP-прокси | 🟢 | Релей, idle/lifetime, max_connections, load e2e |
 | 2. SOCKS5 | ✅ | CONNECT + auth + fuzz + TLS e2e |
 | 3. TLS inbound | ✅ | PEM, SNI, ALPN, TLS 1.3 |
 | 4. VLESS | 🟡 | TCP + server + TLS e2e; UDP/flow — TODO |

@@ -299,6 +299,44 @@ Fuzzer находит новые пути бесконечно. Через 5 м�
 
 ---
 
+## Нагрузочное тестирование
+
+### Автотесты (Rust)
+
+В CI прогоняется `connection_load_e2e::concurrent_vless_connections` — 64
+параллельных VLESS-сессии через plain TCP.
+
+Ручной тяжёлый прогон (512 соединений):
+
+```bash
+cargo test -p skadi-server --test connection_load_e2e massive -- --ignored
+```
+
+Для прогона ближе к 10k соединений увеличьте константу `CONNECTIONS` в тесте
+`massive_concurrent_vless_connections` и `max_connections` в конфиге прокси.
+
+### wrk / iperf3 (ручная проверка)
+
+Для TCP-throughput после поднятия прокси с echo/upstream:
+
+```bash
+# iperf3: upstream как iperf3 -s, клиент через SOCKS5/VLESS-туннель
+iperf3 -c <target> -t 30
+
+# wrk: HTTP upstream за прокси (если есть HTTP backend)
+wrk -t4 -c256 -d30s http://<backend>/
+```
+
+Рекомендуется задавать `[server]` лимиты перед нагрузкой:
+
+```toml
+max_connections = 10000
+idle_timeout_secs = 300
+max_session_lifetime_secs = 3600
+```
+
+---
+
 ## Стиль кода
 
 ### Форматирование

@@ -1,4 +1,4 @@
-//! Интеграционный тест: idle timeout закрывает неактивную сессию.
+//! Нагрузочные интеграционные тесты: множество одновременных VLESS-сессий.
 
 use skadi_protocol::vless::{build_response_header, build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
@@ -23,7 +23,7 @@ async fn spawn_echo_server() -> std::net::SocketAddr {
                 break;
             };
             tokio::spawn(async move {
-                let mut buf = [0u8; 1024];
+                let mut buf = [0u8; 256];
                 loop {
                     match socket.read(&mut buf).await {
                         Ok(0) | Err(_) => break,
@@ -41,9 +41,10 @@ async fn spawn_echo_server() -> std::net::SocketAddr {
     addr
 }
 
-#[tokio::test]
-async fn idle_timeout_closes_inactive_vless_session() {
-    let echo_addr = spawn_echo_server().await;
+async fn spawn_load_proxy(
+    echo_addr: std::net::SocketAddr,
+    max_connections: u32,
+) -> (std::net::SocketAddr, watch::Sender<bool>) {
     let proxy_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let proxy_addr = proxy_listener.local_addr().unwrap();
     drop(proxy_listener);
@@ -51,12 +52,8 @@ async fn idle_timeout_closes_inactive_vless_session() {
     let config = Config {
         server: ServerConfig {
             listen: proxy_addr.to_string(),
-            timeouts: ServerTimeoutsConfig {
-                connect_timeout_secs: 10,
-                idle_timeout_secs: Some(1),
-                max_session_lifetime_secs: None,
-            },
-            max_connections: None,
+            timeouts: ServerTimeoutsConfig::default(),
+            max_connections: Some(max_connections),
         },
         protocol: ProtocolConfig {
             socks5: Socks5Config {
@@ -80,9 +77,14 @@ async fn idle_timeout_closes_inactive_vless_session() {
     config.validate().unwrap();
 
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
-    let server = tokio::spawn(run_server(config, shutdown_rx));
+    tokio::spawn(run_server(config, shutdown_rx));
     tokio::time::sleep(Duration::from_millis(100)).await;
 
+    let _ = echo_addr;
+    (proxy_addr, shutdown_tx)
+}
+
+async fn vless_ping(proxy_addr: std::net::SocketAddr, echo_addr: std::net::SocketAddr) {
     let mut stream = TcpStream::connect(proxy_addr).await.unwrap();
     let uuid = *Uuid::parse(TEST_USER_ID).unwrap().as_bytes();
     let request = build_tcp_request(
@@ -96,52 +98,48 @@ async fn idle_timeout_closes_inactive_vless_session() {
     stream.read_exact(&mut response).await.unwrap();
     assert_eq!(response, build_response_header(VLESS_VERSION));
 
-    stream.write_all(b"ping").await.unwrap();
+    stream.write_all(b"load").await.unwrap();
     let mut buf = [0u8; 4];
     stream.read_exact(&mut buf).await.unwrap();
-    assert_eq!(&buf, b"ping");
-
-    tokio::time::sleep(Duration::from_millis(1500)).await;
-
-    let read_result = stream.read(&mut buf).await;
-    assert!(
-        matches!(read_result, Ok(0) | Err(_)),
-        "expected idle-closed connection, got {:?}",
-        read_result
-    );
-
-    let _ = shutdown_tx.send(true);
-    let _ = tokio::time::timeout(Duration::from_secs(2), server).await;
+    assert_eq!(&buf, b"load");
 }
 
 #[tokio::test]
-async fn rejects_zero_idle_timeout_in_config() {
-    let config = Config {
-        server: ServerConfig {
-            listen: "127.0.0.1:0".to_string(),
-            timeouts: ServerTimeoutsConfig {
-                connect_timeout_secs: 10,
-                idle_timeout_secs: Some(0),
-                max_session_lifetime_secs: None,
-            },
-            max_connections: None,
-        },
-        protocol: ProtocolConfig {
-            socks5: Socks5Config {
-                enabled: true,
-                auth: skadi_protocol::AuthMethod::NoAuth,
-                users: vec![],
-            },
-            vless: VlessConfig {
-                enabled: false,
-                users: vec![],
-            },
-        },
-        transport: TransportConfig::default(),
-        api: Default::default(),
-        metrics: Default::default(),
-    };
+async fn concurrent_vless_connections() {
+    const CONNECTIONS: u32 = 64;
 
-    let err = config.validate().unwrap_err().to_string();
-    assert!(err.contains("idle_timeout_secs"));
+    let echo_addr = spawn_echo_server().await;
+    let (proxy_addr, shutdown_tx) = spawn_load_proxy(echo_addr, CONNECTIONS + 16).await;
+
+    let mut tasks = Vec::with_capacity(CONNECTIONS as usize);
+    for _ in 0..CONNECTIONS {
+        tasks.push(tokio::spawn(vless_ping(proxy_addr, echo_addr)));
+    }
+
+    for task in tasks {
+        task.await.unwrap();
+    }
+
+    let _ = shutdown_tx.send(true);
+}
+
+/// Ручной/ночной прогон: `cargo test -p skadi-server --test connection_load_e2e massive -- --ignored`
+#[tokio::test]
+#[ignore = "heavy load test; run manually"]
+async fn massive_concurrent_vless_connections() {
+    const CONNECTIONS: u32 = 512;
+
+    let echo_addr = spawn_echo_server().await;
+    let (proxy_addr, shutdown_tx) = spawn_load_proxy(echo_addr, CONNECTIONS + 64).await;
+
+    let mut tasks = Vec::with_capacity(CONNECTIONS as usize);
+    for _ in 0..CONNECTIONS {
+        tasks.push(tokio::spawn(vless_ping(proxy_addr, echo_addr)));
+    }
+
+    for task in tasks {
+        task.await.unwrap();
+    }
+
+    let _ = shutdown_tx.send(true);
 }
