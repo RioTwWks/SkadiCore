@@ -4,7 +4,7 @@
 и sing-box (низкое потребление, TUN, множество протоколов).
 
 Лицензия: AGPL-3.0-or-later  
-Статус: **MVP в разработке** (этапы 0–4 частично завершены, TLS inbound готов)
+Статус: **MVP v1 готов** (этапы 0–8 завершены; этапы 9–10 — в работе)
 
 > Последняя актуализация: 2026-09-11. См. также `README.md` и `.cursor/context.md`.
 
@@ -104,7 +104,8 @@
 - [x] Парсинг заголовка (version, UUID, addons, command, port, address)
 - [x] Response-заголовок (2 байта)
 - [x] `build_tcp_request` / `build_tcp_domain_request` для клиентов и тестов
-- [x] Хранилище пользователей in-memory из TOML (без hot reload)
+- [x] Хранилище пользователей in-memory из TOML
+- [x] Hot reload пользователей через gRPC API и SIGHUP (`UserStore`)
 - [x] Проверка UUID за постоянное время (`subtle`)
 - [x] Неизвестный UUID → молчаливое закрытие (без ответа)
 - [x] Подключение в `skadi-server` (наряду с SOCKS5, sniffing `0x00`/`0x05`)
@@ -129,6 +130,7 @@
 - [x] Интеграционные тесты fallback (`reality_fallback_e2e`)
 - [x] `skadicore genkey reality` — генерация X25519 keypair + shortId
 - [x] E2E с реальным VLESS+REALITY клиентом (`reality_vless_xray_e2e`, Xray-core)
+- [x] Пример конфигурации (`examples/reality-vless/`)
 - [ ] Тесты против активного зондирования (ручная проверка)
 
 **Критерий готовности:** зонд не отличает сервер от `dest`.  
@@ -173,6 +175,7 @@
 - [x] SIGHUP reload `[protocol.*]` (пользователи + enabled)
 - [x] `skadicore genkey reality`
 - [x] Секции `[transport.reality]`, `[api]`, `[metrics]` в конфиге
+- [x] E2E: `check_config_cli`, `sighup_reload`
 
 🟢 **Готово (v1)** — check-config + SIGHUP для protocol; transport/listen — рестарт.
 
@@ -180,8 +183,8 @@
 
 ## 🧪 Этап 9: Тестирование и безопасность
 
-- [x] Юнит-тесты парсеров (20 тестов в `skadi-protocol`)
-- [x] Интеграционные тесты TLS + REALITY (7 тестов в `skadi-server/tests/`)
+- [x] Юнит-тесты парсеров (20+ тестов в `skadi-protocol`)
+- [x] Интеграционные тесты TLS + REALITY + gRPC + metrics (9 файлов в `skadi-server/tests/`)
 - [x] Fuzz-таргеты для SOCKS5 и VLESS
 - [x] `cargo audit` в CI
 - [ ] Покрытие ≥ 70% (tarpaulin)
@@ -201,10 +204,10 @@
 - [ ] Docker-образ
 - [ ] GitHub Releases
 - [x] Документация: README, ARCHITECTURE, PROTOCOLS, CONFIGURATION, DEVELOPMENT
-- [ ] Примеры конфигов для типовых сценариев (отдельная папка `examples/`)
+- [ ] Примеры конфигов для типовых сценариев (частично: `examples/reality-vless/`)
 - [ ] Страница донатов
 
-⏳ **Не начато** (кроме документации).
+🟡 **Частично** — документация и один пример REALITY+VLESS.
 
 ---
 
@@ -225,25 +228,31 @@
 - [x] Собирается release-бинарник (`cargo build --release`)
 - [x] TCP-прокси + SOCKS5 + VLESS TCP
 - [x] TLS inbound (опционально через `[transport.tls]`)
+- [x] REALITY inbound (`[transport.reality]`)
 - [x] Конфиг TOML с валидацией
 - [x] Структурные JSON-логи
-- [x] Тесты парсеров + интеграционные TLS-тесты
+- [x] Тесты парсеров + интеграционные TLS/REALITY/gRPC e2e
 - [x] CI (fmt, clippy, test, audit)
 - [x] README и docs/
 - [x] Лицензия AGPL-3.0-or-later
+- [x] Prometheus-метрики (`/metrics`, `/healthz`)
+- [x] gRPC API (hot reload пользователей)
+- [x] `skadicore check-config` + SIGHUP reload
+- [x] Проверка реальным VLESS-клиентом (Xray-core e2e)
 - [ ] Статический musl-бинарник (кросс-компиляция)
-- [ ] Prometheus-метрики
-- [ ] Проверка реальным VLESS-клиентом
+
+✅ **MVP v1 выполнен** — остаётся musl-сборка и этапы 9–10.
 
 ---
 
 ## 📍 Следующие приоритеты
 
-1. **Prometheus-метрики** (этап 7) — наблюдаемость
-2. **REALITY** (этап 5) — после стабилизации VLESS+TLS
-3. **gRPC API** (этап 6) — управление пользователями
-4. **Idle timeout / backpressure** (этап 1) — устойчивость под нагрузкой
-5. **`--check-config`** и документация `openssl s_client` / `curl --socks5`
+1. **Idle timeout / backpressure** (этап 1) — устойчивость под нагрузкой
+2. **Качество тестов** (этап 9) — tarpaulin ≥70%, `cargo deny`, нагрузка 10k conn
+3. **Кросс-компиляция musl** (этап 10) — статический бинарник для Linux
+4. **UDP/Mux/Vision** (этап 4) — расширенная совместимость с Xray-клиентами
+5. **TLS outbound** (этап 3) — для полноценного клиентского режима
+6. **Документация smoke-тестов** — `curl --socks5`, `openssl s_client` в DEVELOPMENT.md
 
 ---
 
