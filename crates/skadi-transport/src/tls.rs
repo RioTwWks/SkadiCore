@@ -1,12 +1,11 @@
 //! TLS-транспорт на базе rustls + tokio-rustls.
 
 use anyhow::{Context, Result};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::server::{ClientHello, ResolvesServerCert};
 use rustls::sign::CertifiedKey;
-use rustls::version::TLS13;
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, private_key};
+use rustls_pki_types::{CertificateDer, PrivateKeyDer};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
@@ -90,9 +89,12 @@ impl TlsTransport {
     /// Создать acceptor из конфигурации (single-cert или SNI).
     pub fn new(config: &TlsServerConfig) -> Result<Self> {
         ensure_crypto_provider()?;
+        let provider = crypto_provider()?;
+        let resolver = build_resolver(config, &provider)?;
 
-        let resolver = build_resolver(config)?;
-        let mut server_config = ServerConfig::builder_with_protocol_versions(&[&TLS13])
+        let mut server_config = ServerConfig::builder_with_provider(provider)
+            .with_safe_default_protocol_versions()
+            .context("unsupported TLS protocol versions")?
             .with_no_client_auth()
             .with_cert_resolver(Arc::new(resolver));
 
@@ -144,17 +146,19 @@ impl ResolvesServerCert for SniCertResolver {
     }
 }
 
-fn build_resolver(config: &TlsServerConfig) -> Result<SniCertResolver> {
+fn build_resolver(
+    config: &TlsServerConfig,
+    provider: &Arc<rustls::crypto::CryptoProvider>,
+) -> Result<SniCertResolver> {
     if config.default.is_none() && config.sni_certs.is_empty() {
         anyhow::bail!(TlsError::NoCertificates);
     }
 
-    let provider = crypto_provider()?;
     let mut by_name = HashMap::new();
     let mut default = None;
 
     if let Some(paths) = &config.default {
-        default = Some(load_certified_key(paths, &provider)?);
+        default = Some(load_certified_key(paths, provider)?);
     }
 
     for entry in &config.sni_certs {
@@ -167,7 +171,7 @@ fn build_resolver(config: &TlsServerConfig) -> Result<SniCertResolver> {
                 cert_path: entry.cert_path.clone(),
                 key_path: entry.key_path.clone(),
             },
-            &provider,
+            provider,
         )?;
 
         for name in &entry.server_names {
@@ -184,13 +188,13 @@ fn build_resolver(config: &TlsServerConfig) -> Result<SniCertResolver> {
 
 fn load_certified_key(
     paths: &TlsCertPaths,
-    provider: &Arc<rustls::crypto::CryptoProvider>,
+    _provider: &Arc<rustls::crypto::CryptoProvider>,
 ) -> Result<Arc<CertifiedKey>> {
     let cert_chain = load_certs(&paths.cert_path)?;
     let key = load_private_key(&paths.key_path)?;
-    let ck = CertifiedKey::from_der(cert_chain, key, provider)
-        .with_context(|| format!("invalid cert/key pair: {}", paths.cert_path))?;
-    Ok(Arc::new(ck))
+    let signing_key = rustls::crypto::ring::sign::any_supported_type(&key)
+        .with_context(|| format!("invalid private key: {}", paths.key_path))?;
+    Ok(Arc::new(CertifiedKey::new(cert_chain, signing_key)))
 }
 
 fn normalize_server_name(name: &str) -> Result<String> {
@@ -207,24 +211,11 @@ fn normalize_server_name(name: &str) -> Result<String> {
     Ok(trimmed.to_ascii_lowercase())
 }
 
-fn crypto_provider() -> Result<Arc<rustls::crypto::CryptoProvider>> {
-    ensure_crypto_provider()?;
-    rustls::crypto::CryptoProvider::get_default()
-        .cloned()
-        .context("rustls crypto provider not installed")
+pub(crate) fn crypto_provider() -> Result<Arc<rustls::crypto::CryptoProvider>> {
+    Ok(Arc::new(rustls::crypto::ring::default_provider()))
 }
 
-fn ensure_crypto_provider() -> Result<()> {
-    if rustls::crypto::CryptoProvider::get_default().is_some() {
-        return Ok(());
-    }
-    if rustls::crypto::ring::default_provider()
-        .install_default()
-        .is_err()
-        && rustls::crypto::CryptoProvider::get_default().is_none()
-    {
-        anyhow::bail!("failed to install rustls ring crypto provider");
-    }
+pub(crate) fn ensure_crypto_provider() -> Result<()> {
     Ok(())
 }
 

@@ -122,13 +122,17 @@
 
 ## 🎭 Этап 5: REALITY (самый сложный)
 
-- [ ] Изучить `rustls-reality`
-- [ ] Интеграция REALITY в TLS-слой
-- [ ] Fallback на реальный сайт при неверном handshake
-- [ ] Настройка `shortIds`, `serverNames`, `dest`
-- [ ] Тесты против активного зондирования
+- [x] Изучить `rustls-reality` (vendored в `third_party/rustls-reality`)
+- [x] Интеграция REALITY в TLS-слой (`skadi-transport::reality`)
+- [x] Fallback на реальный сайт при неверном handshake
+- [x] Настройка `short_ids`, `server_names`, `dest`, `private_key`
+- [x] Интеграционные тесты fallback (`reality_fallback_e2e`)
+- [x] `skadicore genkey reality` — генерация X25519 keypair + shortId
+- [ ] E2E с реальным VLESS+REALITY клиентом (v2rayNG / Nekoray)
+- [ ] Тесты против активного зондирования (ручная проверка)
 
-**Критерий готовности:** зонд не отличает сервер от `dest`. ⏳ **Не начато.**
+**Критерий готовности:** зонд не отличает сервер от `dest`.  
+🟡 **Частично** — сервер, fallback и автотесты готовы; реальный клиент не проверен.
 
 ---
 
@@ -162,8 +166,9 @@
 - [x] `clap`: `--config`, `--log-level`
 - [ ] `--check-config` (валидация без запуска)
 - [ ] SIGHUP reload
-- [ ] `skadicore genkey reality`
-- [ ] Секции `[transport.reality]`, `[api]` в конфиге
+- [x] `skadicore genkey reality`
+- [x] Секция `[transport.reality]` в конфиге
+- [ ] Секция `[api]` в конфиге
 
 🟡 **Частично.**
 
@@ -172,7 +177,7 @@
 ## 🧪 Этап 9: Тестирование и безопасность
 
 - [x] Юнит-тесты парсеров (20 тестов в `skadi-protocol`)
-- [x] Интеграционные тесты TLS (5 тестов в `skadi-server/tests/`)
+- [x] Интеграционные тесты TLS + REALITY (7 тестов в `skadi-server/tests/`)
 - [x] Fuzz-таргеты для SOCKS5 и VLESS
 - [x] `cargo audit` в CI
 - [ ] Покрытие ≥ 70% (tarpaulin)

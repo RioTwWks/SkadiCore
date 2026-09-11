@@ -1,7 +1,16 @@
 [server]
 listen = "0.0.0.0:443"
 
-# TLS inbound (рекомендуется для VLESS в продакшене).
+# REALITY inbound (рекомендуется для VLESS в продакшене).
+# Сгенерировать ключи: skadicore genkey reality
+# [transport.reality]
+# enabled = true
+# dest = "www.microsoft.com:443"
+# server_names = ["www.microsoft.com"]
+# private_key = "BASE64_X25519_PRIVATE_KEY"
+# short_ids = ["0123456789abcdef"]
+
+# TLS inbound (альтернатива REALITY, не включать оба одновременно).
 # [transport.tls]
 # enabled = true
 # cert = "certs/default.pem"       # fallback при неизвестном SNI

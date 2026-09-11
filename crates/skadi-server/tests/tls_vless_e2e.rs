@@ -1,9 +1,9 @@
 //! Интеграционный тест: VLESS TCP CONNECT поверх TLS.
 
 use rcgen::generate_simple_self_signed;
-use rustls::pki_types::ServerName;
 use rustls::RootCertStore;
 use rustls_pemfile::certs;
+use rustls_pki_types::ServerName;
 use skadi_protocol::vless::{build_response_header, build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
 use skadi_server::config::{Config, ProtocolConfig, ServerConfig, TlsConfig, TransportConfig};
@@ -76,6 +76,7 @@ async fn spawn_vless_tls_server(
             vless: test_vless_config(),
         },
         transport: TransportConfig {
+            reality: Default::default(),
             tls: TlsConfig {
                 enabled: true,
                 cert: Some(cert_path.to_string_lossy().into_owned()),
@@ -97,10 +98,6 @@ async fn tls_connect(
     proxy_addr: std::net::SocketAddr,
     cert_pem: &str,
 ) -> tokio_rustls::client::TlsStream<TcpStream> {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .ok();
-
     let mut root_store = RootCertStore::empty();
     let mut cert_reader = Cursor::new(cert_pem.as_bytes());
     let cert_der = certs(&mut cert_reader).next().unwrap().unwrap();

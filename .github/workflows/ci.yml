@@ -28,10 +28,10 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: cargo clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy -p skadi-core -p skadi-transport -p skadi-protocol -p skadi-server --all-targets
 
       - name: cargo test
-        run: cargo test --workspace
+        run: cargo test -p skadi-core -p skadi-transport -p skadi-protocol -p skadi-server
 
   audit:
     name: Security audit

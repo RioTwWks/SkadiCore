@@ -56,9 +56,12 @@ SkadiCore — это попытка собрать в одном ядре сил
 - [x] Оба протокола подключены в `skadi-server`; sniffing `0x05`/`0x00`
       при одновременном включении.
 - [x] TLS inbound: `rustls`, TLS 1.3, PEM, ALPN, **SNI-роутинг**.
-- [x] Конфиг TOML с валидацией (listen, UUID, TLS-файлы).
+- [x] **REALITY inbound**: sniff ClientHello, X25519 auth, dynamic cert,
+      fallback на `dest` при невалидном клиенте.
+- [x] Конфиг TOML с валидацией (listen, UUID, TLS/REALITY).
+- [x] `skadicore genkey reality` — генерация ключей REALITY.
 - [x] CI: `fmt`, `clippy`, `test`, `audit`.
-- [x] Fuzz-таргеты SOCKS5/VLESS; 25 автотестов (парсеры + TLS e2e).
+- [x] Fuzz-таргеты SOCKS5/VLESS; 27 автотестов (парсеры + TLS/REALITY e2e).
 - [x] Документация: `docs/`, `.cursor/` для AI-агентов.
 
 **В работе:**
@@ -69,10 +72,10 @@ SkadiCore — это попытка собрать в одном ядре сил
 
 **Не начато:**
 
-- [ ] REALITY, gRPC API, TUN, UDP/Mux VLESS, XHTTP, TLS outbound.
+- [ ] gRPC API, TUN, UDP/Mux VLESS, XHTTP, TLS outbound.
 
-⚠️ **Без `[transport.tls]` трафик идёт в открытом виде.** Для продакшена
-включайте TLS. REALITY — следующий крупный шаг после метрик.
+⚠️ **Без `[transport.tls]` или `[transport.reality]` трафик идёт в открытом виде.**
+Для продакшена включайте REALITY (рекомендуется) или TLS.
 
 ---
 
@@ -163,11 +166,13 @@ RUST_LOG=debug ./target/release/skadicore
 [server]
 listen = "0.0.0.0:443"
 
-[transport.tls]
+# REALITY (рекомендуется; не включать вместе с transport.tls)
+[transport.reality]
 enabled = true
-cert = "certs/server.pem"
-key = "certs/server.key"
-alpn = ["h2", "http/1.1"]
+dest = "www.microsoft.com:443"
+server_names = ["www.microsoft.com"]
+private_key = "BASE64_X25519_PRIVATE_KEY"  # skadicore genkey reality
+short_ids = ["0123456789abcdef"]
 
 [protocol.vless]
 enabled = true
@@ -177,6 +182,12 @@ id = "b831381d-6324-4d53-ad4f-8cda48b30811"
 
 [protocol.socks5]
 enabled = false
+```
+
+Генерация ключей REALITY:
+
+```bash
+cargo run --bin skadicore -- genkey reality
 ```
 
 SNI (несколько сертификатов на одном порту):
@@ -316,7 +327,7 @@ cargo audit
 | 2. SOCKS5 | ✅ | CONNECT + auth + fuzz + TLS e2e |
 | 3. TLS inbound | ✅ | PEM, SNI, ALPN, TLS 1.3 |
 | 4. VLESS | 🟡 | TCP + server + TLS e2e; UDP/flow — TODO |
-| 5. REALITY | ⏳ | Через `rustls-reality` |
+| 5. REALITY | 🟡 | Inbound + fallback; клиент не проверен |
 | 6. gRPC API | ⏳ | Динамическое управление |
 | 7. Метрики | ⏳ | Prometheus, `/healthz` |
 | 8. TUN | ⏳ | Клиентский режим |

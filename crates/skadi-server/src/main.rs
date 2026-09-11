@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use skadi_server::config::Config;
 use std::path::PathBuf;
 use tracing::info;
@@ -7,17 +7,45 @@ use tracing::info;
 #[derive(Parser, Debug)]
 #[command(name = "skadicore", version, about = "SkadiCore proxy kernel")]
 struct Cli {
-    #[arg(short, long, default_value = "config/skadi.toml")]
+    #[command(subcommand)]
+    command: Option<Command>,
+
+    #[arg(short, long, default_value = "config/skadi.toml", global = true)]
     config: PathBuf,
 
-    #[arg(long, default_value = "info")]
+    #[arg(long, default_value = "info", global = true)]
     log_level: String,
+}
+
+#[derive(Subcommand, Debug)]
+enum Command {
+    /// Запустить сервер (по умолчанию).
+    Run,
+    /// Сгенерировать ключи REALITY.
+    Genkey {
+        #[arg(value_enum, default_value = "reality")]
+        kind: GenkeyKind,
+    },
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+enum GenkeyKind {
+    Reality,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    match cli.command {
+        Some(Command::Genkey { kind }) => match kind {
+            GenkeyKind::Reality => skadi_server::genkey::generate_reality_keys(),
+        },
+        Some(Command::Run) | None => run_server(cli).await,
+    }
+}
+
+async fn run_server(cli: Cli) -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -32,6 +60,7 @@ async fn main() -> Result<()> {
     info!(
         listen = %config.server.listen,
         tls = config.tls_enabled(),
+        reality = config.reality_enabled(),
         "SkadiCore starting"
     );
 

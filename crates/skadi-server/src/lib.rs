@@ -1,6 +1,7 @@
 //! SkadiCore server — сборка транспорта и протоколов в работающее ядро.
 
 pub mod config;
+pub mod genkey;
 mod prefixed;
 
 use anyhow::{bail, Context, Result};
@@ -11,7 +12,7 @@ use skadi_protocol::{
     Socks5Config, Socks5Handler, VlessConfig, VlessHandler, REP_CONNECTION_REFUSED,
     REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE, REP_SUCCEEDED,
 };
-use skadi_transport::{TcpTransport, TlsTransport};
+use skadi_transport::{RealityError, RealityTransport, TcpTransport, TlsTransport};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -57,14 +58,17 @@ pub async fn run_server(config: Config, shutdown_rx: watch::Receiver<bool>) -> R
     info!(
         addr = %config.server.listen,
         tls = config.tls_enabled(),
+        reality = config.reality_enabled(),
         "listening"
     );
 
     let outbound = TcpTransport::new(Duration::from_secs(10));
-    let tls_inbound = if config.tls_enabled() {
-        Some(TlsTransport::new(&config.tls_server_config()?)?)
+    let inbound = if config.reality_enabled() {
+        InboundTransport::Reality(RealityTransport::new(&config.reality_server_config()?)?)
+    } else if config.tls_enabled() {
+        InboundTransport::Tls(TlsTransport::new(&config.tls_server_config()?)?)
     } else {
-        None
+        InboundTransport::Plain
     };
 
     let sniff_protocols = config.enabled_protocol_count() > 1;
@@ -74,7 +78,7 @@ pub async fn run_server(config: Config, shutdown_rx: watch::Receiver<bool>) -> R
     accept_loop(
         listener,
         outbound,
-        tls_inbound,
+        inbound,
         socks_config,
         vless_config,
         sniff_protocols,
@@ -85,10 +89,17 @@ pub async fn run_server(config: Config, shutdown_rx: watch::Receiver<bool>) -> R
     Ok(())
 }
 
+#[derive(Clone)]
+enum InboundTransport {
+    Plain,
+    Tls(TlsTransport),
+    Reality(RealityTransport),
+}
+
 async fn accept_loop(
     listener: TcpListener,
     outbound: TcpTransport,
-    tls_inbound: Option<TlsTransport>,
+    inbound: InboundTransport,
     socks_config: Arc<Socks5Config>,
     vless_config: Arc<VlessConfig>,
     sniff_protocols: bool,
@@ -109,13 +120,22 @@ async fn accept_loop(
                 match result {
                     Ok((client, peer)) => {
                         let outbound = outbound.clone();
-                        let tls_inbound = tls_inbound.clone();
+                        let inbound = inbound.clone();
                         let socks_config = Arc::clone(&socks_config);
                         let vless_config = Arc::clone(&vless_config);
                         tokio::spawn(async move {
                             let session = Session::new(peer);
-                            let result = if let Some(tls) = tls_inbound {
-                                match tls.accept(client).await {
+                            let result = match inbound {
+                                InboundTransport::Plain => handle_connection(
+                                    client,
+                                    outbound,
+                                    session,
+                                    socks_config,
+                                    vless_config,
+                                    sniff_protocols,
+                                )
+                                .await,
+                                InboundTransport::Tls(tls) => match tls.accept(client).await {
                                     Ok(tls_stream) => handle_connection(
                                         tls_stream,
                                         outbound,
@@ -129,17 +149,30 @@ async fn accept_loop(
                                         error!(error = %e, "TLS handshake failed");
                                         Err(e)
                                     }
+                                },
+                                InboundTransport::Reality(reality) => {
+                                    match reality.accept(client).await {
+                                        Ok(tls_stream) => handle_connection(
+                                            tls_stream,
+                                            outbound,
+                                            session,
+                                            socks_config,
+                                            vless_config,
+                                            sniff_protocols,
+                                        )
+                                        .await,
+                                        Err(e) => {
+                                            if e.downcast_ref::<RealityError>()
+                                                == Some(&RealityError::FallbackHandled)
+                                            {
+                                                Ok(())
+                                            } else {
+                                                error!(error = %e, "REALITY handshake failed");
+                                                Err(e)
+                                            }
+                                        }
+                                    }
                                 }
-                            } else {
-                                handle_connection(
-                                    client,
-                                    outbound,
-                                    session,
-                                    socks_config,
-                                    vless_config,
-                                    sniff_protocols,
-                                )
-                                .await
                             };
 
                             if let Err(e) = result {
