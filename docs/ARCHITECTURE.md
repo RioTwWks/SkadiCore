@@ -54,7 +54,8 @@ skadicore/
     ├── skadi-transport/    # TCP, позже TLS и XHTTP
     ├── skadi-protocol/     # SOCKS5, VLESS, позже REALITY
     │   └── fuzz/           # fuzz-таргеты (отдельный workspace)
-    └── skadi-server/       # бинарник
+    └── skadi-server/       # бинарник + lib (тесты)
+        └── tests/          # TLS e2e (SOCKS5, VLESS, SNI)
 ```
 
 ### Почему workspace, а не один крейт
@@ -385,31 +386,28 @@ shutdown. Если сессия долгая (большая загрузка), 
 Транспорты **не знают про протоколы**. XHTTP-транспорт может
 нести VLESS, Trojan или что угодно.
 
-### Добавить TLS
+### TLS inbound (реализовано)
 
-Это ближайший крупный шаг. Схема:
+Схема:
 
 ```
-TcpTransport::connect() → TcpStream
+TcpListener::accept() → TcpStream
           │
           ▼
-TlsTransport::accept(TcpStream) → TlsStream
+TlsTransport::accept(TcpStream) → TlsStream   # опционально, [transport.tls]
           │
           ▼
-VlessHandler::handshake(TlsStream) → Endpoint
+PrefixedStream (sniff 0x05/0x00)              # если оба протокола
+          │
+          ▼
+VlessHandler::handshake(S) / Socks5Handler::negotiate(S) → Endpoint
 ```
 
-`VlessHandler::handshake` сейчас принимает `&mut TcpStream`.
-Нужно заменить на generic:
+Handlers принимают generic `S: AsyncRead + AsyncWrite + Unpin`.
+SNI-роутинг: `SniCertResolver` в `skadi-transport`, конфиг
+`[[transport.tls.certificates]]` + fallback `cert`/`key`.
 
-```rust
-pub async fn handshake<S>(stream: &mut S, config: &VlessConfig)
-    -> Result<Endpoint>
-where
-    S: AsyncRead + AsyncWrite + Unpin,
-```
-
-Это позволит использовать handler и с TCP, и с TLS, и с XHTTP.
+Интеграционные тесты: `crates/skadi-server/tests/tls_*_e2e.rs`.
 
 ### Добавить gRPC API
 
@@ -432,18 +430,17 @@ where
 
 ## Что дальше
 
-Порядок работ после текущего MVP:
+Порядок работ (обновлено 2026-09-11):
 
-1. **TLS.** Без него VLESS небезопасен. Первый приоритет.
-2. **Интеграционные тесты.** Поднять сервер, подключиться
-   SOCKS5-клиентом, проверить релей.
-3. **REALITY.** Через `rustls-reality`, не с нуля.
-4. **gRPC API.** Для управления пользователями.
-5. **Метрики.** Для наблюдаемости.
-6. **TUN.** Для клиентского режима.
+1. **Метрики.** Prometheus + `/healthz` — наблюдаемость в проде.
+2. **Устойчивость.** Idle timeout, лимит соединений, нагрузочные тесты.
+3. **REALITY.** Через `rustls-reality`, поверх готового TLS inbound.
+4. **gRPC API.** Hot reload пользователей для панелей.
+5. **VLESS UDP/Mux/flow.** Расширение протокола.
+6. **TUN.** Клиентский режим.
 
-Порядок не случаен: каждый следующий шаг опирается на
-предыдущий. REALITY без TLS — это как ставить крышу без стен.
+TLS inbound и интеграционные e2e-тесты (SOCKS5, VLESS, SNI) — готовы.
+См. `TODO.md` для детального чеклиста.
 
 ### Что в дальнейшем добавить в `ARCHITECTURE.md`
 
