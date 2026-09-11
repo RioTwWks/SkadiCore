@@ -1,21 +1,24 @@
 //! SkadiCore server — сборка транспорта и протоколов в работающее ядро.
 
+pub mod api;
 pub mod config;
 pub mod genkey;
 mod prefixed;
+pub mod store;
 
 use anyhow::{bail, Context, Result};
 use config::Config;
 use prefixed::PrefixedStream;
 use skadi_core::Session;
 use skadi_protocol::{
-    Socks5Config, Socks5Handler, VlessConfig, VlessHandler, REP_CONNECTION_REFUSED,
-    REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE, REP_SUCCEEDED,
+    Socks5Handler, VlessHandler, REP_CONNECTION_REFUSED, REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE,
+    REP_SUCCEEDED,
 };
 use skadi_transport::{RealityError, RealityTransport, TcpTransport, TlsTransport};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
+use store::UserStore;
 use tokio::io::{copy_bidirectional, AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::TcpListener;
 use tokio::signal;
@@ -59,6 +62,7 @@ pub async fn run_server(config: Config, shutdown_rx: watch::Receiver<bool>) -> R
         addr = %config.server.listen,
         tls = config.tls_enabled(),
         reality = config.reality_enabled(),
+        api = config.api.enabled,
         "listening"
     );
 
@@ -72,19 +76,34 @@ pub async fn run_server(config: Config, shutdown_rx: watch::Receiver<bool>) -> R
     };
 
     let sniff_protocols = config.enabled_protocol_count() > 1;
-    let socks_config = Arc::new(config.protocol.socks5);
-    let vless_config = Arc::new(config.protocol.vless);
+    let user_store = Arc::new(UserStore::from_protocol(&config.protocol));
+
+    let api_handle = if config.api.enabled {
+        let api_config = config.api.clone();
+        let store = Arc::clone(&user_store);
+        let api_shutdown = shutdown_rx.clone();
+        Some(tokio::spawn(async move {
+            if let Err(e) = api::run_api_server(&api_config, store, api_shutdown).await {
+                error!(error = %e, "gRPC API failed");
+            }
+        }))
+    } else {
+        None
+    };
 
     accept_loop(
         listener,
         outbound,
         inbound,
-        socks_config,
-        vless_config,
+        user_store,
         sniff_protocols,
         shutdown_rx,
     )
     .await;
+
+    if let Some(handle) = api_handle {
+        let _ = handle.await;
+    }
 
     Ok(())
 }
@@ -100,8 +119,7 @@ async fn accept_loop(
     listener: TcpListener,
     outbound: TcpTransport,
     inbound: InboundTransport,
-    socks_config: Arc<Socks5Config>,
-    vless_config: Arc<VlessConfig>,
+    user_store: Arc<UserStore>,
     sniff_protocols: bool,
     mut shutdown_rx: watch::Receiver<bool>,
 ) {
@@ -121,8 +139,7 @@ async fn accept_loop(
                     Ok((client, peer)) => {
                         let outbound = outbound.clone();
                         let inbound = inbound.clone();
-                        let socks_config = Arc::clone(&socks_config);
-                        let vless_config = Arc::clone(&vless_config);
+                        let user_store = Arc::clone(&user_store);
                         tokio::spawn(async move {
                             let session = Session::new(peer);
                             let result = match inbound {
@@ -130,8 +147,7 @@ async fn accept_loop(
                                     client,
                                     outbound,
                                     session,
-                                    socks_config,
-                                    vless_config,
+                                    user_store,
                                     sniff_protocols,
                                 )
                                 .await,
@@ -140,8 +156,7 @@ async fn accept_loop(
                                         tls_stream,
                                         outbound,
                                         session,
-                                        socks_config,
-                                        vless_config,
+                                        user_store,
                                         sniff_protocols,
                                     )
                                     .await,
@@ -156,8 +171,7 @@ async fn accept_loop(
                                             tls_stream,
                                             outbound,
                                             session,
-                                            socks_config,
-                                            vless_config,
+                                            user_store,
                                             sniff_protocols,
                                         )
                                         .await,
@@ -210,13 +224,15 @@ async fn handle_connection<S>(
     mut client: S,
     outbound: TcpTransport,
     session: Session,
-    socks_config: Arc<Socks5Config>,
-    vless_config: Arc<VlessConfig>,
+    user_store: Arc<UserStore>,
     sniff_protocols: bool,
 ) -> Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    let socks_config = user_store.socks5_config();
+    let vless_config = user_store.vless_config();
+
     let prefix_byte = if sniff_protocols {
         let mut first = [0u8; 1];
         client

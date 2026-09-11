@@ -138,12 +138,16 @@
 
 ## 🔄 Этап 6: gRPC API
 
-- [ ] Protobuf-схема (AddUser, RemoveUser, ListUsers, GetStats, …)
-- [ ] Генерация через `tonic`
-- [ ] Hot reload пользователей
-- [ ] Защита: `127.0.0.1`, TLS, токен, rate limiting
+- [x] Protobuf-схема (`crates/skadi-api/proto/skadi.proto`)
+- [x] Генерация через `tonic` + `protoc-bin-vendored`
+- [x] Hot reload VLESS/SOCKS5 пользователей (`UserStore`)
+- [x] `GetStats` — счётчики пользователей
+- [x] Защита: loopback bind + Bearer token
+- [x] E2E тест `grpc_api_e2e`
+- [ ] TLS для gRPC API
+- [ ] Rate limiting
 
-⏳ **Не начато.**
+🟢 **Готово (v1)** — user CRUD + stats; TLS/rate limit — v2.
 
 ---
 

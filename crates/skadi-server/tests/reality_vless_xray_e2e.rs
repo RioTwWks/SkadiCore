@@ -113,6 +113,7 @@ async fn vless_over_reality_with_xray_client() {
                 short_ids: vec![keys.short_id_hex.clone()],
             },
         },
+        api: Default::default(),
     };
     config.validate().unwrap();
 

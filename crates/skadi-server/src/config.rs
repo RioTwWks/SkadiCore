@@ -3,7 +3,7 @@ use serde::Deserialize;
 use skadi_protocol::{Socks5Config, VlessConfig};
 use skadi_transport::{RealityServerConfig, TlsCertPaths, TlsServerConfig, TlsSniCert};
 use std::collections::HashSet;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize)]
@@ -13,6 +13,31 @@ pub struct Config {
     pub protocol: ProtocolConfig,
     #[serde(default)]
     pub transport: TransportConfig,
+    #[serde(default)]
+    pub api: ApiConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ApiConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_api_listen")]
+    pub listen: String,
+    pub token: Option<String>,
+}
+
+fn default_api_listen() -> String {
+    "127.0.0.1:10085".to_string()
+}
+
+impl Default for ApiConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            listen: default_api_listen(),
+            token: None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -126,6 +151,36 @@ impl Config {
         if self.transport.reality.enabled {
             self.validate_reality()?;
             let _ = self.reality_server_config()?;
+        }
+
+        if self.api.enabled {
+            self.validate_api()?;
+        }
+
+        Ok(())
+    }
+
+    fn validate_api(&self) -> Result<()> {
+        let addr: SocketAddr = self
+            .api
+            .listen
+            .parse()
+            .with_context(|| format!("invalid api.listen: {}", self.api.listen))?;
+
+        if !is_loopback(&addr) {
+            bail!(
+                "api.listen must bind to loopback (127.0.0.1 or ::1), got {}",
+                self.api.listen
+            );
+        }
+
+        let token = self
+            .api
+            .token
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("api.token is required when api.enabled = true"))?;
+        if token.trim().is_empty() {
+            bail!("api.token must not be empty");
         }
 
         Ok(())
@@ -323,6 +378,13 @@ fn decode_base64_32(value: &str, field: &str) -> Result<[u8; 32]> {
     let mut out = [0u8; 32];
     out.copy_from_slice(&bytes);
     Ok(out)
+}
+
+fn is_loopback(addr: &SocketAddr) -> bool {
+    match addr.ip() {
+        IpAddr::V4(v4) => v4.octets()[0] == 127,
+        IpAddr::V6(v6) => v6.is_loopback(),
+    }
 }
 
 fn ensure_readable_file(path: &str, field: &str) -> Result<()> {

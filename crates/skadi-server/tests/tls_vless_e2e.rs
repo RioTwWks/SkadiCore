@@ -85,6 +85,7 @@ async fn spawn_vless_tls_server(
                 certificates: vec![],
             },
         },
+        api: Default::default(),
     };
     config.validate().unwrap();
 
