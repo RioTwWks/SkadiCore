@@ -2,13 +2,12 @@
 
 use rcgen::generate_simple_self_signed;
 use rustls::RootCertStore;
-use rustls_pemfile::certs;
-use rustls_pki_types::ServerName;
+use rustls_pki_types::pem::PemObject;
+use rustls_pki_types::{CertificateDer, ServerName};
 use skadi_protocol::AuthMethod;
 use skadi_protocol::Socks5Config;
 use skadi_server::config::{Config, ProtocolConfig, ServerConfig, TlsConfig, TransportConfig};
 use skadi_server::run_server;
-use std::io::Cursor;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -113,8 +112,7 @@ async fn socks5_over_tls_connect_and_relay() {
 
     // TLS-клиент с доверенным self-signed сертификатом.
     let mut root_store = RootCertStore::empty();
-    let mut cert_reader = Cursor::new(cert_pem.as_bytes());
-    let cert_der = certs(&mut cert_reader).next().unwrap().unwrap();
+    let cert_der = CertificateDer::from_pem_slice(cert_pem.as_bytes()).unwrap();
     root_store.add(cert_der).unwrap();
 
     let client_config = rustls::ClientConfig::builder()

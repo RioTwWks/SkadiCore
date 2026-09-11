@@ -49,10 +49,10 @@ where
     let idle_enabled = limits.idle.is_some();
     let lifetime_enabled = limits.max_lifetime.is_some();
 
-    let mut idle_deadline = tokio::time::sleep(limits.idle.unwrap_or(Duration::MAX));
+    let idle_deadline = tokio::time::sleep(limits.idle.unwrap_or(Duration::MAX));
     tokio::pin!(idle_deadline);
 
-    let mut lifetime_deadline = tokio::time::sleep(limits.max_lifetime.unwrap_or(Duration::MAX));
+    let lifetime_deadline = tokio::time::sleep(limits.max_lifetime.unwrap_or(Duration::MAX));
     tokio::pin!(lifetime_deadline);
 
     loop {

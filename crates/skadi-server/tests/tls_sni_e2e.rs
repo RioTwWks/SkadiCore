@@ -2,15 +2,14 @@
 
 use rcgen::generate_simple_self_signed;
 use rustls::RootCertStore;
-use rustls_pemfile::certs;
-use rustls_pki_types::ServerName;
+use rustls_pki_types::pem::PemObject;
+use rustls_pki_types::{CertificateDer, ServerName};
 use skadi_protocol::AuthMethod;
 use skadi_protocol::Socks5Config;
 use skadi_server::config::{
     Config, ProtocolConfig, ServerConfig, TlsConfig, TlsSniCertConfig, TransportConfig,
 };
 use skadi_server::run_server;
-use std::io::Cursor;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -20,8 +19,7 @@ use tokio_rustls::TlsConnector;
 
 fn trust_store_for_pem(cert_pem: &str) -> RootCertStore {
     let mut store = RootCertStore::empty();
-    let mut reader = Cursor::new(cert_pem.as_bytes());
-    let der = certs(&mut reader).next().unwrap().unwrap();
+    let der = CertificateDer::from_pem_slice(cert_pem.as_bytes()).unwrap();
     store.add(der).unwrap();
     store
 }
