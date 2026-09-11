@@ -70,7 +70,7 @@ SkadiCore — это попытка собрать в одном ядре сил
 
 - [x] Prometheus `/metrics` и `/healthz` (`[metrics]`).
 - [x] Idle timeout (`[server.timeouts].idle_timeout_secs`).
-- [ ] Лимит соединений.
+- [x] Лимит соединений (`server.max_connections`).
 - [x] E2E VLESS+REALITY с Xray-core (совместим с v2rayNG / Nekoray).
 
 **Не начато:**
@@ -327,7 +327,7 @@ cargo audit
 | Этап | Статус | Описание |
 |---|---|---|
 | 0. Фундамент | ✅ | Workspace, CI, типы, `.cursor/` |
-| 1. TCP-прокси | 🟡 | Релей + idle timeout; backpressure — TODO |
+| 1. TCP-прокси | 🟡 | Релей, idle timeout, max_connections; load — TODO |
 | 2. SOCKS5 | ✅ | CONNECT + auth + fuzz + TLS e2e |
 | 3. TLS inbound | ✅ | PEM, SNI, ALPN, TLS 1.3 |
 | 4. VLESS | 🟡 | TCP + server + TLS e2e; UDP/flow — TODO |

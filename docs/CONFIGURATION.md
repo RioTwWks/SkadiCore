@@ -72,7 +72,22 @@ skadicore --config /etc/skadicore/config.toml
 ```toml
 [server]
 listen = "0.0.0.0:443"
+max_connections = 1000
 ```
+
+### `max_connections`
+
+**Тип**: `u32`  
+**По умолчанию**: не задано (без лимита)
+
+Максимум одновременных inbound-сессий (от `accept` до закрытия relay/TLS/REALITY).
+При превышении лимита новое TCP-соединение **сразу закрывается** без ожидания в очереди.
+
+Метрика: `skadicore_connections_rejected_total`.
+
+Изменение через SIGHUP **не** поддерживается — нужен рестарт.
+
+`max_connections = 0` — ошибка валидации.
 
 **Допустимые значения**:
 
