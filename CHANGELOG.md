@@ -11,6 +11,32 @@
 
 ### Added
 
+- **`.cursor/` — вспомогательные файлы для AI-агентов**
+  - `rules.md` — архитектурные ограничения, стиль, антипаттерны.
+  - `context.md` — снимок структуры крейтов и текущего статуса.
+  - `priorities.md` — синхронизация с `TODO.md`.
+  - `workflow.md` — процесс разработки и проверки.
+
+- **CI (GitHub Actions)**
+  - `cargo fmt --check`, `clippy`, `test`, `cargo audit`.
+
+- **`skadi-server`**
+  - Подключение VLESS наряду с SOCKS5.
+  - Sniffing первого байта при включённых обоих протоколах.
+  - Валидация конфига (listen addr, UUID, пользователи).
+
+- **`skadi-transport`**
+  - Заготовка `TlsTransport` на `rustls` + `tokio-rustls` (загрузка PEM).
+
+### Fixed
+
+- Дублирование `MAX_METHODS` в `socks5.rs` (ошибка компиляции).
+- Экспорт модуля `vless` из `skadi-protocol`.
+
+### Changed
+
+- Handlers SOCKS5 и VLESS обобщены: `AsyncRead + AsyncWrite` вместо `TcpStream`.
+
 - **Workspace и структура проекта**
   - Cargo workspace с крейтами `skadi-core`, `skadi-transport`,
     `skadi-protocol`, `skadi-server`.

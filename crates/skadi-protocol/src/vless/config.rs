@@ -14,10 +14,10 @@ impl Uuid {
         }
 
         let mut bytes = [0u8; 16];
-        for i in 0..16 {
+        for (i, byte) in bytes.iter_mut().enumerate() {
             let hi = hex_val(clean.as_bytes()[i * 2])?;
             let lo = hex_val(clean.as_bytes()[i * 2 + 1])?;
-            bytes[i] = (hi << 4) | lo;
+            *byte = (hi << 4) | lo;
         }
         Ok(Uuid(bytes))
     }
@@ -34,8 +34,22 @@ impl fmt::Display for Uuid {
             f,
             "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-\
              {:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-            b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
-            b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]
+            b[0],
+            b[1],
+            b[2],
+            b[3],
+            b[4],
+            b[5],
+            b[6],
+            b[7],
+            b[8],
+            b[9],
+            b[10],
+            b[11],
+            b[12],
+            b[13],
+            b[14],
+            b[15]
         )
     }
 }
@@ -57,21 +71,12 @@ pub enum UuidParseError {
     BadHex(char),
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct VlessConfig {
     #[serde(default)]
     pub enabled: bool,
     #[serde(default)]
     pub users: Vec<VlessUser>,
-}
-
-impl Default for VlessConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            users: Vec::new(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

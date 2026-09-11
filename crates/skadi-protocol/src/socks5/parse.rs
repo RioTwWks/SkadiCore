@@ -7,8 +7,7 @@
 //! Вызывающий код сам решает, достаточно ли данных, и читает ещё.
 
 use crate::socks5::{
-    ATYP_DOMAIN, ATYP_IPV4, ATYP_IPV6, AUTH_VERSION, CMD_CONNECT,
-    MAX_METHODS, SOCKS5_VERSION,
+    ATYP_DOMAIN, ATYP_IPV4, ATYP_IPV6, AUTH_VERSION, CMD_CONNECT, MAX_METHODS, SOCKS5_VERSION,
 };
 use skadi_core::Endpoint;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -179,10 +178,7 @@ pub fn parse_request(input: &[u8]) -> Result<(Endpoint, usize), ParseError> {
             }
             let ip = Ipv4Addr::new(input[4], input[5], input[6], input[7]);
             let port = u16::from_be_bytes([input[8], input[9]]);
-            Ok((
-                Endpoint::Ip(SocketAddr::new(IpAddr::V4(ip), port)),
-                total,
-            ))
+            Ok((Endpoint::Ip(SocketAddr::new(IpAddr::V4(ip), port)), total))
         }
 
         ATYP_IPV6 => {
@@ -197,10 +193,7 @@ pub fn parse_request(input: &[u8]) -> Result<(Endpoint, usize), ParseError> {
             octets.copy_from_slice(&input[4..20]);
             let ip = Ipv6Addr::from(octets);
             let port = u16::from_be_bytes([input[20], input[21]]);
-            Ok((
-                Endpoint::Ip(SocketAddr::new(IpAddr::V6(ip), port)),
-                total,
-            ))
+            Ok((Endpoint::Ip(SocketAddr::new(IpAddr::V6(ip), port)), total))
         }
 
         ATYP_DOMAIN => {
@@ -275,7 +268,7 @@ mod tests {
     #[test]
     fn parse_greeting_too_many() {
         let mut input = vec![0x05, 0xFF];
-        input.extend(std::iter::repeat(0x00).take(255));
+        input.extend(std::iter::repeat_n(0x00, 255));
         assert!(matches!(
             parse_greeting(&input),
             Err(ParseError::TooManyMethods(255))
@@ -302,10 +295,7 @@ mod tests {
     #[test]
     fn parse_auth_empty_password() {
         let input = [0x01, 0x01, b'a', 0x00];
-        assert!(matches!(
-            parse_auth(&input),
-            Err(ParseError::EmptyPassword)
-        ));
+        assert!(matches!(parse_auth(&input), Err(ParseError::EmptyPassword)));
     }
 
     #[test]

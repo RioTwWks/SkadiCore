@@ -235,7 +235,10 @@ mod tests {
     fn parse_bad_version() {
         let mut buf = build_request(CMD_TCP, ATYP_IPV4, &[127, 0, 0, 1], 443);
         buf[0] = 0x01;
-        assert!(matches!(parse_request(&buf), Err(ParseError::BadVersion(1))));
+        assert!(matches!(
+            parse_request(&buf),
+            Err(ParseError::BadVersion(1))
+        ));
     }
 
     #[test]
@@ -258,11 +261,11 @@ mod tests {
         let mut buf = vec![VLESS_VERSION];
         buf.extend_from_slice(&[0u8; 16]);
         buf.push(0xFF); // addons length 255 > MAX_ADDONS? Нет, 255 < 512.
-        // Проверим именно границу:
+                        // Проверим именно границу:
         let mut big = vec![VLESS_VERSION];
         big.extend_from_slice(&[0u8; 16]);
         big.push(0xFF);
-        big.extend(std::iter::repeat(0).take(255));
+        big.extend(std::iter::repeat_n(0, 255));
         big.push(CMD_TCP);
         big.extend_from_slice(&443u16.to_be_bytes());
         big.push(ATYP_IPV4);
