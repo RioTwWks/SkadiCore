@@ -409,6 +409,56 @@ impl Config {
             short_ids,
         })
     }
+
+    /// Краткая сводка для `skadicore check-config`.
+    pub fn print_check_summary(&self, path: &Path) {
+        println!("Configuration OK: {}", path.display());
+        println!("  listen:  {}", self.server.listen);
+        println!(
+            "  vless:   {} ({} users)",
+            on_off(self.protocol.vless.enabled),
+            self.protocol.vless.users.len()
+        );
+        println!(
+            "  socks5:  {} ({} users, auth={})",
+            on_off(self.protocol.socks5.enabled),
+            self.protocol.socks5.users.len(),
+            socks_auth_label(self.protocol.socks5.auth)
+        );
+        println!("  tls:     {}", on_off(self.transport.tls.enabled));
+        println!("  reality: {}", on_off(self.transport.reality.enabled));
+        println!(
+            "  api:     {}",
+            if self.api.enabled {
+                format!("enabled ({})", self.api.listen)
+            } else {
+                "disabled".to_string()
+            }
+        );
+        println!(
+            "  metrics: {}",
+            if self.metrics.enabled {
+                format!("enabled ({})", self.metrics.listen)
+            } else {
+                "disabled".to_string()
+            }
+        );
+    }
+}
+
+fn on_off(enabled: bool) -> &'static str {
+    if enabled {
+        "enabled"
+    } else {
+        "disabled"
+    }
+}
+
+fn socks_auth_label(auth: skadi_protocol::AuthMethod) -> &'static str {
+    match auth {
+        skadi_protocol::AuthMethod::NoAuth => "no-auth",
+        skadi_protocol::AuthMethod::UserPass => "user-pass",
+    }
 }
 
 fn decode_base64_32(value: &str, field: &str) -> Result<[u8; 32]> {

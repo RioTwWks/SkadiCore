@@ -168,14 +168,13 @@
 
 - [x] TOML-схема: `[server]`, `[protocol.*]`, `[transport.tls]`
 - [x] Валидация конфига с понятными ошибками
-- [x] `clap`: `--config`, `--log-level`
-- [ ] `--check-config` (валидация без запуска)
-- [ ] SIGHUP reload
+- [x] `clap`: `--config`, `--log-level`, `--log-format`
+- [x] `skadicore check-config` (валидация без запуска)
+- [x] SIGHUP reload `[protocol.*]` (пользователи + enabled)
 - [x] `skadicore genkey reality`
-- [x] Секция `[transport.reality]` в конфиге
-- [ ] Секция `[api]` в конфиге
+- [x] Секции `[transport.reality]`, `[api]`, `[metrics]` в конфиге
 
-🟡 **Частично.**
+🟢 **Готово (v1)** — check-config + SIGHUP для protocol; transport/listen — рестарт.
 
 ---
 

@@ -753,6 +753,11 @@ cargo bloat --release --crates
   Тест: `cargo test -p skadi-server --test grpc_api_e2e`.
 - **Observability** — `skadi-server/src/observability/`, `[metrics]` в конфиге.
   Тест: `cargo test -p skadi-server --test metrics_e2e`.
+- **CLI** — `skadicore check-config`, SIGHUP reload `[protocol.*]`:
+  ```bash
+  cargo run --bin skadicore -- check-config --config config/skadi.toml
+  kill -HUP $(pidof skadicore)   # перечитать пользователей из TOML
+  ```
 - **Метрики** — куда вставлять инкременты в `handle_connection`.
 
 CI описан в `.github/workflows/ci.yml`. Интеграционные тесты — выше.

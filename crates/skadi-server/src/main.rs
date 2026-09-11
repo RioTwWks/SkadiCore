@@ -30,6 +30,8 @@ enum LogFormat {
 enum Command {
     /// Запустить сервер (по умолчанию).
     Run,
+    /// Проверить конфиг без запуска.
+    CheckConfig,
     /// Сгенерировать ключи REALITY.
     Genkey {
         #[arg(value_enum, default_value = "reality")]
@@ -45,13 +47,16 @@ enum GenkeyKind {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    init_tracing(&cli)?;
 
     match cli.command {
+        Some(Command::CheckConfig) => skadi_server::check_config(&cli.config),
         Some(Command::Genkey { kind }) => match kind {
             GenkeyKind::Reality => skadi_server::genkey::generate_reality_keys(),
         },
-        Some(Command::Run) | None => run_server(cli).await,
+        Some(Command::Run) | None => {
+            init_tracing(&cli)?;
+            run_server(cli).await
+        }
     }
 }
 
@@ -80,5 +85,5 @@ async fn run_server(cli: Cli) -> Result<()> {
         "SkadiCore starting"
     );
 
-    skadi_server::run(config).await
+    skadi_server::run(config, cli.config).await
 }
