@@ -113,9 +113,7 @@ async fn grpc_add_remove_vless_user_hot_reload() {
     let api_port = pick_free_port();
 
     let config = Config {
-        server: ServerConfig {
-            listen: format!("127.0.0.1:{}", proxy_port),
-        },
+        server: ServerConfig::with_listen(format!("127.0.0.1:{}", proxy_port)),
         protocol: ProtocolConfig {
             socks5: Default::default(),
             vless: VlessConfig {
@@ -212,9 +210,7 @@ async fn grpc_rejects_missing_token() {
     let proxy_port = pick_free_port();
 
     let config = Config {
-        server: ServerConfig {
-            listen: format!("127.0.0.1:{}", proxy_port),
-        },
+        server: ServerConfig::with_listen(format!("127.0.0.1:{}", proxy_port)),
         protocol: ProtocolConfig {
             socks5: Default::default(),
             vless: VlessConfig {

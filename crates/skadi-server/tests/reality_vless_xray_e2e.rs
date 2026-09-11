@@ -89,9 +89,7 @@ async fn vless_over_reality_with_xray_client() {
     drop(proxy_listener);
 
     let config = Config {
-        server: ServerConfig {
-            listen: proxy_addr.to_string(),
-        },
+        server: ServerConfig::with_listen(proxy_addr.to_string()),
         protocol: ProtocolConfig {
             socks5: Default::default(),
             vless: VlessConfig {

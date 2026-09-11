@@ -64,9 +64,7 @@ async fn spawn_vless_tls_server(
     key_path: &std::path::Path,
 ) -> watch::Sender<bool> {
     let config = Config {
-        server: ServerConfig {
-            listen: proxy_addr.to_string(),
-        },
+        server: ServerConfig::with_listen(proxy_addr.to_string()),
         protocol: ProtocolConfig {
             socks5: Socks5Config {
                 enabled: false,

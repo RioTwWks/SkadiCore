@@ -5,6 +5,7 @@ use skadi_transport::{RealityServerConfig, TlsCertPaths, TlsServerConfig, TlsSni
 use std::collections::HashSet;
 use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -66,6 +67,40 @@ impl Default for ApiConfig {
 #[derive(Debug, Deserialize)]
 pub struct ServerConfig {
     pub listen: String,
+    #[serde(default)]
+    pub timeouts: ServerTimeoutsConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServerTimeoutsConfig {
+    /// Таймаут установки исходящего TCP-соединения (секунды).
+    #[serde(default = "default_connect_timeout_secs")]
+    pub connect_timeout_secs: u64,
+    /// Закрыть сессию при отсутствии трафика в обе стороны (секунды). `0` или отсутствие — выключено.
+    #[serde(default)]
+    pub idle_timeout_secs: Option<u64>,
+}
+
+fn default_connect_timeout_secs() -> u64 {
+    10
+}
+
+impl Default for ServerTimeoutsConfig {
+    fn default() -> Self {
+        Self {
+            connect_timeout_secs: default_connect_timeout_secs(),
+            idle_timeout_secs: None,
+        }
+    }
+}
+
+impl ServerConfig {
+    pub fn with_listen(listen: impl Into<String>) -> Self {
+        Self {
+            listen: listen.into(),
+            timeouts: ServerTimeoutsConfig::default(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -137,6 +172,18 @@ impl Config {
             .listen
             .parse::<SocketAddr>()
             .with_context(|| format!("invalid server.listen: {}", self.server.listen))?;
+
+        if self.server.timeouts.connect_timeout_secs == 0 {
+            bail!("server.timeouts.connect_timeout_secs must be greater than 0");
+        }
+        if self
+            .server
+            .timeouts
+            .idle_timeout_secs
+            .is_some_and(|secs| secs == 0)
+        {
+            bail!("server.timeouts.idle_timeout_secs must be greater than 0 when set");
+        }
 
         let socks_on = self.protocol.socks5.enabled;
         let vless_on = self.protocol.vless.enabled;
@@ -286,6 +333,20 @@ impl Config {
         Ok(())
     }
 
+    /// Таймаут установки исходящего TCP-соединения.
+    pub fn connect_timeout(&self) -> Duration {
+        Duration::from_secs(self.server.timeouts.connect_timeout_secs)
+    }
+
+    /// Таймаут неактивности relay-сессии. `None` — без ограничения.
+    pub fn idle_timeout(&self) -> Option<Duration> {
+        self.server
+            .timeouts
+            .idle_timeout_secs
+            .filter(|&secs| secs > 0)
+            .map(Duration::from_secs)
+    }
+
     /// Сколько протоколов включено.
     pub fn enabled_protocol_count(&self) -> usize {
         let mut n = 0;
@@ -407,6 +468,8 @@ impl Config {
             dest: reality.dest.clone().unwrap(),
             server_names: reality.server_names.clone(),
             short_ids,
+            connect_timeout: self.connect_timeout(),
+            idle_timeout: self.idle_timeout(),
         })
     }
 
@@ -414,6 +477,14 @@ impl Config {
     pub fn print_check_summary(&self, path: &Path) {
         println!("Configuration OK: {}", path.display());
         println!("  listen:  {}", self.server.listen);
+        println!(
+            "  timeouts: connect={}s, idle={}",
+            self.server.timeouts.connect_timeout_secs,
+            match self.idle_timeout() {
+                Some(d) => format!("{}s", d.as_secs()),
+                None => "disabled".to_string(),
+            }
+        );
         println!(
             "  vless:   {} ({} users)",
             on_off(self.protocol.vless.enabled),

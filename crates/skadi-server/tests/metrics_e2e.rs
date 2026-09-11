@@ -69,9 +69,7 @@ async fn healthz_and_metrics_endpoints() {
     let metrics_port = pick_free_port();
 
     let config = Config {
-        server: ServerConfig {
-            listen: format!("127.0.0.1:{}", proxy_port),
-        },
+        server: ServerConfig::with_listen(format!("127.0.0.1:{}", proxy_port)),
         protocol: ProtocolConfig {
             socks5: Default::default(),
             vless: VlessConfig {
