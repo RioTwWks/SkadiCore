@@ -18,6 +18,8 @@ skadi-transport.workspace = true
 skadi-protocol.workspace = true
 skadi-api.workspace = true
 tonic.workspace = true
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
 
 tokio.workspace = true
 tracing.workspace = true

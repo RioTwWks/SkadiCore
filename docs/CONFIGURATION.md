@@ -18,6 +18,7 @@
 - [Секция `[protocol.socks5]`](#секция-protocolsocks5)
 - [Секция `[protocol.vless]`](#секция-protocolvless)
 - [Секция `[api]`](#секция-api)
+- [Секция `[metrics]`](#секция-metrics)
 - [Валидация](#валидация)
 - [Примеры](#примеры)
 - [Типичные ошибки](#типичные-ошибки)
@@ -43,6 +44,7 @@ skadicore --config /etc/skadicore/config.toml
 [protocol.socks5]     # опционально
 [protocol.vless]      # опционально
 [api]                 # опционально (gRPC hot reload пользователей)
+[metrics]             # опционально (Prometheus + /healthz)
 ```
 
 Хотя бы один протокол должен быть включён. Если все выключены —
@@ -446,6 +448,47 @@ grpcurl -plaintext \
 
 ---
 
+## Секция `[metrics]`
+
+Prometheus-метрики и health-check. HTTP-сервер на loopback.
+
+```toml
+[metrics]
+enabled = true
+listen = "127.0.0.1:9090"
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `enabled` | `bool` | Включить HTTP observability |
+| `listen` | `string` | Адрес **только loopback** |
+
+### Endpoints
+
+| Путь | Описание |
+|------|----------|
+| `GET /metrics` | Prometheus text format |
+| `GET /healthz` | `200 ok` — процесс жив |
+
+### Метрики (без PII)
+
+| Имя | Тип | Описание |
+|-----|-----|----------|
+| `skadicore_active_connections` | gauge | Активные relay-сессии |
+| `skadicore_connections_total` | counter | `protocol`, `event` (opened/closed/failed) |
+| `skadicore_transfer_bytes_total` | counter | `direction` (up/down) |
+
+```bash
+curl http://127.0.0.1:9090/healthz
+curl http://127.0.0.1:9090/metrics
+```
+
+CLI: `--log-format=json|pretty` (по умолчанию `json`).
+
+Автотест: `cargo test -p skadi-server --test metrics_e2e`.
+
+---
+
 ## Валидация
 
 Валидация происходит при загрузке конфига. При ошибке ядро
@@ -624,7 +667,7 @@ sudo ss -tlnp | grep :443
 - Секция `[transport.tls]` — сертификаты, ALPN, cipher suites.
 - Секция `[transport.reality]` — dest, serverNames, privateKey.
 - Секция `[api].tls` — TLS для gRPC (опционально, v2).
-- Секция `[metrics]` — Prometheus endpoint, интервал.
+- Расширенные метрики (latency histograms, transport errors).
 - Секция `[log]` — уровень, формат, путь.
 
 Документ должен отражать **текущее состояние кода**. Если реализация и документ расходятся — баг в документе.

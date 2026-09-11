@@ -133,6 +133,7 @@ async fn grpc_add_remove_vless_user_hot_reload() {
             listen: format!("127.0.0.1:{}", api_port),
             token: Some(API_TOKEN.to_string()),
         },
+        metrics: Default::default(),
     };
     config.validate().unwrap();
 
@@ -231,6 +232,7 @@ async fn grpc_rejects_missing_token() {
             listen: format!("127.0.0.1:{}", api_port),
             token: Some(API_TOKEN.to_string()),
         },
+        metrics: Default::default(),
     };
     config.validate().unwrap();
 

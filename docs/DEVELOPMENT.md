@@ -751,6 +751,8 @@ cargo bloat --release --crates
 - **REALITY** — отдельный раздел про `rustls-reality`.
 - **gRPC API** — `crates/skadi-api/proto/skadi.proto`, реализация в `skadi-server/src/api/`.
   Тест: `cargo test -p skadi-server --test grpc_api_e2e`.
+- **Observability** — `skadi-server/src/observability/`, `[metrics]` в конфиге.
+  Тест: `cargo test -p skadi-server --test metrics_e2e`.
 - **Метрики** — куда вставлять инкременты в `handle_connection`.
 
 CI описан в `.github/workflows/ci.yml`. Интеграционные тесты — выше.

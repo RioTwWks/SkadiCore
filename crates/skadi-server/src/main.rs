@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use skadi_server::config::Config;
 use std::path::PathBuf;
 use tracing::info;
@@ -15,6 +15,15 @@ struct Cli {
 
     #[arg(long, default_value = "info", global = true)]
     log_level: String,
+
+    #[arg(long, value_enum, default_value = "json", global = true)]
+    log_format: LogFormat,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+enum LogFormat {
+    Json,
+    Pretty,
 }
 
 #[derive(Subcommand, Debug)]
@@ -36,6 +45,7 @@ enum GenkeyKind {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
+    init_tracing(&cli)?;
 
     match cli.command {
         Some(Command::Genkey { kind }) => match kind {
@@ -45,15 +55,19 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn run_server(cli: Cli) -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| cli.log_level.clone().into()),
-        )
-        .json()
-        .init();
+fn init_tracing(cli: &Cli) -> Result<()> {
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| cli.log_level.clone().into());
 
+    let builder = tracing_subscriber::fmt().with_env_filter(filter);
+    match cli.log_format {
+        LogFormat::Json => builder.json().init(),
+        LogFormat::Pretty => builder.init(),
+    }
+    Ok(())
+}
+
+async fn run_server(cli: Cli) -> Result<()> {
     let config = Config::load(&cli.config)
         .with_context(|| format!("failed to load config from {:?}", cli.config))?;
 
@@ -62,6 +76,7 @@ async fn run_server(cli: Cli) -> Result<()> {
         tls = config.tls_enabled(),
         reality = config.reality_enabled(),
         api = config.api.enabled,
+        metrics = config.metrics.enabled,
         "SkadiCore starting"
     );
 

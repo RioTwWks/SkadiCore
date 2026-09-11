@@ -3,6 +3,7 @@
 pub mod api;
 pub mod config;
 pub mod genkey;
+pub mod observability;
 mod prefixed;
 pub mod store;
 
@@ -63,6 +64,7 @@ pub async fn run_server(config: Config, shutdown_rx: watch::Receiver<bool>) -> R
         tls = config.tls_enabled(),
         reality = config.reality_enabled(),
         api = config.api.enabled,
+        metrics = config.metrics.enabled,
         "listening"
     );
 
@@ -91,6 +93,21 @@ pub async fn run_server(config: Config, shutdown_rx: watch::Receiver<bool>) -> R
         None
     };
 
+    let metrics_handle = if config.metrics.enabled {
+        let metrics_config = config.metrics.clone();
+        let prom = observability::install_recorder()?;
+        let metrics_shutdown = shutdown_rx.clone();
+        Some(tokio::spawn(async move {
+            if let Err(e) =
+                observability::run_metrics_server(&metrics_config, prom, metrics_shutdown).await
+            {
+                error!(error = %e, "metrics HTTP failed");
+            }
+        }))
+    } else {
+        None
+    };
+
     accept_loop(
         listener,
         outbound,
@@ -102,6 +119,10 @@ pub async fn run_server(config: Config, shutdown_rx: watch::Receiver<bool>) -> R
     .await;
 
     if let Some(handle) = api_handle {
+        let _ = handle.await;
+    }
+
+    if let Some(handle) = metrics_handle {
         let _ = handle.await;
     }
 
@@ -280,6 +301,11 @@ where
         }
     };
 
+    let protocol_label = match protocol {
+        ProtocolKind::Socks5 => "socks5",
+        ProtocolKind::Vless => "vless",
+    };
+
     if protocol == ProtocolKind::Socks5 {
         let bound = upstream
             .local_addr()
@@ -301,10 +327,20 @@ where
         );
     }
 
-    let (up, down) = copy_bidirectional(&mut stream, &mut upstream).await?;
-    info!(session = ?session.id, up, down, "closed");
+    observability::connection_opened(protocol_label);
 
-    Ok(())
+    let relay = copy_bidirectional(&mut stream, &mut upstream).await;
+    match relay {
+        Ok((up, down)) => {
+            observability::connection_closed(protocol_label, up, down);
+            info!(session = ?session.id, up, down, "closed");
+            Ok(())
+        }
+        Err(e) => {
+            observability::connection_failed(protocol_label);
+            Err(e.into())
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

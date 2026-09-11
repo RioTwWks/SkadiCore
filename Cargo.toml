@@ -49,6 +49,10 @@ tonic = "0.12"
 prost = "0.13"
 tonic-build = "0.12"
 
+# Метрики
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
+
 # Внутренние крейты
 skadi-core = { path = "crates/skadi-core" }
 skadi-transport = { path = "crates/skadi-transport" }
