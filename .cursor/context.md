@@ -53,8 +53,8 @@ accept → spawn → handle_client
 | VLESS в skadi-server | 🚧 подключается |
 | Fuzz-таргеты SOCKS5/VLESS | ✅ |
 | Graceful shutdown | ✅ |
-| TLS inbound (rustls) | ✅ |
-| TLS SNI / outbound | ⏳ |
+| TLS inbound + SNI (rustls) | ✅ |
+| TLS outbound | ⏳ |
 | CI (GitHub Actions) | 🚧 настраивается |
 | REALITY | ⏳ этап 5 |
 | gRPC API | ⏳ этап 6 |

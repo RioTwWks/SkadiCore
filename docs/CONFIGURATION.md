@@ -125,11 +125,56 @@ ALPN-протоколы для TLS handshake:
 alpn = ["h2", "http/1.1"]
 ```
 
+### `[[transport.tls.certificates]]`
+
+**Тип**: массив таблиц
+**По умолчанию**: `[]`
+
+SNI-роутинг: разные сертификаты для разных имён на одном порту.
+
+```toml
+[transport.tls]
+enabled = true
+cert = "certs/default.pem"    # fallback при неизвестном SNI
+key = "certs/default.key"
+alpn = ["h2", "http/1.1"]
+
+[[transport.tls.certificates]]
+server_names = ["example.com", "www.example.com"]
+cert = "certs/example.pem"
+key = "certs/example-key.pem"
+
+[[transport.tls.certificates]]
+server_names = ["cdn.example.net"]
+cert = "certs/cdn.pem"
+key = "certs/cdn-key.pem"
+```
+
+#### `server_names`
+
+**Тип**: массив строк
+**Обязательно**: да
+
+DNS-имена (без IP). Сравнение без учёта регистра.
+Дубликаты между записями запрещены.
+
+#### `cert` / `key`
+
+Пути к PEM для данной группы имён.
+
+**Режимы работы**:
+
+| Конфиг | Поведение |
+|--------|-----------|
+| Только `cert` + `key` | Один сертификат для всех (как раньше) |
+| Только `[[certificates]]` | Только SNI-имена из таблицы; без SNI — отказ |
+| Оба | SNI-таблица + `cert`/`key` как fallback |
+
 **Ограничения**:
 
 - Только TLS 1.3 (настроено в коде).
 - Проверка клиентского сертификата отключена (`with_no_client_auth`).
-- При `enabled = true` файлы `cert` и `key` проверяются при старте.
+- При `enabled = true` все PEM-файлы проверяются при старте.
 
 **Порядок обработки**:
 

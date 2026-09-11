@@ -2,9 +2,12 @@
 
 use anyhow::{Context, Result};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::server::{ClientHello, ResolvesServerCert};
+use rustls::sign::CertifiedKey;
 use rustls::version::TLS13;
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, private_key};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -26,15 +29,55 @@ pub enum TlsError {
 
     #[error("TLS handshake failed: {0}")]
     Handshake(String),
+
+    #[error("no TLS certificates configured")]
+    NoCertificates,
+
+    #[error("SNI entry has no server_names")]
+    EmptyServerNames,
+
+    #[error("duplicate SNI server name: {0}")]
+    DuplicateServerName(String),
 }
 
-/// Конфигурация TLS-сервера (пути к PEM-файлам).
+/// Пути к PEM-сертификату и ключу.
 #[derive(Debug, Clone)]
-pub struct TlsServerConfig {
+pub struct TlsCertPaths {
     pub cert_path: String,
     pub key_path: String,
+}
+
+/// Сертификат, привязанный к одному или нескольким SNI-именам.
+#[derive(Debug, Clone)]
+pub struct TlsSniCert {
+    pub server_names: Vec<String>,
+    pub cert_path: String,
+    pub key_path: String,
+}
+
+/// Конфигурация TLS-сервера.
+#[derive(Debug, Clone)]
+pub struct TlsServerConfig {
+    /// Сертификат по умолчанию (без SNI или при неизвестном имени).
+    pub default: Option<TlsCertPaths>,
+    /// Сертификаты по SNI.
+    pub sni_certs: Vec<TlsSniCert>,
     /// ALPN-протоколы, например `h2`, `http/1.1`.
     pub alpn: Vec<String>,
+}
+
+impl TlsServerConfig {
+    /// Один сертификат без SNI-роутинга (обратная совместимость).
+    pub fn single(cert_path: String, key_path: String, alpn: Vec<String>) -> Self {
+        Self {
+            default: Some(TlsCertPaths {
+                cert_path,
+                key_path,
+            }),
+            sni_certs: Vec::new(),
+            alpn,
+        }
+    }
 }
 
 /// TLS-транспорт для входящих соединений.
@@ -44,17 +87,14 @@ pub struct TlsTransport {
 }
 
 impl TlsTransport {
-    /// Создать acceptor из PEM-сертификата и приватного ключа.
+    /// Создать acceptor из конфигурации (single-cert или SNI).
     pub fn new(config: &TlsServerConfig) -> Result<Self> {
         ensure_crypto_provider()?;
 
-        let cert_chain = load_certs(&config.cert_path)?;
-        let key = load_private_key(&config.key_path)?;
-
+        let resolver = build_resolver(config)?;
         let mut server_config = ServerConfig::builder_with_protocol_versions(&[&TLS13])
             .with_no_client_auth()
-            .with_single_cert(cert_chain, key)
-            .context("invalid TLS certificate/key pair")?;
+            .with_cert_resolver(Arc::new(resolver));
 
         if !config.alpn.is_empty() {
             server_config.alpn_protocols = config
@@ -83,6 +123,95 @@ impl TlsTransport {
             .await
             .map_err(|e| anyhow::anyhow!(TlsError::Handshake(e.to_string())))
     }
+}
+
+/// Резолвер сертификатов: SNI → cert, fallback на default.
+#[derive(Debug)]
+struct SniCertResolver {
+    by_name: HashMap<String, Arc<CertifiedKey>>,
+    default: Option<Arc<CertifiedKey>>,
+}
+
+impl ResolvesServerCert for SniCertResolver {
+    fn resolve(&self, client_hello: ClientHello<'_>) -> Option<Arc<CertifiedKey>> {
+        if let Some(name) = client_hello.server_name() {
+            let normalized = name.to_ascii_lowercase();
+            if let Some(ck) = self.by_name.get(&normalized) {
+                return Some(Arc::clone(ck));
+            }
+        }
+        self.default.as_ref().map(Arc::clone)
+    }
+}
+
+fn build_resolver(config: &TlsServerConfig) -> Result<SniCertResolver> {
+    if config.default.is_none() && config.sni_certs.is_empty() {
+        anyhow::bail!(TlsError::NoCertificates);
+    }
+
+    let provider = crypto_provider()?;
+    let mut by_name = HashMap::new();
+    let mut default = None;
+
+    if let Some(paths) = &config.default {
+        default = Some(load_certified_key(paths, &provider)?);
+    }
+
+    for entry in &config.sni_certs {
+        if entry.server_names.is_empty() {
+            anyhow::bail!(TlsError::EmptyServerNames);
+        }
+
+        let ck = load_certified_key(
+            &TlsCertPaths {
+                cert_path: entry.cert_path.clone(),
+                key_path: entry.key_path.clone(),
+            },
+            &provider,
+        )?;
+
+        for name in &entry.server_names {
+            let normalized = normalize_server_name(name)?;
+            if by_name.contains_key(&normalized) {
+                anyhow::bail!(TlsError::DuplicateServerName(normalized));
+            }
+            by_name.insert(normalized, Arc::clone(&ck));
+        }
+    }
+
+    Ok(SniCertResolver { by_name, default })
+}
+
+fn load_certified_key(
+    paths: &TlsCertPaths,
+    provider: &Arc<rustls::crypto::CryptoProvider>,
+) -> Result<Arc<CertifiedKey>> {
+    let cert_chain = load_certs(&paths.cert_path)?;
+    let key = load_private_key(&paths.key_path)?;
+    let ck = CertifiedKey::from_der(cert_chain, key, provider)
+        .with_context(|| format!("invalid cert/key pair: {}", paths.cert_path))?;
+    Ok(Arc::new(ck))
+}
+
+fn normalize_server_name(name: &str) -> Result<String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        anyhow::bail!("empty SNI server name");
+    }
+    if trimmed.parse::<std::net::IpAddr>().is_ok() {
+        anyhow::bail!(
+            "IP addresses are not supported in server_names: {}",
+            trimmed
+        );
+    }
+    Ok(trimmed.to_ascii_lowercase())
+}
+
+fn crypto_provider() -> Result<Arc<rustls::crypto::CryptoProvider>> {
+    ensure_crypto_provider()?;
+    rustls::crypto::CryptoProvider::get_default()
+        .cloned()
+        .context("rustls crypto provider not installed")
 }
 
 fn ensure_crypto_provider() -> Result<()> {

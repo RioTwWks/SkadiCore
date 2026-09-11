@@ -1,7 +1,8 @@
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use skadi_protocol::{Socks5Config, VlessConfig};
-use skadi_transport::TlsServerConfig;
+use skadi_transport::{TlsCertPaths, TlsServerConfig, TlsSniCert};
+use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -37,10 +38,21 @@ pub struct TransportConfig {
 pub struct TlsConfig {
     #[serde(default)]
     pub enabled: bool,
+    /// Сертификат по умолчанию (fallback при неизвестном SNI).
     pub cert: Option<String>,
     pub key: Option<String>,
     #[serde(default)]
     pub alpn: Vec<String>,
+    /// SNI-специфичные сертификаты.
+    #[serde(default)]
+    pub certificates: Vec<TlsSniCertConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct TlsSniCertConfig {
+    pub server_names: Vec<String>,
+    pub cert: String,
+    pub key: String,
 }
 
 impl Config {
@@ -85,24 +97,64 @@ impl Config {
         }
 
         if self.transport.tls.enabled {
-            let cert = self
-                .transport
-                .tls
-                .cert
-                .as_deref()
-                .context("transport.tls.enabled but cert is not set")?;
-            let key = self
-                .transport
-                .tls
-                .key
-                .as_deref()
-                .context("transport.tls.enabled but key is not set")?;
-
-            ensure_readable_file(cert, "transport.tls.cert")?;
-            ensure_readable_file(key, "transport.tls.key")?;
-
-            // Проверяем, что PEM парсится, до старта сервера.
+            self.validate_tls()?;
             let _ = self.tls_server_config()?;
+        }
+
+        Ok(())
+    }
+
+    fn validate_tls(&self) -> Result<()> {
+        let tls = &self.transport.tls;
+
+        let has_default = tls.cert.is_some() || tls.key.is_some();
+        if has_default && (tls.cert.is_none() || tls.key.is_none()) {
+            bail!("transport.tls.cert and transport.tls.key must both be set");
+        }
+
+        if tls.cert.is_none() && tls.certificates.is_empty() {
+            bail!(
+                "transport.tls.enabled but no certificates configured: \
+                 set cert/key or [[transport.tls.certificates]]"
+            );
+        }
+
+        if let Some(cert) = &tls.cert {
+            ensure_readable_file(cert, "transport.tls.cert")?;
+        }
+        if let Some(key) = &tls.key {
+            ensure_readable_file(key, "transport.tls.key")?;
+        }
+
+        let mut seen_names = HashSet::new();
+        for (idx, entry) in tls.certificates.iter().enumerate() {
+            if entry.server_names.is_empty() {
+                bail!(
+                    "transport.tls.certificates[{}]: server_names must not be empty",
+                    idx
+                );
+            }
+            ensure_readable_file(
+                &entry.cert,
+                &format!("transport.tls.certificates[{}].cert", idx),
+            )?;
+            ensure_readable_file(
+                &entry.key,
+                &format!("transport.tls.certificates[{}].key", idx),
+            )?;
+
+            for name in &entry.server_names {
+                let normalized = name.trim().to_ascii_lowercase();
+                if normalized.is_empty() {
+                    bail!("transport.tls.certificates[{}]: empty server name", idx);
+                }
+                if !seen_names.insert(normalized) {
+                    bail!(
+                        "transport.tls.certificates: duplicate server name: {}",
+                        name
+                    );
+                }
+            }
         }
 
         Ok(())
@@ -128,15 +180,35 @@ impl Config {
     /// Собрать runtime-конфиг TLS для `TlsTransport`.
     pub fn tls_server_config(&self) -> Result<TlsServerConfig> {
         let tls = &self.transport.tls;
+
+        let default = match (&tls.cert, &tls.key) {
+            (Some(cert), Some(key)) => Some(TlsCertPaths {
+                cert_path: cert.clone(),
+                key_path: key.clone(),
+            }),
+            (None, None) => None,
+            _ => bail!("transport.tls.cert and transport.tls.key must both be set"),
+        };
+
+        let sni_certs = tls
+            .certificates
+            .iter()
+            .map(|entry| {
+                Ok(TlsSniCert {
+                    server_names: entry.server_names.clone(),
+                    cert_path: entry.cert.clone(),
+                    key_path: entry.key.clone(),
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        if default.is_none() && sni_certs.is_empty() {
+            bail!("no TLS certificates configured");
+        }
+
         Ok(TlsServerConfig {
-            cert_path: tls
-                .cert
-                .clone()
-                .context("transport.tls.cert is required when TLS is enabled")?,
-            key_path: tls
-                .key
-                .clone()
-                .context("transport.tls.key is required when TLS is enabled")?,
+            default,
+            sni_certs,
             alpn: tls.alpn.clone(),
         })
     }

@@ -192,6 +192,34 @@ pub fn build_response_header(version: u8) -> [u8; 2] {
     [version, 0x00]
 }
 
+/// Собрать VLESS TCP-запрос к IPv4-адресу (без addons).
+pub fn build_tcp_request(uuid: &[u8; 16], addr: Ipv4Addr, port: u16) -> Vec<u8> {
+    let mut buf = Vec::with_capacity(26);
+    buf.push(VLESS_VERSION);
+    buf.extend_from_slice(uuid);
+    buf.push(0); // addons length
+    buf.push(CMD_TCP);
+    buf.extend_from_slice(&port.to_be_bytes());
+    buf.push(ATYP_IPV4);
+    buf.extend_from_slice(&addr.octets());
+    buf
+}
+
+/// Собрать VLESS TCP-запрос к домену (без addons).
+pub fn build_tcp_domain_request(uuid: &[u8; 16], domain: &str, port: u16) -> Vec<u8> {
+    let domain_bytes = domain.as_bytes();
+    let mut buf = Vec::with_capacity(22 + domain_bytes.len());
+    buf.push(VLESS_VERSION);
+    buf.extend_from_slice(uuid);
+    buf.push(0);
+    buf.push(CMD_TCP);
+    buf.extend_from_slice(&port.to_be_bytes());
+    buf.push(ATYP_DOMAIN);
+    buf.push(domain_bytes.len() as u8);
+    buf.extend_from_slice(domain_bytes);
+    buf
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,5 +306,19 @@ mod tests {
     fn response_header_is_two_bytes() {
         let h = build_response_header(VLESS_VERSION);
         assert_eq!(h, [0x00, 0x00]);
+    }
+
+    #[test]
+    fn build_tcp_request_roundtrip() {
+        let uuid = [0xAB; 16];
+        let buf = build_tcp_request(&uuid, Ipv4Addr::new(10, 0, 0, 1), 8443);
+        let (req, len) = parse_request(&buf).unwrap();
+        assert_eq!(len, buf.len());
+        assert_eq!(req.uuid, uuid);
+        assert_eq!(req.command, CMD_TCP);
+        assert!(matches!(
+            req.target,
+            Endpoint::Ip(sa) if sa.port() == 8443
+        ));
     }
 }
