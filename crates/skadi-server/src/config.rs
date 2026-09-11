@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use skadi_protocol::{Socks5Config, VlessConfig};
-use skadi_transport::{TlsCertPaths, TlsServerConfig, TlsSniCert};
+use skadi_transport::{RealityServerConfig, TlsCertPaths, TlsServerConfig, TlsSniCert};
 use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -32,6 +32,8 @@ pub struct ProtocolConfig {
 pub struct TransportConfig {
     #[serde(default)]
     pub tls: TlsConfig,
+    #[serde(default)]
+    pub reality: RealityConfig,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -46,6 +48,22 @@ pub struct TlsConfig {
     /// SNI-специфичные сертификаты.
     #[serde(default)]
     pub certificates: Vec<TlsSniCertConfig>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct RealityConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    /// Fallback destination `host:port` (Xray: `dest`).
+    pub dest: Option<String>,
+    /// Разрешённые SNI (Xray: `serverNames`).
+    #[serde(default)]
+    pub server_names: Vec<String>,
+    /// X25519 private key, base64 (32 bytes).
+    pub private_key: Option<String>,
+    /// Short IDs, hex (1..8 bytes each).
+    #[serde(default)]
+    pub short_ids: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -96,9 +114,18 @@ impl Config {
             }
         }
 
+        if self.transport.tls.enabled && self.transport.reality.enabled {
+            bail!("transport.tls and transport.reality cannot both be enabled");
+        }
+
         if self.transport.tls.enabled {
             self.validate_tls()?;
             let _ = self.tls_server_config()?;
+        }
+
+        if self.transport.reality.enabled {
+            self.validate_reality()?;
+            let _ = self.reality_server_config()?;
         }
 
         Ok(())
@@ -177,6 +204,11 @@ impl Config {
         self.transport.tls.enabled
     }
 
+    /// REALITY включён на inbound.
+    pub fn reality_enabled(&self) -> bool {
+        self.transport.reality.enabled
+    }
+
     /// Собрать runtime-конфиг TLS для `TlsTransport`.
     pub fn tls_server_config(&self) -> Result<TlsServerConfig> {
         let tls = &self.transport.tls;
@@ -212,6 +244,85 @@ impl Config {
             alpn: tls.alpn.clone(),
         })
     }
+
+    fn validate_reality(&self) -> Result<()> {
+        let reality = &self.transport.reality;
+
+        let dest = reality
+            .dest
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("transport.reality.dest is required"))?;
+        if dest.trim().is_empty() {
+            bail!("transport.reality.dest must not be empty");
+        }
+        if !dest.contains(':') {
+            bail!("transport.reality.dest must be host:port");
+        }
+
+        if reality.server_names.is_empty() {
+            bail!("transport.reality.server_names must not be empty");
+        }
+
+        let key_b64 = reality
+            .private_key
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("transport.reality.private_key is required"))?;
+        let key_bytes = decode_base64_32(key_b64, "transport.reality.private_key")?;
+
+        if reality.short_ids.is_empty() {
+            bail!("transport.reality.short_ids must not be empty");
+        }
+        for (idx, sid) in reality.short_ids.iter().enumerate() {
+            let bytes = hex::decode(sid)
+                .with_context(|| format!("transport.reality.short_ids[{}]: invalid hex", idx))?;
+            if bytes.is_empty() || bytes.len() > 8 {
+                bail!(
+                    "transport.reality.short_ids[{}]: must be 1..8 bytes, got {}",
+                    idx,
+                    bytes.len()
+                );
+            }
+        }
+
+        // Проверяем, что ключ парсится (значение используется при сборке runtime-конфига).
+        let _ = key_bytes;
+        Ok(())
+    }
+
+    /// Собрать runtime-конфиг REALITY для `RealityTransport`.
+    pub fn reality_server_config(&self) -> Result<RealityServerConfig> {
+        let reality = &self.transport.reality;
+        let private_key = decode_base64_32(
+            reality.private_key.as_deref().unwrap(),
+            "transport.reality.private_key",
+        )?;
+
+        let short_ids = reality
+            .short_ids
+            .iter()
+            .map(|sid| hex::decode(sid).with_context(|| format!("invalid short_id hex: {}", sid)))
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(RealityServerConfig {
+            private_key,
+            dest: reality.dest.clone().unwrap(),
+            server_names: reality.server_names.clone(),
+            short_ids,
+        })
+    }
+}
+
+fn decode_base64_32(value: &str, field: &str) -> Result<[u8; 32]> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(value.trim())
+        .with_context(|| format!("{}: invalid base64", field))?;
+    if bytes.len() != 32 {
+        bail!("{}: must decode to 32 bytes, got {}", field, bytes.len());
+    }
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&bytes);
+    Ok(out)
 }
 
 fn ensure_readable_file(path: &str, field: &str) -> Result<()> {

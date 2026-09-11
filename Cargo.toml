@@ -28,15 +28,29 @@ toml = "0.8"
 # CLI
 clap = { version = "4", features = ["derive"] }
 
-# TLS
-rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+# TLS (vendored fork с поддержкой REALITY, см. third_party/rustls-reality)
+rustls = { path = "third_party/rustls-reality/rustls", default-features = false, features = ["ring", "tls12"] }
 rustls-pemfile = "2"
-tokio-rustls = "0.26"
+rustls-pki-types = "1"
+tokio-rustls = "0.25"
+
+# REALITY crypto
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+hkdf = "0.12"
+sha2 = "0.10"
+aes-gcm = "0.10"
+hex = "0.4"
+base64 = "0.22"
+rcgen = "0.13"
+ring = "0.17"
 
 # Внутренние крейты
 skadi-core = { path = "crates/skadi-core" }
 skadi-transport = { path = "crates/skadi-transport" }
 skadi-protocol = { path = "crates/skadi-protocol" }
+
+[patch.crates-io]
+rustls = { path = "third_party/rustls-reality/rustls" }
 
 [profile.release]
 lto = "thin"

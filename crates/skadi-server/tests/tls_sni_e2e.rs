@@ -1,9 +1,9 @@
 //! Интеграционный тест: SNI-роутинг сертификатов.
 
 use rcgen::generate_simple_self_signed;
-use rustls::pki_types::ServerName;
 use rustls::RootCertStore;
 use rustls_pemfile::certs;
+use rustls_pki_types::ServerName;
 use skadi_protocol::AuthMethod;
 use skadi_protocol::Socks5Config;
 use skadi_server::config::{
@@ -17,12 +17,6 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::watch;
 use tokio_rustls::TlsConnector;
-
-fn install_crypto_provider() {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .ok();
-}
 
 fn trust_store_for_pem(cert_pem: &str) -> RootCertStore {
     let mut store = RootCertStore::empty();
@@ -48,8 +42,6 @@ async fn tls_handshake(
 
 #[tokio::test]
 async fn sni_routes_to_matching_certificate() {
-    install_crypto_provider();
-
     let cert_alpha = generate_simple_self_signed(vec!["alpha.local".into()]).unwrap();
     let cert_beta = generate_simple_self_signed(vec!["beta.local".into()]).unwrap();
     let pem_alpha = cert_alpha.cert.pem();
@@ -82,6 +74,7 @@ async fn sni_routes_to_matching_certificate() {
             vless: Default::default(),
         },
         transport: TransportConfig {
+            reality: Default::default(),
             tls: TlsConfig {
                 enabled: true,
                 cert: None,
@@ -142,8 +135,6 @@ async fn sni_routes_to_matching_certificate() {
 
 #[tokio::test]
 async fn sni_unknown_name_falls_back_to_default_cert() {
-    install_crypto_provider();
-
     let cert_default = generate_simple_self_signed(vec!["default.local".into()]).unwrap();
     let cert_named = generate_simple_self_signed(vec!["named.local".into()]).unwrap();
     let pem_default = cert_default.cert.pem();
@@ -176,6 +167,7 @@ async fn sni_unknown_name_falls_back_to_default_cert() {
             vless: Default::default(),
         },
         transport: TransportConfig {
+            reality: Default::default(),
             tls: TlsConfig {
                 enabled: true,
                 cert: Some(default_cert.to_string_lossy().into_owned()),

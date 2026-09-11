@@ -14,6 +14,7 @@
 - [Общая структура](#общая-структура)
 - [Секция `[server]`](#секция-server)
 - [Секция `[transport.tls]`](#секция-transporttls)
+- [Секция `[transport.reality]`](#секция-transportreality)
 - [Секция `[protocol.socks5]`](#секция-protocolsocks5)
 - [Секция `[protocol.vless]`](#секция-protocolvless)
 - [Валидация](#валидация)
@@ -36,7 +37,8 @@ skadicore --config /etc/skadicore/config.toml
 
 ```toml
 [server]              # обязательно
-[transport.tls]       # опционально
+[transport.tls]       # опционально (не вместе с reality)
+[transport.reality]   # опционально (рекомендуется для VLESS)
 [protocol.socks5]     # опционально
 [protocol.vless]      # опционально
 ```
@@ -180,6 +182,50 @@ DNS-имена (без IP). Сравнение без учёта регистр�
 
 ```
 TCP accept → TLS handshake → протокол (SOCKS5/VLESS) → upstream TCP
+```
+
+---
+
+## Секция `[transport.reality]`
+
+REALITY — TLS-маскировка с fallback на реальный сайт при невалидном
+клиенте. Рекомендуется вместо обычного `[transport.tls]` для VLESS.
+
+**Нельзя** включать `transport.tls` и `transport.reality` одновременно.
+
+### Генерация ключей
+
+```bash
+skadicore genkey reality
+```
+
+### Поля
+
+```toml
+[transport.reality]
+enabled = true
+dest = "www.microsoft.com:443"
+server_names = ["www.microsoft.com"]
+private_key = "BASE64_X25519_32_BYTES"
+short_ids = ["0123456789abcdef"]
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `enabled` | `bool` | Включить REALITY inbound |
+| `dest` | `string` | Fallback `host:port` (реальный сайт) |
+| `server_names` | `string[]` | Разрешённые SNI (Xray: `serverNames`) |
+| `private_key` | `string` | X25519 private key, base64 (32 байта) |
+| `short_ids` | `string[]` | Short ID в hex (1..8 байт каждый) |
+
+`public_key` — только на клиенте (из пары, сгенерированной `genkey`).
+
+**Порядок обработки**:
+
+```
+TCP accept → sniff ClientHello → REALITY verify?
+  ├─ да  → dynamic Ed25519 cert → TLS 1.3 → VLESS/SOCKS5 → upstream
+  └─ нет → transparent proxy к dest (зонд видит реальный сайт)
 ```
 
 ---

@@ -1,9 +1,9 @@
 //! Интеграционный тест: SOCKS5 CONNECT поверх TLS.
 
 use rcgen::generate_simple_self_signed;
-use rustls::pki_types::ServerName;
 use rustls::RootCertStore;
 use rustls_pemfile::certs;
+use rustls_pki_types::ServerName;
 use skadi_protocol::AuthMethod;
 use skadi_protocol::Socks5Config;
 use skadi_server::config::{Config, ProtocolConfig, ServerConfig, TlsConfig, TransportConfig};
@@ -60,10 +60,6 @@ fn write_socks5_connect_request(host: &str, port: u16) -> Vec<u8> {
 
 #[tokio::test]
 async fn socks5_over_tls_connect_and_relay() {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .expect("failed to install rustls crypto provider");
-
     let echo_addr = spawn_echo_server().await;
     let echo_host = echo_addr.ip().to_string();
     let echo_port = echo_addr.port();
@@ -96,6 +92,7 @@ async fn socks5_over_tls_connect_and_relay() {
             vless: Default::default(),
         },
         transport: TransportConfig {
+            reality: Default::default(),
             tls: TlsConfig {
                 enabled: true,
                 cert: Some(cert_path.to_string_lossy().into_owned()),
