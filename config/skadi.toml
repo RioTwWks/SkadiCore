@@ -1,0 +1,12 @@
+[server]
+listen = "0.0.0.0:443"
+
+[protocol.socks5]
+enabled = false
+
+[protocol.vless]
+enabled = true
+
+[[protocol.vless.users]]
+id = "b831381d-6324-4d53-ad4f-8cda48b30811"
+email = "alice@example.com"

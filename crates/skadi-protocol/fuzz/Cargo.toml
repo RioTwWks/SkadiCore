@@ -1,0 +1,40 @@
+[package]
+name = "skadi-protocol-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+skadi-protocol = { path = ".." }
+skadi-core = { path = "../../skadi-core" }
+
+[[bin]]
+name = "parse_greeting"
+path = "fuzz_targets/parse_greeting.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "parse_auth"
+path = "fuzz_targets/parse_auth.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "parse_request"
+path = "fuzz_targets/parse_request.rs"
+test = false
+doc = false
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "parse_vless_request"
+path = "fuzz_targets/parse_vless_request.rs"
+test = false
+doc = false
