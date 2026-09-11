@@ -36,3 +36,5 @@ rustls-pki-types.workspace = true
 tokio-rustls.workspace = true
 tempfile = "3"
 rustls-pemfile.workspace = true
+base64.workspace = true
+x25519-dalek.workspace = true

@@ -166,8 +166,24 @@ TLS (нужны `cert.pem` / `key.pem`, `transport.tls.enabled = true`):
 openssl s_client -connect localhost:443 -servername localhost
 ```
 
-VLESS: клиент v2rayNG / Nekoray с TLS + UUID из конфига.
+VLESS over TLS: клиент v2rayNG / Nekoray с TLS + UUID из конфига.
 Автотест собирает запрос через `build_tcp_request()` из `skadi-protocol`.
+
+VLESS over REALITY (рекомендуется):
+
+```bash
+# Автотест с реальным Xray-core (совместим с v2rayNG / Nekoray)
+cargo test -p skadi-server --test reality_vless_xray_e2e
+
+# Ручная проверка
+cargo run --bin skadicore -- genkey reality
+cargo run --bin skadicore -- --config examples/reality-vless/server.toml
+xray run -c examples/reality-vless/client-xray.json
+curl --socks5 127.0.0.1:10808 https://example.com
+```
+
+Нужны `curl` и `unzip` для авто-скачивания Xray, либо `XRAY_BINARY=/path/to/xray`.
+См. `examples/reality-vless/README.md` для Nekoray и v2rayNG share link.
 
 ### Покрытие
 

@@ -1,0 +1,25 @@
+# SkadiCore: VLESS + REALITY (пример)
+# Запуск: cargo run --bin skadicore -- --config examples/reality-vless/server.toml
+#
+# Сгенерировать свои ключи: cargo run --bin skadicore -- genkey reality
+
+[server]
+listen = "0.0.0.0:443"
+
+[transport.reality]
+enabled = true
+dest = "www.microsoft.com:443"
+server_names = ["www.microsoft.com"]
+# Тестовый ключ — только для локальной проверки, не для продакшена.
+private_key = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI="
+short_ids = ["0123456789abcdef"]
+
+[protocol.socks5]
+enabled = false
+
+[protocol.vless]
+enabled = true
+
+[[protocol.vless.users]]
+id = "b831381d-6324-4d53-ad4f-8cda48b30811"
+email = "demo@example.com"

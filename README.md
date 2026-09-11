@@ -61,14 +61,14 @@ SkadiCore — это попытка собрать в одном ядре сил
 - [x] Конфиг TOML с валидацией (listen, UUID, TLS/REALITY).
 - [x] `skadicore genkey reality` — генерация ключей REALITY.
 - [x] CI: `fmt`, `clippy`, `test`, `audit`.
-- [x] Fuzz-таргеты SOCKS5/VLESS; 27 автотестов (парсеры + TLS/REALITY e2e).
+- [x] Fuzz-таргеты SOCKS5/VLESS; 29+ автотестов (парсеры + TLS/REALITY e2e).
 - [x] Документация: `docs/`, `.cursor/` для AI-агентов.
 
 **В работе:**
 
 - [ ] Prometheus-метрики и `/healthz`.
 - [ ] Idle timeout, лимит соединений.
-- [ ] Проверка с реальным VLESS-клиентом (v2rayNG).
+- [x] E2E VLESS+REALITY с Xray-core (совместим с v2rayNG / Nekoray).
 
 **Не начато:**
 
@@ -327,7 +327,7 @@ cargo audit
 | 2. SOCKS5 | ✅ | CONNECT + auth + fuzz + TLS e2e |
 | 3. TLS inbound | ✅ | PEM, SNI, ALPN, TLS 1.3 |
 | 4. VLESS | 🟡 | TCP + server + TLS e2e; UDP/flow — TODO |
-| 5. REALITY | 🟡 | Inbound + fallback; клиент не проверен |
+| 5. REALITY | 🟢 | Inbound + fallback + Xray e2e |
 | 6. gRPC API | ⏳ | Динамическое управление |
 | 7. Метрики | ⏳ | Prometheus, `/healthz` |
 | 8. TUN | ⏳ | Клиентский режим |
