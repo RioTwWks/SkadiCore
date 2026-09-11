@@ -4,8 +4,9 @@ listen = "0.0.0.0:443"
 
 # Таймауты TCP-прокси (опционально).
 # [server.timeouts]
-# connect_timeout_secs = 10   # исходящий TCP connect (по умолчанию 10)
-# idle_timeout_secs = 300     # закрыть сессию при простое (не задано = без лимита)
+# connect_timeout_secs = 10          # исходящий TCP connect (по умолчанию 10)
+# idle_timeout_secs = 300            # закрыть сессию при простое (не задано = без лимита)
+# max_session_lifetime_secs = 86400  # макс. длительность relay (не задано = без лимита)
 
 # REALITY inbound (рекомендуется для VLESS в продакшене).
 # Сгенерировать ключи: skadicore genkey reality

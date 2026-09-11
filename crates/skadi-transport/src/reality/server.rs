@@ -4,7 +4,7 @@ use super::auth::verify_client_reality;
 use super::cert::generate_reality_cert;
 use super::hello_parser::{parse_client_hello, ClientHelloInfo};
 use super::prefixed::BufferedPrefixStream;
-use crate::relay::copy_bidirectional_with_idle_timeout;
+use crate::relay::{copy_bidirectional_with_limits, RelayLimits};
 use crate::tls::crypto_provider;
 use anyhow::{bail, Context, Result};
 use rustls::reality::RealityConfig;
@@ -49,6 +49,8 @@ pub struct RealityServerConfig {
     pub connect_timeout: Duration,
     /// Таймаут неактивности relay после fallback.
     pub idle_timeout: Option<Duration>,
+    /// Максимальная длительность relay после fallback.
+    pub max_session_lifetime: Option<Duration>,
 }
 
 /// REALITY inbound transport.
@@ -59,7 +61,7 @@ pub struct RealityTransport {
     private_key: [u8; 32],
     short_ids: Vec<Vec<u8>>,
     connect_timeout: Duration,
-    idle_timeout: Option<Duration>,
+    relay_limits: RelayLimits,
 }
 
 impl RealityTransport {
@@ -95,7 +97,10 @@ impl RealityTransport {
             private_key: config.private_key,
             short_ids: short_ids_bytes,
             connect_timeout: config.connect_timeout,
-            idle_timeout: config.idle_timeout,
+            relay_limits: RelayLimits {
+                idle: config.idle_timeout,
+                max_lifetime: config.max_session_lifetime,
+            },
         })
     }
 
@@ -135,7 +140,7 @@ impl RealityTransport {
             &buffer,
             dest,
             self.connect_timeout,
-            self.idle_timeout,
+            self.relay_limits,
         )
         .await?;
         Err(RealityError::FallbackHandled.into())
@@ -256,7 +261,7 @@ async fn fallback<S>(
     prefix: &[u8],
     dest: &str,
     connect_timeout: Duration,
-    idle_timeout: Option<Duration>,
+    relay_limits: RelayLimits,
 ) -> Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -268,10 +273,6 @@ where
             Err(_) => bail!("fallback connection timeout"),
         };
     dest_stream.write_all(prefix).await?;
-    if let Some(idle) = idle_timeout {
-        copy_bidirectional_with_idle_timeout(&mut stream, &mut dest_stream, idle).await?;
-    } else {
-        tokio::io::copy_bidirectional(&mut stream, &mut dest_stream).await?;
-    }
+    copy_bidirectional_with_limits(&mut stream, &mut dest_stream, relay_limits).await?;
     Ok(())
 }

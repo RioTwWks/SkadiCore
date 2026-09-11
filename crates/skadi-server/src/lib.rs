@@ -19,15 +19,15 @@ use skadi_protocol::{
     REP_SUCCEEDED,
 };
 use skadi_transport::{
-    copy_bidirectional_with_idle_timeout, RealityError, RealityTransport, TcpTransport,
-    TlsTransport,
+    copy_bidirectional_with_limits, RealityError, RealityTransport, RelayLimits, TcpTransport,
+    TlsTransport, IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG,
 };
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use store::UserStore;
-use tokio::io::{copy_bidirectional, AsyncRead, AsyncReadExt, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::sync::watch;
@@ -93,12 +93,16 @@ pub async fn run_server_with_store(
         api = config.api.enabled,
         metrics = config.metrics.enabled,
         idle_timeout_secs = ?config.server.timeouts.idle_timeout_secs,
+        max_session_lifetime_secs = ?config.server.timeouts.max_session_lifetime_secs,
         max_connections = ?config.max_connections(),
         "listening"
     );
 
     let outbound = TcpTransport::new(config.connect_timeout());
-    let idle_timeout = config.idle_timeout();
+    let relay_limits = RelayLimits {
+        idle: config.idle_timeout(),
+        max_lifetime: config.max_session_lifetime(),
+    };
     let connection_gate = ConnectionGate::new(config.max_connections());
     let inbound = if config.reality_enabled() {
         InboundTransport::Reality(RealityTransport::new(&config.reality_server_config()?)?)
@@ -144,7 +148,7 @@ pub async fn run_server_with_store(
         inbound,
         user_store,
         sniff_protocols,
-        idle_timeout,
+        relay_limits,
         connection_gate,
         shutdown_rx,
     )
@@ -174,7 +178,7 @@ async fn accept_loop(
     inbound: InboundTransport,
     user_store: Arc<UserStore>,
     sniff_protocols: bool,
-    idle_timeout: Option<Duration>,
+    relay_limits: RelayLimits,
     connection_gate: ConnectionGate,
     mut shutdown_rx: watch::Receiver<bool>,
 ) {
@@ -214,7 +218,7 @@ async fn accept_loop(
                                     session,
                                     user_store,
                                     sniff_protocols,
-                                    idle_timeout,
+                                    relay_limits,
                                 )
                                 .await,
                                 InboundTransport::Tls(tls) => match tls.accept(client).await {
@@ -224,7 +228,7 @@ async fn accept_loop(
                                         session,
                                         user_store,
                                         sniff_protocols,
-                                        idle_timeout,
+                                        relay_limits,
                                     )
                                     .await,
                                     Err(e) => {
@@ -240,7 +244,7 @@ async fn accept_loop(
                                             session,
                                             user_store,
                                             sniff_protocols,
-                                            idle_timeout,
+                                            relay_limits,
                                         )
                                         .await,
                                         Err(e) => {
@@ -327,7 +331,7 @@ async fn handle_connection<S>(
     session: Session,
     user_store: Arc<UserStore>,
     sniff_protocols: bool,
-    idle_timeout: Option<Duration>,
+    relay_limits: RelayLimits,
 ) -> Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -410,11 +414,7 @@ where
 
     observability::connection_opened(protocol_label);
 
-    let relay = if let Some(idle) = idle_timeout {
-        copy_bidirectional_with_idle_timeout(&mut stream, &mut upstream, idle).await
-    } else {
-        copy_bidirectional(&mut stream, &mut upstream).await
-    };
+    let relay = copy_bidirectional_with_limits(&mut stream, &mut upstream, relay_limits).await;
 
     match relay {
         Ok((up, down)) => {
@@ -422,9 +422,17 @@ where
             info!(session = ?session.id, up, down, "closed");
             Ok(())
         }
-        Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {
+        Err(e) if e.kind() == std::io::ErrorKind::TimedOut && e.to_string() == IDLE_TIMEOUT_MSG => {
             observability::connection_closed(protocol_label, 0, 0);
             info!(session = ?session.id, "closed (idle timeout)");
+            Ok(())
+        }
+        Err(e)
+            if e.kind() == std::io::ErrorKind::TimedOut
+                && e.to_string() == SESSION_LIFETIME_MSG =>
+        {
+            observability::connection_closed(protocol_label, 0, 0);
+            info!(session = ?session.id, "closed (max session lifetime)");
             Ok(())
         }
         Err(e) => {

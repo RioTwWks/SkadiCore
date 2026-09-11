@@ -82,6 +82,9 @@ pub struct ServerTimeoutsConfig {
     /// Закрыть сессию при отсутствии трафика в обе стороны (секунды). `0` или отсутствие — выключено.
     #[serde(default)]
     pub idle_timeout_secs: Option<u64>,
+    /// Максимальная длительность relay-сессии (секунды), независимо от активности.
+    #[serde(default)]
+    pub max_session_lifetime_secs: Option<u64>,
 }
 
 fn default_connect_timeout_secs() -> u64 {
@@ -93,6 +96,7 @@ impl Default for ServerTimeoutsConfig {
         Self {
             connect_timeout_secs: default_connect_timeout_secs(),
             idle_timeout_secs: None,
+            max_session_lifetime_secs: None,
         }
     }
 }
@@ -190,6 +194,14 @@ impl Config {
         }
         if self.server.max_connections.is_some_and(|n| n == 0) {
             bail!("server.max_connections must be greater than 0 when set");
+        }
+        if self
+            .server
+            .timeouts
+            .max_session_lifetime_secs
+            .is_some_and(|secs| secs == 0)
+        {
+            bail!("server.timeouts.max_session_lifetime_secs must be greater than 0 when set");
         }
 
         let socks_on = self.protocol.socks5.enabled;
@@ -354,6 +366,15 @@ impl Config {
             .map(Duration::from_secs)
     }
 
+    /// Максимальная длительность relay-сессии. `None` — без ограничения.
+    pub fn max_session_lifetime(&self) -> Option<Duration> {
+        self.server
+            .timeouts
+            .max_session_lifetime_secs
+            .filter(|&secs| secs > 0)
+            .map(Duration::from_secs)
+    }
+
     /// Лимит одновременных inbound-сессий. `None` — без ограничения.
     pub fn max_connections(&self) -> Option<u32> {
         self.server.max_connections.filter(|&n| n > 0)
@@ -482,6 +503,7 @@ impl Config {
             short_ids,
             connect_timeout: self.connect_timeout(),
             idle_timeout: self.idle_timeout(),
+            max_session_lifetime: self.max_session_lifetime(),
         })
     }
 
@@ -490,9 +512,13 @@ impl Config {
         println!("Configuration OK: {}", path.display());
         println!("  listen:  {}", self.server.listen);
         println!(
-            "  timeouts: connect={}s, idle={}",
+            "  timeouts: connect={}s, idle={}, max_lifetime={}",
             self.server.timeouts.connect_timeout_secs,
             match self.idle_timeout() {
+                Some(d) => format!("{}s", d.as_secs()),
+                None => "disabled".to_string(),
+            },
+            match self.max_session_lifetime() {
                 Some(d) => format!("{}s", d.as_secs()),
                 None => "disabled".to_string(),
             }

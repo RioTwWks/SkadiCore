@@ -53,13 +53,13 @@
 - [x] `copy_bidirectional` между inbound и outbound
 - [x] Таймаут на установку соединения (connect timeout, 10 с)
 - [x] Таймаут неактивности (idle timeout)
-- [ ] Максимальная длительность сессии (max session lifetime)
+- [x] Максимальная длительность сессии (max session lifetime)
 - [x] Лимит одновременных соединений (backpressure)
-- [ ] Нагрузочные тесты (`wrk` / `iperf3`)
+- [x] Нагрузочные тесты (Rust e2e: 64 conn в CI, 512 — `#[ignore]`)
 - [ ] Юнит-тесты TCP-форвардера без протокольного слоя
 
 **Критерий готовности:** простой TCP-форвардер под нагрузкой без утечек.
-🟡 **Частично** — релей, idle timeout, max_connections; load-тесты — нет.
+🟢 **Готово** — релей, idle/lifetime, max_connections, базовые load-тесты.
 
 ---
 
