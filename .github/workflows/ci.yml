@@ -84,14 +84,15 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: cargo miri setup
-        run: cargo miri setup
+        # rust-toolchain.toml pins stable; Miri lives on nightly only.
+        run: cargo +nightly miri setup
 
       - name: cargo miri test (parsers)
         env:
           MIRIFLAGS: -Zmiri-disable-isolation
         run: |
-          cargo miri test -p skadi-protocol
-          cargo miri test -p skadi-server --lib connection_gate
+          cargo +nightly miri test -p skadi-protocol
+          cargo +nightly miri test -p skadi-server --lib connection_gate
 
   benchmarks:
     name: Benchmarks (criterion smoke)
