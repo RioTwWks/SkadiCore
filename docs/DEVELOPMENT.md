@@ -299,6 +299,34 @@ Fuzzer находит новые пути бесконечно. Через 5 м�
 
 ---
 
+## Качество и безопасность зависимостей
+
+### cargo deny
+
+Проверка лицензий, advisories и дубликатов:
+
+```bash
+cargo install cargo-deny --locked
+cargo deny check
+```
+
+Конфигурация: `deny.toml` в корне репозитория. Запускается в CI (job `cargo deny`).
+
+### Покрытие тестами (tarpaulin)
+
+```bash
+sudo apt-get install -y libssl-dev pkg-config
+cargo install cargo-tarpaulin --locked
+cargo tarpaulin \
+  -p skadi-core -p skadi-transport -p skadi-protocol -p skadi-api -p skadi-server \
+  --exclude-files 'third_party/*' \
+  --fail-under 70
+```
+
+Порог **70%** enforced в CI (job `Coverage (tarpaulin)`). Vendored `third_party/` исключается из отчёта.
+
+---
+
 ## Нагрузочное тестирование
 
 ### Автотесты (Rust)

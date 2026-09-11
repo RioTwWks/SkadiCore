@@ -184,14 +184,14 @@
 - [x] Интеграционные тесты TLS + REALITY (7 тестов в `skadi-server/tests/`)
 - [x] Fuzz-таргеты для SOCKS5 и VLESS
 - [x] `cargo audit` в CI
-- [ ] Покрытие ≥ 70% (tarpaulin)
+- [x] Покрытие ≥ 70% (tarpaulin, CI, exclude third_party)
 - [ ] `cargo miri`
 - [ ] Бенчмарки (`criterion`)
-- [ ] Нагрузочные тесты (10k соединений)
-- [ ] `cargo deny`
+- [x] Нагрузочные тесты (64 conn CI, 512 `#[ignore]`; 10k — ручной прогон)
+- [x] `cargo deny` (CI + deny.toml)
 - [ ] Soak-тесты на утечки памяти
 
-🟡 **Частично** — базовые тесты и audit есть.
+🟡 **Частично** — tarpaulin/deny в CI; miri/benchmarks/soak — нет.
 
 ---
 
@@ -232,18 +232,18 @@
 - [x] README и docs/
 - [x] Лицензия AGPL-3.0-or-later
 - [ ] Статический musl-бинарник (кросс-компиляция)
-- [ ] Prometheus-метрики
-- [ ] Проверка реальным VLESS-клиентом
+- [x] Prometheus-метрики
+- [x] Проверка реальным VLESS-клиентом
 
 ---
 
 ## 📍 Следующие приоритеты
 
-1. **Prometheus-метрики** (этап 7) — наблюдаемость
-2. **REALITY** (этап 5) — после стабилизации VLESS+TLS
-3. **gRPC API** (этап 6) — управление пользователями
-4. **Idle timeout / backpressure** (этап 1) — устойчивость под нагрузкой
-5. **`--check-config`** и документация `openssl s_client` / `curl --socks5`
+1. **Кросс-компиляция musl** (этап 10) — статический Linux-бинарник
+2. **UDP/Mux/Vision** (этап 4) — расширенная совместимость с Xray
+3. **TLS outbound** (этап 3) — клиентский режим
+4. **cargo miri + criterion** (этап 9) — глубокая проверка и бенчмарки
+5. **Smoke-доки** — `curl --socks5`, `openssl s_client` в DEVELOPMENT.md
 
 ---
 

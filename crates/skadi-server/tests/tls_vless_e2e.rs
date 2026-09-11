@@ -2,13 +2,12 @@
 
 use rcgen::generate_simple_self_signed;
 use rustls::RootCertStore;
-use rustls_pemfile::certs;
-use rustls_pki_types::ServerName;
+use rustls_pki_types::pem::PemObject;
+use rustls_pki_types::{CertificateDer, ServerName};
 use skadi_protocol::vless::{build_response_header, build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
 use skadi_server::config::{Config, ProtocolConfig, ServerConfig, TlsConfig, TransportConfig};
 use skadi_server::run_server;
-use std::io::Cursor;
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -99,8 +98,7 @@ async fn tls_connect(
     cert_pem: &str,
 ) -> tokio_rustls::client::TlsStream<TcpStream> {
     let mut root_store = RootCertStore::empty();
-    let mut cert_reader = Cursor::new(cert_pem.as_bytes());
-    let cert_der = certs(&mut cert_reader).next().unwrap().unwrap();
+    let cert_der = CertificateDer::from_pem_slice(cert_pem.as_bytes()).unwrap();
     root_store.add(cert_der).unwrap();
 
     let client_config = rustls::ClientConfig::builder()

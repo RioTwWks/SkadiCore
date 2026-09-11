@@ -4,11 +4,9 @@ use anyhow::{Context, Result};
 use rustls::server::{ClientHello, ResolvesServerCert};
 use rustls::sign::CertifiedKey;
 use rustls::ServerConfig;
-use rustls_pemfile::{certs, private_key};
+use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::{CertificateDer, PrivateKeyDer};
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::BufReader;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
@@ -220,11 +218,8 @@ pub(crate) fn ensure_crypto_provider() -> Result<()> {
 }
 
 fn load_certs(path: &str) -> Result<Vec<CertificateDer<'static>>> {
-    let file = File::open(Path::new(path))
-        .with_context(|| format!("cannot open certificate file: {}", path))?;
-    let mut reader = BufReader::new(file);
-
-    let certs: Vec<CertificateDer<'static>> = certs(&mut reader)
+    let certs: Vec<CertificateDer<'static>> = CertificateDer::pem_file_iter(Path::new(path))
+        .map_err(|e| anyhow::anyhow!("cannot open certificate file {}: {}", path, e))?
         .collect::<Result<Vec<_>, _>>()
         .with_context(|| format!("failed to parse certificates from {}", path))?;
 
@@ -236,11 +231,6 @@ fn load_certs(path: &str) -> Result<Vec<CertificateDer<'static>>> {
 }
 
 fn load_private_key(path: &str) -> Result<PrivateKeyDer<'static>> {
-    let file = File::open(Path::new(path))
-        .with_context(|| format!("cannot open private key file: {}", path))?;
-    let mut reader = BufReader::new(file);
-
-    private_key(&mut reader)
-        .with_context(|| format!("failed to parse private key from {}", path))?
-        .ok_or_else(|| anyhow::anyhow!(TlsError::NoPrivateKey))
+    PrivateKeyDer::from_pem_file(Path::new(path))
+        .map_err(|e| anyhow::anyhow!("failed to parse private key from {}: {}", path, e))
 }

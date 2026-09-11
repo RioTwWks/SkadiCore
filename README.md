@@ -62,7 +62,7 @@ SkadiCore — это попытка собрать в одном ядре сил
 - [x] `skadicore genkey reality` — генерация ключей REALITY.
 - [x] gRPC API: hot reload VLESS/SOCKS5 users (`[api]`, Bearer token).
 - [x] Observability: Prometheus `/metrics`, `/healthz`, `--log-format`.
-- [x] CI: `fmt`, `clippy`, `test`, `audit`.
+- [x] CI: `fmt`, `clippy`, `test`, `audit`, `deny`, tarpaulin ≥70%.
 - [x] Fuzz-таргеты SOCKS5/VLESS; 29+ автотестов (парсеры + TLS/REALITY e2e).
 - [x] Документация: `docs/`, `.cursor/` для AI-агентов.
 
