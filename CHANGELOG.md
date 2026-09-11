@@ -11,6 +11,15 @@
 
 ### Added
 
+- **TLS inbound в `skadi-server`**
+  - Секция `[transport.tls]` в конфиге: `enabled`, `cert`, `key`, `alpn`.
+  - TLS handshake после `accept()`, до протокольного handshake.
+  - TLS 1.3 only, загрузка PEM, автоматическая установка ring crypto provider.
+  - Интеграционный тест `tls_socks5_e2e`: SOCKS5 CONNECT поверх TLS.
+
+- **`skadi-server` как библиотека**
+  - `skadi_server::run()` и `run_server()` для тестов.
+
 - **`.cursor/` — вспомогательные файлы для AI-агентов**
   - `rules.md` — архитектурные ограничения, стиль, антипаттерны.
   - `context.md` — снимок структуры крейтов и текущего статуса.

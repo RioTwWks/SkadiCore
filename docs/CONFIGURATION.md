@@ -13,6 +13,7 @@
 
 - [Общая структура](#общая-структура)
 - [Секция `[server]`](#секция-server)
+- [Секция `[transport.tls]`](#секция-transporttls)
 - [Секция `[protocol.socks5]`](#секция-protocolsocks5)
 - [Секция `[protocol.vless]`](#секция-protocolvless)
 - [Валидация](#валидация)
@@ -35,6 +36,7 @@ skadicore --config /etc/skadicore/config.toml
 
 ```toml
 [server]              # обязательно
+[transport.tls]       # опционально
 [protocol.socks5]     # опционально
 [protocol.vless]      # опционально
 ```
@@ -78,6 +80,62 @@ listen = "0.0.0.0:443"
 - Unix-сокеты (пока).
 - Диапазоны портов.
 - Несколько адресов в одном поле.
+
+---
+
+## Секция `[transport.tls]`
+
+TLS-обёртка для **входящих** соединений. Рекомендуется для VLESS
+в любых условиях, кроме локальной отладки.
+
+### `enabled`
+
+**Тип**: `bool`
+**По умолчанию**: `false`
+
+```toml
+[transport.tls]
+enabled = true
+cert = "certs/server.pem"
+key = "certs/server.key"
+```
+
+### `cert`
+
+**Тип**: `String`
+**Обязательно**: если `enabled = true`
+
+Путь к PEM-файлу с цепочкой сертификатов сервера.
+
+### `key`
+
+**Тип**: `String`
+**Обязательно**: если `enabled = true`
+
+Путь к PEM-файлу с приватным ключом (PKCS#8, RSA или EC).
+
+### `alpn`
+
+**Тип**: массив строк
+**По умолчанию**: `[]`
+
+ALPN-протоколы для TLS handshake:
+
+```toml
+alpn = ["h2", "http/1.1"]
+```
+
+**Ограничения**:
+
+- Только TLS 1.3 (настроено в коде).
+- Проверка клиентского сертификата отключена (`with_no_client_auth`).
+- При `enabled = true` файлы `cert` и `key` проверяются при старте.
+
+**Порядок обработки**:
+
+```
+TCP accept → TLS handshake → протокол (SOCKS5/VLESS) → upstream TCP
+```
 
 ---
 

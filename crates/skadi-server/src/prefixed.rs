@@ -1,25 +1,24 @@
-//! Обёртка над TcpStream, возвращающая один «заглянутый» байт при первом чтении.
+//! Обёртка над потоком, возвращающая один «заглянутый» байт при первом чтении.
 //! Нужна для дискриминации протокола на общем порту (SOCKS5 vs VLESS).
 
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tokio::net::TcpStream;
 
-/// TCP-поток с опциональным префиксным байтом (уже прочитанным при sniffing).
-pub struct PrefixedTcpStream {
-    inner: TcpStream,
+/// Поток с опциональным префиксным байтом (уже прочитанным при sniffing).
+pub struct PrefixedStream<S> {
+    inner: S,
     prefix: Option<u8>,
 }
 
-impl PrefixedTcpStream {
-    pub fn new(inner: TcpStream, prefix: Option<u8>) -> Self {
+impl<S> PrefixedStream<S> {
+    pub fn new(inner: S, prefix: Option<u8>) -> Self {
         Self { inner, prefix }
     }
 }
 
-impl AsyncRead for PrefixedTcpStream {
+impl<S: AsyncRead + Unpin> AsyncRead for PrefixedStream<S> {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -38,7 +37,7 @@ impl AsyncRead for PrefixedTcpStream {
     }
 }
 
-impl AsyncWrite for PrefixedTcpStream {
+impl<S: AsyncWrite + Unpin> AsyncWrite for PrefixedStream<S> {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
