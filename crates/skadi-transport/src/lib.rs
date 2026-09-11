@@ -4,4 +4,4 @@ pub mod tcp;
 pub mod tls;
 
 pub use tcp::TcpTransport;
-pub use tls::{TlsError, TlsServerConfig, TlsTransport};
+pub use tls::{TlsCertPaths, TlsError, TlsServerConfig, TlsSniCert, TlsTransport};

@@ -101,6 +101,7 @@ async fn socks5_over_tls_connect_and_relay() {
                 cert: Some(cert_path.to_string_lossy().into_owned()),
                 key: Some(key_path.to_string_lossy().into_owned()),
                 alpn: vec!["http/1.1".into()],
+                certificates: vec![],
             },
         },
     };
