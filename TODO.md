@@ -200,7 +200,8 @@
 
 ## 📦 Этап 10: Релиз и распространение
 
-- [ ] Кросс-компиляция (musl, Windows, macOS)
+- [x] Кросс-компиляция musl (x86_64, CI + `scripts/build-musl.sh`)
+- [ ] Кросс-компиляция (Windows, macOS, aarch64 musl)
 - [ ] Docker-образ
 - [ ] GitHub Releases
 - [x] Документация: README, ARCHITECTURE, PROTOCOLS, CONFIGURATION, DEVELOPMENT
@@ -239,15 +240,15 @@
 - [x] gRPC API (hot reload пользователей)
 - [x] `skadicore check-config` + SIGHUP reload
 - [x] Проверка реальным VLESS-клиентом (Xray-core e2e)
-- [ ] Статический musl-бинарник (кросс-компиляция)
+- [x] Статический musl-бинарник (x86_64, CI)
 
-✅ **MVP v1 выполнен** — остаётся musl-сборка; miri/benchmarks/soak — этап 9.
+✅ **MVP v1 выполнен** — musl x86_64 в CI; soak — этап 9.
 
 ---
 
 ## 📍 Следующие приоритеты
 
-1. **Кросс-компиляция musl** (этап 10) — статический Linux-бинарник
+1. ~~**Кросс-компиляция musl** (этап 10)~~ — x86_64 ✅
 2. ~~**UDP/Mux/Vision** (этап 4)~~ — UDP + flow reject ✅; Mux — TODO
 3. **TLS outbound** (этап 3) — клиентский режим
 4. ~~**cargo miri + criterion** (этап 9)~~ ✅

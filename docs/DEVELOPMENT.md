@@ -99,21 +99,33 @@ panic = "abort"
 
 ### Кросс-компиляция (musl)
 
-Для статического бинарника без glibc-зависимостей:
+Статический Linux-бинарник без зависимости от glibc. Линкер
+настроен в `.cargo/config.toml` (`musl-gcc` / `aarch64-linux-musl-gcc`).
+
+**Быстрый путь (x86_64):**
+
+```bash
+sudo apt install musl-tools   # Debian/Ubuntu
+./scripts/build-musl.sh
+```
+
+**Вручную:**
 
 ```bash
 rustup target add x86_64-unknown-linux-musl
-cargo build --release --target x86_64-unknown-linux-musl
+cargo build --release -p skadi-server --target x86_64-unknown-linux-musl
+file target/x86_64-unknown-linux-musl/release/skadicore
+# ожидается: statically linked / static-pie
 ```
 
-Для ARM (роутеры, Raspberry Pi):
+**ARM64 (aarch64):** нужен кросс-компилятор `aarch64-linux-musl-gcc`
+(см. [musl.cc](https://musl.cc/)) или сборка на самом устройстве:
 
 ```bash
-rustup target add aarch64-unknown-linux-musl
-cargo build --release --target aarch64-unknown-linux-musl
+TARGET=aarch64-unknown-linux-musl ./scripts/build-musl.sh
 ```
 
-Готовый бинарник — в `target/<target>/release/skadicore`.
+CI проверяет `x86_64-unknown-linux-musl` на каждом PR (job `musl`).
 
 ---
 
