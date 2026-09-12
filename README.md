@@ -231,7 +231,7 @@ Reply-коды соответствуют спецификации. Пароли
 - [x] TCP CONNECT
 - [x] Ответный заголовок (2 байта)
 - [ ] UDP
-- [ ] Mux
+- [x] Mux (TCP/UDP)
 - [ ] Flow `xtls-rprx-vision`
 
 VLESS рекомендуется поверх `[transport.tls]`. Без TLS — только для отладки.
