@@ -1,8 +1,8 @@
-//! VLESS Mux relay (Xray `common/mux` server worker, TCP sessions).
+//! VLESS Mux relay (Xray `common/mux` server worker, TCP/UDP sessions).
 
 use skadi_protocol::vless::mux::{
     encode_data_frame, encode_end_frame, parse_meta_body, MuxError, MuxMeta, NETWORK_TCP,
-    OPTION_DATA, SESSION_STATUS_END, SESSION_STATUS_KEEP, SESSION_STATUS_KEEP_ALIVE,
+    NETWORK_UDP, OPTION_DATA, SESSION_STATUS_END, SESSION_STATUS_KEEP, SESSION_STATUS_KEEP_ALIVE,
     SESSION_STATUS_NEW,
 };
 use std::collections::HashMap;
@@ -10,17 +10,37 @@ use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::net::UdpSocket;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tracing::{debug, warn};
 
 use crate::outbound::{OutboundTcpTransport, TcpUpstream};
 use crate::relay::{RelayLimits, IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG};
-use crate::udp::UdpTransport;
+use crate::udp::{UdpTransport, MAX_VLESS_UDP_PAYLOAD};
 
 struct TcpMuxSession {
     upstream: Arc<Mutex<TcpUpstream>>,
     reader_task: JoinHandle<()>,
+}
+
+struct UdpMuxSession {
+    upstream: Arc<Mutex<UdpSocket>>,
+    reader_task: JoinHandle<()>,
+}
+
+enum MuxSession {
+    Tcp(TcpMuxSession),
+    Udp(UdpMuxSession),
+}
+
+impl MuxSession {
+    fn abort(self) {
+        match self {
+            Self::Tcp(s) => s.reader_task.abort(),
+            Self::Udp(s) => s.reader_task.abort(),
+        }
+    }
 }
 
 struct MuxWriter<W> {
@@ -60,11 +80,11 @@ where
     }
 }
 
-/// Relay VLESS Mux: мультиплексирование TCP-сессий поверх одного VLESS-соединения.
+/// Relay VLESS Mux: мультиплексирование TCP/UDP-сессий поверх одного VLESS-соединения.
 pub async fn relay_vless_mux_with_limits<C>(
     client: C,
     outbound_tcp: OutboundTcpTransport,
-    _outbound_udp: UdpTransport,
+    outbound_udp: UdpTransport,
     limits: RelayLimits,
 ) -> io::Result<(u64, u64)>
 where
@@ -72,7 +92,7 @@ where
 {
     let (mut reader, writer) = tokio::io::split(client);
     let writer = MuxWriter::new(Arc::new(Mutex::new(writer)));
-    let sessions: Arc<Mutex<HashMap<u16, TcpMuxSession>>> = Arc::new(Mutex::new(HashMap::new()));
+    let sessions: Arc<Mutex<HashMap<u16, MuxSession>>> = Arc::new(Mutex::new(HashMap::new()));
     let mut client_to_upstream = 0u64;
     let mut upstream_to_client = 0u64;
 
@@ -106,6 +126,7 @@ where
                         let bytes = match handle_mux_frame(
                             &frame,
                             &outbound_tcp,
+                            &outbound_udp,
                             &writer,
                             &sessions,
                         ).await {
@@ -126,7 +147,7 @@ where
     {
         let mut guard = sessions.lock().await;
         for (_, session) in guard.drain() {
-            session.reader_task.abort();
+            session.abort();
         }
     }
 
@@ -141,8 +162,9 @@ struct RelayBytes {
 async fn handle_mux_frame<W>(
     frame: &skadi_protocol::vless::mux::MuxFrame,
     outbound_tcp: &OutboundTcpTransport,
+    outbound_udp: &UdpTransport,
     writer: &MuxWriter<W>,
-    sessions: &Arc<Mutex<HashMap<u16, TcpMuxSession>>>,
+    sessions: &Arc<Mutex<HashMap<u16, MuxSession>>>,
 ) -> io::Result<RelayBytes>
 where
     W: AsyncWrite + Unpin + Send + 'static,
@@ -158,75 +180,34 @@ where
                 io::Error::new(io::ErrorKind::InvalidData, "mux new frame without target")
             })?;
             let network = frame.meta.network.unwrap_or(NETWORK_TCP);
-            if network != NETWORK_TCP {
-                warn!(network, "mux UDP sessions are not supported yet");
-                writer.write_end(frame.meta.session_id).await?;
-                return Ok(bytes);
-            }
 
-            let mut upstream = outbound_tcp
-                .connect(target)
-                .await
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-
-            if let Some(payload) = &frame.payload {
-                upstream.write_all(payload).await?;
-                bytes.client_to_upstream += payload.len() as u64;
-            }
-
-            let upstream = Arc::new(Mutex::new(upstream));
-            let session_id = frame.meta.session_id;
-            let writer_clone = writer.inner.clone();
-            let sessions_clone = Arc::clone(sessions);
-            let upstream_for_reader = Arc::clone(&upstream);
-            let reader_task = tokio::spawn(async move {
-                let mux_writer = MuxWriter::new(writer_clone);
-                if let Err(e) =
-                    pump_upstream_to_client(session_id, upstream_for_reader, &mux_writer).await
-                {
-                    debug!(session = session_id, error = %e, "mux upstream reader finished");
+            match network {
+                NETWORK_TCP => {
+                    open_tcp_session(frame, target, outbound_tcp, writer, sessions, &mut bytes)
+                        .await?;
                 }
-                sessions_clone.lock().await.remove(&session_id);
-            });
-
-            sessions.lock().await.insert(
-                session_id,
-                TcpMuxSession {
-                    upstream,
-                    reader_task,
-                },
-            );
-
-            debug!(session = session_id, target = %target, "mux session opened");
+                NETWORK_UDP => {
+                    open_udp_session(frame, target, outbound_udp, writer, sessions, &mut bytes)
+                        .await?;
+                }
+                other => {
+                    warn!(network = other, "unknown mux network");
+                    writer.write_end(frame.meta.session_id).await?;
+                }
+            }
         }
 
         SESSION_STATUS_KEEP => {
-            let upstream = {
-                let guard = sessions.lock().await;
-                guard
-                    .get(&frame.meta.session_id)
-                    .map(|session| Arc::clone(&session.upstream))
-            };
-            if let Some(upstream) = upstream {
-                if let Some(payload) = &frame.payload {
-                    let mut upstream = upstream.lock().await;
-                    upstream.write_all(payload).await?;
-                    bytes.client_to_upstream += payload.len() as u64;
-                }
-            } else {
-                writer.write_end(frame.meta.session_id).await?;
-            }
+            forward_keep_frame(frame, writer, sessions, &mut bytes).await?;
         }
 
         SESSION_STATUS_END => {
             if let Some(session) = sessions.lock().await.remove(&frame.meta.session_id) {
-                session.reader_task.abort();
+                session.abort();
             }
         }
 
-        SESSION_STATUS_KEEP_ALIVE => {
-            // Heartbeat — payload отбрасывается.
-        }
+        SESSION_STATUS_KEEP_ALIVE => {}
 
         other => {
             return Err(io::Error::new(
@@ -239,7 +220,152 @@ where
     Ok(bytes)
 }
 
-async fn pump_upstream_to_client<W>(
+async fn open_tcp_session<W>(
+    frame: &skadi_protocol::vless::mux::MuxFrame,
+    target: &skadi_core::Endpoint,
+    outbound_tcp: &OutboundTcpTransport,
+    writer: &MuxWriter<W>,
+    sessions: &Arc<Mutex<HashMap<u16, MuxSession>>>,
+    bytes: &mut RelayBytes,
+) -> io::Result<()>
+where
+    W: AsyncWrite + Unpin + Send + 'static,
+{
+    let mut upstream = outbound_tcp
+        .connect(target)
+        .await
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+
+    if let Some(payload) = &frame.payload {
+        upstream.write_all(payload).await?;
+        bytes.client_to_upstream += payload.len() as u64;
+    }
+
+    let upstream = Arc::new(Mutex::new(upstream));
+    let session_id = frame.meta.session_id;
+    let writer_clone = writer.inner.clone();
+    let sessions_clone = Arc::clone(sessions);
+    let upstream_for_reader = Arc::clone(&upstream);
+    let reader_task = tokio::spawn(async move {
+        let mux_writer = MuxWriter::new(writer_clone);
+        if let Err(e) =
+            pump_tcp_upstream_to_client(session_id, upstream_for_reader, &mux_writer).await
+        {
+            debug!(session = session_id, error = %e, "mux tcp upstream reader finished");
+        }
+        sessions_clone.lock().await.remove(&session_id);
+    });
+
+    sessions.lock().await.insert(
+        session_id,
+        MuxSession::Tcp(TcpMuxSession {
+            upstream,
+            reader_task,
+        }),
+    );
+
+    debug!(session = session_id, target = %target, network = "tcp", "mux session opened");
+    Ok(())
+}
+
+async fn open_udp_session<W>(
+    frame: &skadi_protocol::vless::mux::MuxFrame,
+    target: &skadi_core::Endpoint,
+    outbound_udp: &UdpTransport,
+    writer: &MuxWriter<W>,
+    sessions: &Arc<Mutex<HashMap<u16, MuxSession>>>,
+    bytes: &mut RelayBytes,
+) -> io::Result<()>
+where
+    W: AsyncWrite + Unpin + Send + 'static,
+{
+    let upstream = outbound_udp
+        .connect(target)
+        .await
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+
+    if let Some(payload) = &frame.payload {
+        if !payload.is_empty() {
+            upstream.send(payload).await?;
+            bytes.client_to_upstream += payload.len() as u64;
+        }
+    }
+
+    let upstream = Arc::new(Mutex::new(upstream));
+    let session_id = frame.meta.session_id;
+    let writer_clone = writer.inner.clone();
+    let sessions_clone = Arc::clone(sessions);
+    let upstream_for_reader = Arc::clone(&upstream);
+    let reader_task = tokio::spawn(async move {
+        let mux_writer = MuxWriter::new(writer_clone);
+        if let Err(e) =
+            pump_udp_upstream_to_client(session_id, upstream_for_reader, &mux_writer).await
+        {
+            debug!(session = session_id, error = %e, "mux udp upstream reader finished");
+        }
+        sessions_clone.lock().await.remove(&session_id);
+    });
+
+    sessions.lock().await.insert(
+        session_id,
+        MuxSession::Udp(UdpMuxSession {
+            upstream,
+            reader_task,
+        }),
+    );
+
+    debug!(session = session_id, target = %target, network = "udp", "mux session opened");
+    Ok(())
+}
+
+async fn forward_keep_frame<W>(
+    frame: &skadi_protocol::vless::mux::MuxFrame,
+    writer: &MuxWriter<W>,
+    sessions: &Arc<Mutex<HashMap<u16, MuxSession>>>,
+    bytes: &mut RelayBytes,
+) -> io::Result<()>
+where
+    W: AsyncWrite + Unpin + Send + 'static,
+{
+    let session_id = frame.meta.session_id;
+    let payload = frame.payload.as_deref().filter(|p| !p.is_empty());
+
+    let upstream = {
+        let guard = sessions.lock().await;
+        match guard.get(&session_id) {
+            Some(MuxSession::Tcp(s)) => UpstreamHandle::Tcp(Arc::clone(&s.upstream)),
+            Some(MuxSession::Udp(s)) => UpstreamHandle::Udp(Arc::clone(&s.upstream)),
+            None => UpstreamHandle::Missing,
+        }
+    };
+
+    match upstream {
+        UpstreamHandle::Missing => {
+            writer.write_end(session_id).await?;
+        }
+        UpstreamHandle::Tcp(upstream) if payload.is_some() => {
+            let mut upstream = upstream.lock().await;
+            upstream.write_all(payload.unwrap()).await?;
+            bytes.client_to_upstream += payload.unwrap().len() as u64;
+        }
+        UpstreamHandle::Udp(upstream) if payload.is_some() => {
+            let upstream = upstream.lock().await;
+            upstream.send(payload.unwrap()).await?;
+            bytes.client_to_upstream += payload.unwrap().len() as u64;
+        }
+        _ => {}
+    }
+
+    Ok(())
+}
+
+enum UpstreamHandle {
+    Missing,
+    Tcp(Arc<Mutex<TcpUpstream>>),
+    Udp(Arc<Mutex<UdpSocket>>),
+}
+
+async fn pump_tcp_upstream_to_client<W>(
     session_id: u16,
     upstream: Arc<Mutex<TcpUpstream>>,
     writer: &MuxWriter<W>,
@@ -262,6 +388,43 @@ where
         writer
             .write_data(session_id, SESSION_STATUS_KEEP, &buf[..n])
             .await?;
+    }
+
+    writer.write_end(session_id).await?;
+    Ok(())
+}
+
+async fn pump_udp_upstream_to_client<W>(
+    session_id: u16,
+    upstream: Arc<Mutex<UdpSocket>>,
+    writer: &MuxWriter<W>,
+) -> io::Result<()>
+where
+    W: AsyncWrite + Unpin + Send,
+{
+    let mut buf = vec![0u8; MAX_VLESS_UDP_PAYLOAD];
+
+    loop {
+        let recv = {
+            let upstream = upstream.lock().await;
+            upstream.recv(&mut buf).await
+        };
+
+        match recv {
+            Ok(n) => {
+                if writer
+                    .write_data(session_id, SESSION_STATUS_KEEP, &buf[..n])
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+            }
+            Err(e) => {
+                debug!(session = session_id, error = %e, "mux udp recv ended");
+                break;
+            }
+        }
     }
 
     writer.write_end(session_id).await?;
