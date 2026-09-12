@@ -82,7 +82,10 @@ impl OutboundTcpTransport {
     }
 
     pub fn tls(connect_timeout: Duration, config: &TlsClientConfig) -> Result<Self> {
-        Ok(Self::Tls(TlsOutboundTransport::new(connect_timeout, config)?))
+        Ok(Self::Tls(TlsOutboundTransport::new(
+            connect_timeout,
+            config,
+        )?))
     }
 
     pub async fn connect(&self, endpoint: &Endpoint) -> Result<TcpUpstream> {

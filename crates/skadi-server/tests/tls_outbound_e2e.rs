@@ -15,19 +15,15 @@ use tokio_rustls::TlsAcceptor;
 
 const TEST_USER_ID: &str = "b831381d-6324-4d53-ad4f-8cda48b30811";
 
-async fn spawn_tls_echo_server(
-    cert_pem: &str,
-    key_pem: &str,
-) -> std::net::SocketAddr {
+async fn spawn_tls_echo_server(cert_pem: &str, key_pem: &str) -> std::net::SocketAddr {
     use rustls::ServerConfig;
     use rustls_pki_types::pem::PemObject;
     use rustls_pki_types::{CertificateDer, PrivateKeyDer};
     use std::sync::Arc;
 
-    let certs: Vec<CertificateDer<'static>> =
-        CertificateDer::pem_slice_iter(cert_pem.as_bytes())
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
+    let certs: Vec<CertificateDer<'static>> = CertificateDer::pem_slice_iter(cert_pem.as_bytes())
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
     let key = PrivateKeyDer::from_pem_slice(key_pem.as_bytes()).unwrap();
 
     let server_config = ServerConfig::builder()
