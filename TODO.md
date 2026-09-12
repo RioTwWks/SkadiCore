@@ -114,7 +114,7 @@
 - [x] Интеграционный тест over TLS (`tls_vless_e2e`)
 - [x] Проверка с реальным клиентом (Xray-core e2e; v2rayNG / Nekoray совместимы)
 - [x] UDP over VLESS
-- [ ] Mux
+- [x] Mux (TCP, Xray wire format; UDP/XUDP — TODO)
 - [x] Flow `xtls-rprx-vision` (явный reject + парсинг addons)
 
 **Критерий готовности:** VLESS TCP over TLS, клиент v2rayNG работает.  
@@ -250,7 +250,7 @@
 ## 📍 Следующие приоритеты
 
 1. ~~**Кросс-компиляция musl** (этап 10)~~ — x86_64 ✅
-2. ~~**UDP/Mux/Vision** (этап 4)~~ — UDP + flow reject ✅; Mux — TODO
+2. ~~**UDP/Mux/Vision** (этап 4)~~ — UDP + Mux TCP + flow reject ✅; Mux UDP/XUDP — TODO
 3. ~~**TLS outbound** (этап 3)~~ ✅
 4. ~~**cargo miri + criterion** (этап 9)~~ ✅
 5. ~~**Smoke-доки**~~ ✅ — `curl --socks5`, `openssl s_client` в DEVELOPMENT.md

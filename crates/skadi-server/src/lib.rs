@@ -15,13 +15,13 @@ use config::Config;
 use prefixed::PrefixedStream;
 use skadi_core::Session;
 use skadi_protocol::{
-    Socks5Handler, VlessHandler, CMD_TCP, CMD_UDP, REP_CONNECTION_REFUSED, REP_GENERAL_FAILURE,
-    REP_HOST_UNREACHABLE, REP_SUCCEEDED,
+    Socks5Handler, VlessHandler, CMD_MUX, CMD_TCP, CMD_UDP, REP_CONNECTION_REFUSED,
+    REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE, REP_SUCCEEDED,
 };
 use skadi_transport::{
-    copy_bidirectional_with_limits, relay_vless_udp_with_limits, OutboundTcpTransport,
-    RealityError, RealityTransport, RelayLimits, TlsTransport, UdpTransport, IDLE_TIMEOUT_MSG,
-    SESSION_LIFETIME_MSG,
+    copy_bidirectional_with_limits, relay_vless_mux_with_limits, relay_vless_udp_with_limits,
+    OutboundTcpTransport, RealityError, RealityTransport, RelayLimits, TlsTransport, UdpTransport,
+    IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG,
 };
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -344,7 +344,7 @@ async fn handle_connection<S>(
     relay_limits: RelayLimits,
 ) -> Result<()>
 where
-    S: AsyncRead + AsyncWrite + Unpin,
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     let socks_config = user_store.socks5_config();
     let vless_config = user_store.vless_config();
@@ -388,10 +388,23 @@ where
     let protocol_label = match protocol {
         ProtocolKind::Socks5 => "socks5",
         ProtocolKind::Vless if vless_command == CMD_UDP => "vless-udp",
+        ProtocolKind::Vless if vless_command == CMD_MUX => "vless-mux",
         ProtocolKind::Vless => "vless",
     };
 
     observability::connection_opened(protocol_label);
+
+    if protocol == ProtocolKind::Vless && vless_command == CMD_MUX {
+        info!(
+            session = ?session.id,
+            protocol = "vless-mux",
+            "mux session started"
+        );
+
+        let relay =
+            relay_vless_mux_with_limits(stream, outbound_tcp, outbound_udp, relay_limits).await;
+        return finish_relay(session.id, protocol_label, relay);
+    }
 
     if protocol == ProtocolKind::Vless && vless_command == CMD_UDP {
         let mut upstream = match outbound_udp.connect(&target).await {

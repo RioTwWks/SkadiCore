@@ -1,5 +1,6 @@
 //! Транспортный слой: TCP, TLS, REALITY.
 
+pub mod mux;
 pub mod outbound;
 pub mod reality;
 pub mod relay;
@@ -8,6 +9,7 @@ pub mod tls;
 pub mod tls_client;
 pub mod udp;
 
+pub use mux::relay_vless_mux_with_limits;
 pub use outbound::{OutboundTcpTransport, TcpUpstream};
 pub use reality::{RealityError, RealityServerConfig, RealityTransport};
 pub use relay::{

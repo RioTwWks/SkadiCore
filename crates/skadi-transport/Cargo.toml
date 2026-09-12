@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 skadi-core.workspace = true
+skadi-protocol.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 anyhow.workspace = true

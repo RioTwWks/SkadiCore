@@ -6,13 +6,20 @@
 pub mod addons;
 pub mod config;
 pub mod handler;
+pub mod mux;
 pub mod parse;
 
 pub use addons::{build_addons_with_flow, parse_addons, VlessAddons, FLOW_XTLS_VISION};
 pub use config::{Uuid, UuidParseError, VlessConfig, VlessUser};
 pub use handler::{VlessHandler, VlessHandshake};
+pub use mux::{
+    encode_data_frame, encode_end_frame, encode_meta, parse_frame, parse_meta_body, MuxError,
+    MuxFrame, MuxMeta, NETWORK_TCP, NETWORK_UDP, OPTION_DATA, SESSION_STATUS_END,
+    SESSION_STATUS_KEEP, SESSION_STATUS_KEEP_ALIVE, SESSION_STATUS_NEW,
+};
 pub use parse::{
-    build_response_header, build_tcp_domain_request, build_tcp_request, build_udp_domain_request,
-    build_udp_request, parse_request, ParseError, VlessRequest, ATYP_DOMAIN, ATYP_IPV4, ATYP_IPV6,
-    CMD_MUX, CMD_TCP, CMD_UDP, VLESS_VERSION,
+    build_mux_request, build_response_header, build_tcp_domain_request, build_tcp_request,
+    build_udp_domain_request, build_udp_request, encode_port_address, parse_port_address,
+    parse_request, ParseError, VlessRequest, ATYP_DOMAIN, ATYP_IPV4, ATYP_IPV6, CMD_MUX, CMD_TCP,
+    CMD_UDP, MUX_PLACEHOLDER_HOST, VLESS_VERSION,
 };
