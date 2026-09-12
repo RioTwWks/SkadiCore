@@ -14,8 +14,8 @@ pub use config::{Uuid, UuidParseError, VlessConfig, VlessUser};
 pub use handler::{VlessHandler, VlessHandshake};
 pub use mux::{
     encode_data_frame, encode_end_frame, encode_meta, parse_frame, parse_meta_body, MuxError,
-    MuxFrame, MuxMeta, NETWORK_TCP, NETWORK_UDP, OPTION_DATA, SESSION_STATUS_END,
-    SESSION_STATUS_KEEP, SESSION_STATUS_KEEP_ALIVE, SESSION_STATUS_NEW,
+    MuxFrame, MuxMeta, GLOBAL_ID_LEN, NETWORK_TCP, NETWORK_UDP, OPTION_DATA, SESSION_STATUS_END,
+    SESSION_STATUS_KEEP, SESSION_STATUS_KEEP_ALIVE, SESSION_STATUS_NEW, XUDP_SESSION_ID,
 };
 pub use parse::{
     build_mux_request, build_response_header, build_tcp_domain_request, build_tcp_request,

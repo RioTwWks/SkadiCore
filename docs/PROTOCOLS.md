@@ -383,8 +383,9 @@ B8 31 ... 08 11             — UUID (16 байт)
 
 ### Что НЕ реализовано
 
-- **XUDP.** UDP-сессии внутри Mux поддерживаются. XUDP (`GlobalID`,
-  порт 666) — не реализован.
+- **XUDP (частично).** Реализованы XUDP New/Keep кадры с `session_id=0`,
+  8-byte `GlobalID` и per-packet UDP-адресацией. GlobalID hit/reconnect
+  (Xray `XUDPManager`) — не реализован.
 - **Flow `xtls-rprx-vision`.** Парсится из addons, но явно
   отвергается. Клиенты, требующие Vision, не подключатся.
 - **Response addons.** Сервер всегда отвечает с `ADDONS_L = 0`.

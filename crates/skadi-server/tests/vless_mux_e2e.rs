@@ -62,6 +62,7 @@ fn build_mux_new_frame(target: SocketAddr, payload: &[u8]) -> Vec<u8> {
         option: OPTION_DATA,
         network: Some(NETWORK_TCP),
         target: Some(skadi_core::Endpoint::Ip(target)),
+        global_id: None,
     };
     encode_data_frame(&meta, payload).unwrap()
 }
