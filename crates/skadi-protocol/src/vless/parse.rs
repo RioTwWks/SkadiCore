@@ -9,6 +9,9 @@ pub const CMD_TCP: u8 = 0x01;
 pub const CMD_UDP: u8 = 0x02;
 pub const CMD_MUX: u8 = 0x03;
 
+/// Placeholder-адрес для VLESS Mux (как в Xray-core).
+pub const MUX_PLACEHOLDER_HOST: &str = "v1.mux.cool";
+
 pub const ATYP_IPV4: u8 = 0x01;
 pub const ATYP_DOMAIN: u8 = 0x02; // ⚠️ В VLESS домен — 0x02, а не 0x03!
 pub const ATYP_IPV6: u8 = 0x03;
@@ -90,9 +93,16 @@ pub fn parse_request(input: &[u8]) -> Result<(VlessRequest, usize), ParseError> 
         return Err(ParseError::UnsupportedCommand(command));
     }
 
-    // Для Mux порт и адрес не передаются — упростим, требуя TCP/UDP.
     if command == CMD_MUX {
-        return Err(ParseError::UnsupportedCommand(command));
+        return Ok((
+            VlessRequest {
+                uuid,
+                command,
+                addons,
+                target: Endpoint::Domain(MUX_PLACEHOLDER_HOST.to_string(), 0),
+            },
+            addons_end + 1,
+        ));
     }
 
     let after_cmd = addons_end + 1;
@@ -103,11 +113,34 @@ pub fn parse_request(input: &[u8]) -> Result<(VlessRequest, usize), ParseError> 
         });
     }
 
-    let port = u16::from_be_bytes([input[after_cmd], input[after_cmd + 1]]);
-    let atyp = input[after_cmd + 2];
-    let addr_start = after_cmd + 3;
+    let (target, consumed) = parse_port_address(&input[after_cmd..])?;
+    let consumed = after_cmd + consumed;
 
-    let (target, consumed) = match atyp {
+    Ok((
+        VlessRequest {
+            uuid,
+            command,
+            addons,
+            target,
+        },
+        consumed,
+    ))
+}
+
+/// Разбор `PORT + ATYP + ADDR` (порядок VLESS).
+pub fn parse_port_address(input: &[u8]) -> Result<(Endpoint, usize), ParseError> {
+    if input.len() < 3 {
+        return Err(ParseError::Incomplete {
+            need: 3,
+            have: input.len(),
+        });
+    }
+
+    let port = u16::from_be_bytes([input[0], input[1]]);
+    let atyp = input[2];
+    let addr_start = 3;
+
+    let (target, addr_len) = match atyp {
         ATYP_IPV4 => {
             if input.len() < addr_start + 4 {
                 return Err(ParseError::Incomplete {
@@ -121,10 +154,7 @@ pub fn parse_request(input: &[u8]) -> Result<(VlessRequest, usize), ParseError> 
                 input[addr_start + 2],
                 input[addr_start + 3],
             );
-            (
-                Endpoint::Ip(SocketAddr::new(IpAddr::V4(ip), port)),
-                addr_start + 4,
-            )
+            (Endpoint::Ip(SocketAddr::new(IpAddr::V4(ip), port)), 4)
         }
 
         ATYP_DOMAIN => {
@@ -154,7 +184,7 @@ pub fn parse_request(input: &[u8]) -> Result<(VlessRequest, usize), ParseError> 
             let domain = std::str::from_utf8(&input[addr_start + 1..domain_end])
                 .map_err(|_| ParseError::InvalidUtf8("domain"))?
                 .to_string();
-            (Endpoint::Domain(domain, port), domain_end)
+            (Endpoint::Domain(domain, port), 1 + dlen)
         }
 
         ATYP_IPV6 => {
@@ -167,24 +197,53 @@ pub fn parse_request(input: &[u8]) -> Result<(VlessRequest, usize), ParseError> 
             let mut octets = [0u8; 16];
             octets.copy_from_slice(&input[addr_start..addr_start + 16]);
             let ip = Ipv6Addr::from(octets);
-            (
-                Endpoint::Ip(SocketAddr::new(IpAddr::V6(ip), port)),
-                addr_start + 16,
-            )
+            (Endpoint::Ip(SocketAddr::new(IpAddr::V6(ip), port)), 16)
         }
 
         other => return Err(ParseError::UnsupportedAddressType(other)),
     };
 
-    Ok((
-        VlessRequest {
-            uuid,
-            command,
-            addons,
-            target,
-        },
-        consumed,
-    ))
+    Ok((target, addr_start + addr_len))
+}
+
+/// Закодировать `PORT + ATYP + ADDR`.
+pub fn encode_port_address(endpoint: &Endpoint) -> Vec<u8> {
+    match endpoint {
+        Endpoint::Ip(addr) => {
+            let mut buf = Vec::with_capacity(7);
+            buf.extend_from_slice(&addr.port().to_be_bytes());
+            match addr.ip() {
+                IpAddr::V4(ip) => {
+                    buf.push(ATYP_IPV4);
+                    buf.extend_from_slice(&ip.octets());
+                }
+                IpAddr::V6(ip) => {
+                    buf.push(ATYP_IPV6);
+                    buf.extend_from_slice(&ip.octets());
+                }
+            }
+            buf
+        }
+        Endpoint::Domain(domain, port) => {
+            let domain_bytes = domain.as_bytes();
+            let mut buf = Vec::with_capacity(4 + domain_bytes.len());
+            buf.extend_from_slice(&port.to_be_bytes());
+            buf.push(ATYP_DOMAIN);
+            buf.push(domain_bytes.len() as u8);
+            buf.extend_from_slice(domain_bytes);
+            buf
+        }
+    }
+}
+
+/// Собрать VLESS Mux-запрос (без addons, без port/address).
+pub fn build_mux_request(uuid: &[u8; 16]) -> Vec<u8> {
+    let mut buf = Vec::with_capacity(19);
+    buf.push(VLESS_VERSION);
+    buf.extend_from_slice(uuid);
+    buf.push(0);
+    buf.push(CMD_MUX);
+    buf
 }
 
 /// Собрать ответный заголовок VLESS. Всегда 2 байта.
@@ -341,6 +400,18 @@ mod tests {
         let buf = build_request(CMD_UDP, ATYP_IPV4, &[127, 0, 0, 1], 53);
         let (req, _) = parse_request(&buf).unwrap();
         assert_eq!(req.command, CMD_UDP);
+    }
+
+    #[test]
+    fn parse_mux_request_ok() {
+        let buf = build_mux_request(&[0u8; 16]);
+        let (req, len) = parse_request(&buf).unwrap();
+        assert_eq!(len, buf.len());
+        assert_eq!(req.command, CMD_MUX);
+        assert!(matches!(
+            req.target,
+            Endpoint::Domain(host, 0) if host == MUX_PLACEHOLDER_HOST
+        ));
     }
 
     #[test]

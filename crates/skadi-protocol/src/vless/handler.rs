@@ -7,8 +7,8 @@ use tracing::{debug, warn};
 use super::addons::{parse_addons, validate_flow};
 use super::config::VlessConfig;
 use super::parse::{
-    build_response_header, parse_request, ATYP_DOMAIN, ATYP_IPV4, ATYP_IPV6, MAX_ADDONS,
-    VLESS_VERSION,
+    build_response_header, parse_request, ATYP_DOMAIN, ATYP_IPV4, ATYP_IPV6, CMD_MUX, MAX_ADDONS,
+    MAX_DOMAIN, VLESS_VERSION,
 };
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -42,7 +42,6 @@ impl VlessHandler {
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
-        // Читаем фиксированную часть: version + uuid + addons_len = 18.
         let mut head = [0u8; 18];
         client
             .read_exact(&mut head)
@@ -62,51 +61,65 @@ impl VlessHandler {
             bail!("VLESS addons too large: {}", addons_len);
         }
 
-        // Дочитываем addons + command + port + atyp.
-        let tail_len = addons_len + 1 + 2 + 1;
-        let mut tail = vec![0u8; tail_len];
-        client
-            .read_exact(&mut tail)
-            .await
-            .context("failed to read VLESS header tail")?;
-
-        let mut full = Vec::with_capacity(18 + tail_len);
+        let mut full = Vec::with_capacity(18 + addons_len + 32);
         full.extend_from_slice(&head);
-        full.extend_from_slice(&tail);
 
-        // Аутентификация до чтения адреса — экономим работу на мусорных
-        // соединениях и не даём зонду увидеть разницу в таймингах.
+        if addons_len > 0 {
+            let mut addons = vec![0u8; addons_len];
+            client
+                .read_exact(&mut addons)
+                .await
+                .context("failed to read VLESS addons")?;
+            full.extend_from_slice(&addons);
+        }
+
+        let mut command_buf = [0u8; 1];
+        client
+            .read_exact(&mut command_buf)
+            .await
+            .context("failed to read VLESS command")?;
+        full.push(command_buf[0]);
+
+        let command = command_buf[0];
+        if command != CMD_MUX {
+            let mut port_atyp = [0u8; 3];
+            client
+                .read_exact(&mut port_atyp)
+                .await
+                .context("failed to read VLESS port and ATYP")?;
+            full.extend_from_slice(&port_atyp);
+
+            let atyp = port_atyp[2];
+            let addr_len = match atyp {
+                ATYP_IPV4 => 4,
+                ATYP_IPV6 => 16,
+                ATYP_DOMAIN => {
+                    let mut dlen = [0u8; 1];
+                    client.read_exact(&mut dlen).await?;
+                    full.push(dlen[0]);
+                    dlen[0] as usize
+                }
+                other => bail!("unsupported address type: 0x{:02x}", other),
+            };
+
+            if addr_len > MAX_DOMAIN {
+                bail!("address too long: {}", addr_len);
+            }
+
+            let addr_start = full.len();
+            full.resize(addr_start + addr_len, 0);
+            client
+                .read_exact(&mut full[addr_start..])
+                .await
+                .context("failed to read VLESS address")?;
+        }
+
         let user = config.authenticate(&uuid);
         if user.is_none() {
             warn!(uuid = ?uuid, "VLESS auth failed, closing silently");
             bail!("authentication failed");
         }
         let user = user.unwrap();
-
-        // Дочитываем адрес в зависимости от ATYP.
-        let atyp = full[full.len() - 1];
-        let addr_len = match atyp {
-            ATYP_IPV4 => 4,
-            ATYP_IPV6 => 16,
-            ATYP_DOMAIN => {
-                let mut dlen = [0u8; 1];
-                client.read_exact(&mut dlen).await?;
-                full.push(dlen[0]);
-                dlen[0] as usize
-            }
-            other => bail!("unsupported address type: 0x{:02x}", other),
-        };
-
-        if addr_len > super::parse::MAX_DOMAIN {
-            bail!("address too long: {}", addr_len);
-        }
-
-        let addr_start = full.len();
-        full.resize(addr_start + addr_len, 0);
-        client
-            .read_exact(&mut full[addr_start..])
-            .await
-            .context("failed to read VLESS address")?;
 
         let (request, _) =
             parse_request(&full).map_err(|e| anyhow::anyhow!("VLESS parse: {}", e))?;
@@ -127,7 +140,6 @@ impl VlessHandler {
             "VLESS request decoded"
         );
 
-        // Отправляем ответный заголовок — 2 байта.
         let resp = build_response_header(VLESS_VERSION);
         client.write_all(&resp).await?;
         client.flush().await?;

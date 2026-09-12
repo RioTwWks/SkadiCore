@@ -191,6 +191,12 @@ openssl s_client -connect upstream.example.com:443 -servername upstream.example.
 VLESS over TLS: клиент v2rayNG / Nekoray с TLS + UUID из конфига.
 Автотест собирает запрос через `build_tcp_request()` из `skadi-protocol`.
 
+VLESS Mux (TCP over CMD_MUX):
+
+```bash
+cargo test -p skadi-server --test vless_mux_e2e
+```
+
 VLESS over REALITY (рекомендуется):
 
 ```bash
