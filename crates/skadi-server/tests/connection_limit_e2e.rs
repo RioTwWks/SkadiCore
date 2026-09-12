@@ -78,6 +78,7 @@ async fn rejects_connection_when_limit_reached() {
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
+        outbound: Default::default(),
     };
     config.validate().unwrap();
 
@@ -124,6 +125,7 @@ async fn rejects_zero_max_connections_in_config() {
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
+        outbound: Default::default(),
     };
 
     let err = config.validate().unwrap_err().to_string();

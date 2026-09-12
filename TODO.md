@@ -91,11 +91,12 @@
   - [x] SOCKS5 over TLS (`tls_socks5_e2e`)
   - [x] SNI routing (`tls_sni_e2e`)
   - [x] VLESS over TLS (`tls_vless_e2e`)
-- [ ] TLS outbound (исходящие соединения с проверкой сертификата)
-- [ ] Ручная проверка `openssl s_client` (документировать)
+- [x] TLS outbound (исходящие соединения с проверкой сертификата)
+- [x] Интеграционный тест `tls_outbound_e2e`
+- [x] Ручная проверка `openssl s_client` (документировать в DEVELOPMENT.md)
 
-**Критерий готовности:** inbound TLS + SNI, протоколы работают поверх TLS.  
-✅ **Inbound выполнен.** Outbound — отдельная задача.
+**Критерий готовности:** inbound TLS + SNI, протоколы работают поверх TLS; outbound TLS с проверкой CA.  
+✅ **Выполнено.**
 
 ---
 
@@ -250,9 +251,9 @@
 
 1. ~~**Кросс-компиляция musl** (этап 10)~~ — x86_64 ✅
 2. ~~**UDP/Mux/Vision** (этап 4)~~ — UDP + flow reject ✅; Mux — TODO
-3. **TLS outbound** (этап 3) — клиентский режим
+3. ~~**TLS outbound** (этап 3)~~ ✅
 4. ~~**cargo miri + criterion** (этап 9)~~ ✅
-5. **Smoke-доки** — `curl --socks5`, `openssl s_client` в DEVELOPMENT.md
+5. ~~**Smoke-доки**~~ ✅ — `curl --socks5`, `openssl s_client` в DEVELOPMENT.md
 
 ---
 

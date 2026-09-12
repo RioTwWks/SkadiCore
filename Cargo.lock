@@ -2003,6 +2003,7 @@ dependencies = [
  "rcgen",
  "ring",
  "rustls 0.22.4",
+ "rustls-native-certs",
  "rustls-pki-types",
  "sha2",
  "skadi-core",

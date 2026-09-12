@@ -19,8 +19,9 @@ use skadi_protocol::{
     REP_HOST_UNREACHABLE, REP_SUCCEEDED,
 };
 use skadi_transport::{
-    copy_bidirectional_with_limits, relay_vless_udp_with_limits, RealityError, RealityTransport,
-    RelayLimits, TcpTransport, TlsTransport, UdpTransport, IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG,
+    copy_bidirectional_with_limits, relay_vless_udp_with_limits, OutboundTcpTransport,
+    RealityError, RealityTransport, RelayLimits, TlsTransport, UdpTransport, IDLE_TIMEOUT_MSG,
+    SESSION_LIFETIME_MSG,
 };
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -95,10 +96,11 @@ pub async fn run_server_with_store(
         idle_timeout_secs = ?config.server.timeouts.idle_timeout_secs,
         max_session_lifetime_secs = ?config.server.timeouts.max_session_lifetime_secs,
         max_connections = ?config.max_connections(),
+        outbound_tls = config.outbound_tls_enabled(),
         "listening"
     );
 
-    let outbound_tcp = TcpTransport::new(config.connect_timeout());
+    let outbound_tcp = config.outbound_tcp_transport()?;
     let outbound_udp = UdpTransport::new(config.connect_timeout());
     let relay_limits = RelayLimits {
         idle: config.idle_timeout(),
@@ -176,7 +178,7 @@ enum InboundTransport {
 
 async fn accept_loop(
     listener: TcpListener,
-    outbound_tcp: TcpTransport,
+    outbound_tcp: OutboundTcpTransport,
     outbound_udp: UdpTransport,
     inbound: InboundTransport,
     user_store: Arc<UserStore>,
@@ -334,7 +336,7 @@ async fn wait_for_shutdown() {
 
 async fn handle_connection<S>(
     mut client: S,
-    outbound_tcp: TcpTransport,
+    outbound_tcp: OutboundTcpTransport,
     outbound_udp: UdpTransport,
     session: Session,
     user_store: Arc<UserStore>,
@@ -419,7 +421,7 @@ where
                 let _ = Socks5Handler::send_error(&mut stream, code).await;
             }
             observability::connection_failed(protocol_label);
-            return Err(e);
+            return Err(e.into());
         }
     };
 

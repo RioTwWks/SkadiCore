@@ -87,6 +87,7 @@ async fn healthz_and_metrics_endpoints() {
             enabled: true,
             listen: format!("127.0.0.1:{}", metrics_port),
         },
+        outbound: Default::default(),
     };
     config.validate().unwrap();
 

@@ -31,6 +31,7 @@ clap = { version = "4", features = ["derive"] }
 # TLS (vendored fork с поддержкой REALITY, см. third_party/rustls-reality)
 rustls = { path = "third_party/rustls-reality/rustls", default-features = false, features = ["ring", "tls12"] }
 rustls-pki-types = "1"
+rustls-native-certs = "0.8"
 tokio-rustls = "0.25"
 
 # REALITY crypto

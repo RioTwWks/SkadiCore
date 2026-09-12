@@ -217,7 +217,7 @@ pub(crate) fn ensure_crypto_provider() -> Result<()> {
     Ok(())
 }
 
-fn load_certs(path: &str) -> Result<Vec<CertificateDer<'static>>> {
+pub(crate) fn load_certs(path: &str) -> Result<Vec<CertificateDer<'static>>> {
     let certs: Vec<CertificateDer<'static>> = CertificateDer::pem_file_iter(Path::new(path))
         .map_err(|e| anyhow::anyhow!("cannot open certificate file {}: {}", path, e))?
         .collect::<Result<Vec<_>, _>>()
@@ -230,7 +230,7 @@ fn load_certs(path: &str) -> Result<Vec<CertificateDer<'static>>> {
     Ok(certs)
 }
 
-fn load_private_key(path: &str) -> Result<PrivateKeyDer<'static>> {
+pub(crate) fn load_private_key(path: &str) -> Result<PrivateKeyDer<'static>> {
     PrivateKeyDer::from_pem_file(Path::new(path))
         .map_err(|e| anyhow::anyhow!("failed to parse private key from {}: {}", path, e))
 }

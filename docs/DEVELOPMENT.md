@@ -172,10 +172,20 @@ cargo run --bin skadicore -- --config config/skadi.toml
 curl --socks5 127.0.0.1:1080 https://example.com
 ```
 
-TLS (нужны `cert.pem` / `key.pem`, `transport.tls.enabled = true`):
+TLS inbound (нужны `cert.pem` / `key.pem`, `transport.tls.enabled = true`):
 
 ```bash
 openssl s_client -connect localhost:443 -servername localhost
+```
+
+TLS outbound (проверка upstream через прокси с `[outbound.tls]`):
+
+```bash
+# Автотест: VLESS → TLS echo upstream
+cargo test -p skadi-server --test tls_outbound_e2e
+
+# Ручная проверка TLS-сервера upstream (до включения outbound.tls)
+openssl s_client -connect upstream.example.com:443 -servername upstream.example.com
 ```
 
 VLESS over TLS: клиент v2rayNG / Nekoray с TLS + UUID из конфига.

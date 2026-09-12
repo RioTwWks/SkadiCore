@@ -9,8 +9,8 @@
 - `kill -HUP <pid>` — перечитать TOML и применить `[protocol.*]`
 - gRPC API (`[api]`) — точечное добавление/удаление пользователей
 
-`server.listen`, `[transport.tls]` и `[transport.reality]` при SIGHUP **не**
-меняются — для них нужен перезапуск процесса.
+`server.listen`, `[transport.tls]`, `[transport.reality]` и `[outbound.tls]`
+при SIGHUP **не** меняются — для них нужен перезапуск процесса.
 
 Проверка конфига без запуска: `skadicore check-config --config path/to.toml`.
 
@@ -21,6 +21,7 @@
 - [Общая структура](#общая-структура)
 - [Секция `[server]`](#секция-server)
 - [Секция `[transport.tls]`](#секция-transporttls)
+- [Секция `[outbound.tls]`](#секция-outboundtls)
 - [Секция `[transport.reality]`](#секция-transportreality)
 - [Секция `[protocol.socks5]`](#секция-protocolsocks5)
 - [Секция `[protocol.vless]`](#секция-protocolvless)
@@ -47,6 +48,7 @@ skadicore --config /etc/skadicore/config.toml
 ```toml
 [server]              # обязательно
 [transport.tls]       # опционально (не вместе с reality)
+[outbound.tls]        # опционально (TLS к upstream)
 [transport.reality]   # опционально (рекомендуется для VLESS)
 [protocol.socks5]     # опционально
 [protocol.vless]      # опционально
@@ -238,8 +240,77 @@ DNS-имена (без IP). Сравнение без учёта регистр�
 **Порядок обработки**:
 
 ```
-TCP accept → TLS handshake → протокол (SOCKS5/VLESS) → upstream TCP
+TCP accept → TLS handshake → протокол (SOCKS5/VLESS) → upstream TCP/TLS
 ```
+
+---
+
+## Секция `[outbound.tls]`
+
+TLS-обёртка для **исходящих** TCP-соединений к upstream. По умолчанию
+прокси подключается к целевому хосту по обычному TCP. При
+`outbound.tls.enabled = true` после TCP connect выполняется TLS handshake
+с проверкой сертификата сервера.
+
+UDP outbound TLS не поддерживает — только TCP relay.
+
+### `enabled`
+
+**Тип**: `bool`  
+**По умолчанию**: `false`
+
+```toml
+[outbound.tls]
+enabled = true
+```
+
+### `ca_file`
+
+**Тип**: `String`  
+**По умолчанию**: не задан (системное хранилище CA через `rustls-native-certs`)
+
+Путь к PEM с доверенными CA для проверки сертификата upstream.
+Используйте для self-signed или корпоративных CA.
+
+```toml
+[outbound.tls]
+enabled = true
+ca_file = "/etc/skadicore/upstream-ca.pem"
+```
+
+### `cert` / `key`
+
+**Тип**: `String`  
+**По умолчанию**: не заданы
+
+Опциональный клиентский сертификат (mTLS). Оба поля должны быть заданы
+вместе.
+
+```toml
+[outbound.tls]
+enabled = true
+cert = "/etc/skadicore/client.pem"
+key = "/etc/skadicore/client-key.pem"
+```
+
+### Поведение
+
+| Цель VLESS/SOCKS5 | SNI при TLS outbound |
+|-------------------|----------------------|
+| Домен | Имя домена из запроса |
+| IPv4/IPv6 | IP-адрес (SAN должен содержать IP) |
+
+**Порядок обработки** (при `outbound.tls.enabled = true`):
+
+```
+протокол → TCP connect → TLS handshake (verify) → relay
+```
+
+**Ограничения**:
+
+- Только TLS 1.3.
+- При `enabled = true` PEM-файлы проверяются при старте (`check-config`).
+- Hot reload через SIGHUP **не** меняет `outbound.tls` — нужен перезапуск.
 
 ---
 

@@ -58,6 +58,7 @@ async fn spawn_vless_server(proxy_addr: std::net::SocketAddr) -> watch::Sender<b
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
+        outbound: Default::default(),
     };
     config.validate().unwrap();
 

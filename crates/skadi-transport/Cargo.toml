@@ -20,6 +20,7 @@ aes-gcm.workspace = true
 hex.workspace = true
 rcgen.workspace = true
 ring.workspace = true
+rustls-native-certs = "0.8"
 
 [dev-dependencies]
 criterion.workspace = true
