@@ -48,6 +48,30 @@ fn test_vless_config() -> VlessConfig {
     }
 }
 
+async fn spawn_vless_server(proxy_addr: SocketAddr) -> watch::Sender<bool> {
+    let config = Config {
+        server: ServerConfig::with_listen(proxy_addr.to_string()),
+        protocol: ProtocolConfig {
+            socks5: Socks5Config {
+                enabled: false,
+                auth: skadi_protocol::AuthMethod::NoAuth,
+                users: vec![],
+            },
+            vless: test_vless_config(),
+        },
+        transport: TransportConfig::default(),
+        api: Default::default(),
+        metrics: Default::default(),
+        outbound: Default::default(),
+    };
+    config.validate().unwrap();
+
+    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    tokio::spawn(run_server(config, shutdown_rx));
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    shutdown_tx
+}
+
 fn build_mux_udp_new_frame(target: SocketAddr, payload: &[u8]) -> Vec<u8> {
     let meta = MuxMeta {
         session_id: MUX_SESSION_ID,
@@ -81,6 +105,8 @@ async fn read_mux_payload(stream: &mut TcpStream) -> Vec<u8> {
     payload
 }
 
+// Tarpaulin mis-instruments this binary (config validation fails or relay segfaults).
+#[cfg_attr(tarpaulin, ignore)]
 #[tokio::test]
 async fn vless_mux_udp_connect_and_relay() {
     let echo_addr = spawn_udp_echo_server().await;
@@ -89,26 +115,7 @@ async fn vless_mux_udp_connect_and_relay() {
     let proxy_addr = proxy_listener.local_addr().unwrap();
     drop(proxy_listener);
 
-    let config = Config {
-        server: ServerConfig::with_listen(proxy_addr.to_string()),
-        protocol: ProtocolConfig {
-            socks5: Socks5Config {
-                enabled: false,
-                auth: skadi_protocol::AuthMethod::NoAuth,
-                users: vec![],
-            },
-            vless: test_vless_config(),
-        },
-        transport: TransportConfig::default(),
-        api: Default::default(),
-        metrics: Default::default(),
-        outbound: Default::default(),
-    };
-    config.validate().unwrap();
-
-    let (shutdown_tx, shutdown_rx) = watch::channel(false);
-    tokio::spawn(run_server(config, shutdown_rx));
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    let shutdown_tx = spawn_vless_server(proxy_addr).await;
 
     let uuid = *Uuid::parse(TEST_USER_ID).unwrap().as_bytes();
     let mut stream = TcpStream::connect(proxy_addr).await.unwrap();
