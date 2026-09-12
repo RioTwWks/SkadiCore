@@ -92,6 +92,7 @@ async fn sni_routes_to_matching_certificate() {
         },
         api: Default::default(),
         metrics: Default::default(),
+        outbound: Default::default(),
     };
     config.validate().unwrap();
 
@@ -178,6 +179,7 @@ async fn sni_unknown_name_falls_back_to_default_cert() {
         },
         api: Default::default(),
         metrics: Default::default(),
+        outbound: Default::default(),
     };
     config.validate().unwrap();
 

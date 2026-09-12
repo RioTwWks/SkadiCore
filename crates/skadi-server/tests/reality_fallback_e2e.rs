@@ -102,6 +102,7 @@ async fn reality_server_config_via_run_server() {
         },
         api: Default::default(),
         metrics: Default::default(),
+        outbound: Default::default(),
     };
     config.validate().unwrap();
 

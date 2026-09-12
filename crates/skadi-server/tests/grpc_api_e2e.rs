@@ -132,6 +132,7 @@ async fn grpc_add_remove_vless_user_hot_reload() {
             token: Some(API_TOKEN.to_string()),
         },
         metrics: Default::default(),
+        outbound: Default::default(),
     };
     config.validate().unwrap();
 
@@ -229,6 +230,7 @@ async fn grpc_rejects_missing_token() {
             token: Some(API_TOKEN.to_string()),
         },
         metrics: Default::default(),
+        outbound: Default::default(),
     };
     config.validate().unwrap();
 

@@ -76,6 +76,7 @@ async fn idle_timeout_closes_inactive_vless_session() {
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
+        outbound: Default::default(),
     };
     config.validate().unwrap();
 
@@ -140,6 +141,7 @@ async fn rejects_zero_idle_timeout_in_config() {
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
+        outbound: Default::default(),
     };
 
     let err = config.validate().unwrap_err().to_string();

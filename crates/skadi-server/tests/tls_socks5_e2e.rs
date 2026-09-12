@@ -100,6 +100,7 @@ async fn socks5_over_tls_connect_and_relay() {
         },
         api: Default::default(),
         metrics: Default::default(),
+        outbound: Default::default(),
     };
 
     config.validate().unwrap();

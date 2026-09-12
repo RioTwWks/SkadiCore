@@ -1,7 +1,10 @@
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use skadi_protocol::{Socks5Config, VlessConfig};
-use skadi_transport::{RealityServerConfig, TlsCertPaths, TlsServerConfig, TlsSniCert};
+use skadi_transport::{
+    OutboundTcpTransport, RealityServerConfig, TlsCertPaths, TlsClientConfig, TlsServerConfig,
+    TlsSniCert,
+};
 use std::collections::HashSet;
 use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
@@ -18,6 +21,8 @@ pub struct Config {
     pub api: ApiConfig,
     #[serde(default)]
     pub metrics: MetricsConfig,
+    #[serde(default)]
+    pub outbound: OutboundConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -117,6 +122,23 @@ pub struct ProtocolConfig {
     pub socks5: Socks5Config,
     #[serde(default)]
     pub vless: VlessConfig,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct OutboundConfig {
+    #[serde(default)]
+    pub tls: OutboundTlsConfig,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct OutboundTlsConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    /// PEM с доверенными CA. Если не задан — системное хранилище.
+    pub ca_file: Option<String>,
+    /// Клиентский сертификат (mTLS).
+    pub cert: Option<String>,
+    pub key: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -231,6 +253,8 @@ impl Config {
         if self.transport.tls.enabled && self.transport.reality.enabled {
             bail!("transport.tls and transport.reality cannot both be enabled");
         }
+
+        self.validate_outbound_tls()?;
 
         if self.transport.tls.enabled {
             self.validate_tls()?;
@@ -392,9 +416,55 @@ impl Config {
         n
     }
 
+    fn validate_outbound_tls(&self) -> Result<()> {
+        let tls = &self.outbound.tls;
+        if !tls.enabled {
+            return Ok(());
+        }
+
+        match (&tls.cert, &tls.key) {
+            (Some(cert), Some(key)) => {
+                ensure_readable_file(cert, "outbound.tls.cert")?;
+                ensure_readable_file(key, "outbound.tls.key")?;
+            }
+            (None, None) => {}
+            _ => bail!("outbound.tls.cert and outbound.tls.key must both be set"),
+        }
+
+        if let Some(ca) = &tls.ca_file {
+            ensure_readable_file(ca, "outbound.tls.ca_file")?;
+        }
+
+        Ok(())
+    }
+
+    /// Собрать исходящий TCP-транспорт (plain или TLS).
+    pub fn outbound_tcp_transport(&self) -> Result<OutboundTcpTransport> {
+        let timeout = self.connect_timeout();
+        if self.outbound.tls.enabled {
+            OutboundTcpTransport::tls(timeout, &self.outbound_tls_client_config())
+        } else {
+            Ok(OutboundTcpTransport::plain(timeout))
+        }
+    }
+
+    fn outbound_tls_client_config(&self) -> TlsClientConfig {
+        let tls = &self.outbound.tls;
+        TlsClientConfig {
+            ca_file: tls.ca_file.clone(),
+            client_cert: tls.cert.clone(),
+            client_key: tls.key.clone(),
+        }
+    }
+
     /// TLS включён на inbound.
     pub fn tls_enabled(&self) -> bool {
         self.transport.tls.enabled
+    }
+
+    /// TLS включён на outbound.
+    pub fn outbound_tls_enabled(&self) -> bool {
+        self.outbound.tls.enabled
     }
 
     /// REALITY включён на inbound.
@@ -543,6 +613,7 @@ impl Config {
         );
         println!("  tls:     {}", on_off(self.transport.tls.enabled));
         println!("  reality: {}", on_off(self.transport.reality.enabled));
+        println!("  outbound.tls: {}", on_off(self.outbound.tls.enabled));
         println!(
             "  api:     {}",
             if self.api.enabled {

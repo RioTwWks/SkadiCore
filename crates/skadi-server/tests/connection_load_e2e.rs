@@ -73,6 +73,7 @@ async fn spawn_load_proxy(
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
+        outbound: Default::default(),
     };
     config.validate().unwrap();
 
