@@ -19,6 +19,7 @@ use tracing::{debug, warn};
 use crate::outbound::{OutboundTcpTransport, TcpUpstream};
 use crate::relay::{RelayLimits, IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG};
 use crate::udp::{resolve_endpoint, UdpTransport, MAX_VLESS_UDP_PAYLOAD};
+use crate::xudp::XudpManager;
 
 struct TcpMuxSession {
     upstream: Arc<Mutex<TcpUpstream>>,
@@ -174,6 +175,9 @@ where
         if let Some(task) = cone.reader_task {
             task.abort();
         }
+        if let Some(global_id) = cone.global_id {
+            XudpManager::detach(global_id).await;
+        }
     }
 
     Ok((client_to_upstream, upstream_to_client))
@@ -287,6 +291,9 @@ where
                 if let Some(task) = cone.reader_task {
                     task.abort();
                 }
+                if let Some(global_id) = cone.global_id {
+                    XudpManager::detach(global_id).await;
+                }
             }
         }
         SESSION_STATUS_KEEP_ALIVE => {}
@@ -316,13 +323,22 @@ async fn ensure_xudp_cone(
         return Ok(());
     }
 
-    let socket = UdpSocket::bind("0.0.0.0:0")
-        .await
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    let socket = if let Some(id) = global_id {
+        let (socket, hit) = XudpManager::acquire(id).await?;
+        if hit {
+            debug!(global_id = ?id, "xudp cone reattached");
+        }
+        socket
+    } else {
+        let socket = UdpSocket::bind("0.0.0.0:0")
+            .await
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        Arc::new(socket)
+    };
 
     *guard = Some(XudpCone {
         global_id,
-        socket: Arc::new(socket),
+        socket,
         reader_task: None,
     });
     debug!(global_id = ?global_id, "xudp cone opened");
@@ -346,12 +362,17 @@ where
 
     let writer_clone = writer.inner.clone();
     let socket_for_reader = Arc::clone(&cone.socket);
-    cone.reader_task = Some(tokio::spawn(async move {
+    let global_id = cone.global_id;
+    let task = tokio::spawn(async move {
         let mux_writer = MuxWriter::new(writer_clone);
         if let Err(e) = pump_xudp_upstream_to_client(socket_for_reader, &mux_writer).await {
             debug!(error = %e, "xudp upstream reader finished");
         }
-    }));
+    });
+    if let Some(id) = global_id {
+        XudpManager::register_reader(id, task.abort_handle()).await;
+    }
+    cone.reader_task = Some(task);
     Ok(())
 }
 

@@ -1,6 +1,7 @@
 //! Транспортный слой: TCP, TLS, REALITY.
 
 pub mod mux;
+mod xudp;
 pub mod outbound;
 pub mod reality;
 pub mod relay;
