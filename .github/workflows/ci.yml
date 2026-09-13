@@ -156,6 +156,57 @@ jobs:
             "$BIN" check-config --config examples/reality-vless/server.toml
           fi
 
+  cross-platform:
+    name: cross build (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: windows-x86_64
+            target: x86_64-pc-windows-gnu
+          - os: macos-latest
+            arch: macos-aarch64
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            arch: macos-x86_64
+            target: x86_64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install mingw-w64 (Windows GNU)
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo build (cross)
+        run: |
+          chmod +x scripts/build-cross.sh
+          TARGET=${{ matrix.target }} ./scripts/build-cross.sh
+
+      - name: Verify binary (Windows)
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        run: |
+          BIN=target/${{ matrix.target }}/release/skadicore.exe
+          file "$BIN" | grep -i 'PE32'
+          ls -la "$BIN"
+
+      - name: Verify binary (macOS)
+        if: startsWith(matrix.target, 'aarch64-apple') || startsWith(matrix.target, 'x86_64-apple')
+        run: |
+          BIN=target/${{ matrix.target }}/release/skadicore
+          file "$BIN"
+          "$BIN" --version
+          "$BIN" check-config --config examples/reality-vless/server.toml
+
   benchmarks:
     name: Benchmarks (criterion smoke)
     runs-on: ubuntu-latest

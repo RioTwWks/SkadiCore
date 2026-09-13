@@ -11,6 +11,11 @@
 
 ### Added
 
+- **Кросс-компиляция Windows / macOS**
+  - `scripts/build-cross.sh` — Windows GNU (`x86_64-pc-windows-gnu`), macOS (`aarch64`/`x86_64-apple-darwin`)
+  - CI job `cross-platform`; release workflow: `.zip` (Windows) + `.tar.gz` (macOS)
+  - `.cargo/config.toml` — линкер mingw-w64
+
 - **`skadi_core::Protocol`** — enum SOCKS5/VLESS, wire bytes, `EnabledProtocols::detect()`
   для sniffing; `skadi-server` использует вместо локального `ProtocolKind`
 
