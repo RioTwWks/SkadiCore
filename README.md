@@ -138,6 +138,9 @@ cargo build --release
 
 Бинарник: `target/release/skadicore`.
 
+Готовые статические Linux-бинарники (musl, x86_64 и aarch64) — в
+[GitHub Releases](https://github.com/RioTwWks/SkadiCore/releases).
+
 ### Запуск
 
 ```bash

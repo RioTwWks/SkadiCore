@@ -11,6 +11,8 @@
 
 ### Added
 
+- **GitHub Releases** — workflow `release.yml`: статические musl-бинарники
+  (x86_64 + aarch64), `SHA256SUMS`, публикация при push тега `v*`
 - **CI: aarch64 musl** — matrix job `musl` собирает `aarch64-unknown-linux-musl`
   через `cargo-zigbuild` + Zig; smoke test через `qemu-aarch64-static`
 
