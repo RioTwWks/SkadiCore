@@ -118,14 +118,18 @@ file target/x86_64-unknown-linux-musl/release/skadicore
 # ожидается: statically linked / static-pie
 ```
 
-**ARM64 (aarch64):** нужен кросс-компилятор `aarch64-linux-musl-gcc`
-(см. [musl.cc](https://musl.cc/)) или сборка на самом устройстве:
+**ARM64 (aarch64):** рекомендуется `cargo-zigbuild` + Zig (как в CI):
 
 ```bash
+pip install cargo-zigbuild   # ставит ziglang
 TARGET=aarch64-unknown-linux-musl ./scripts/build-musl.sh
 ```
 
-CI проверяет `x86_64-unknown-linux-musl` на каждом PR (job `musl`).
+Альтернатива — кросс-компилятор `aarch64-linux-musl-gcc` (musl.cc, локально).
+На устройстве aarch64 можно собирать нативно без кросс-компилятора.
+
+CI проверяет `x86_64-unknown-linux-musl` (musl-tools) и
+`aarch64-unknown-linux-musl` (cargo-zigbuild) на каждом PR (job `musl`).
 
 ---
 

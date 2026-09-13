@@ -11,6 +11,9 @@
 
 ### Added
 
+- **CI: aarch64 musl** — matrix job `musl` собирает `aarch64-unknown-linux-musl`
+  через `cargo-zigbuild` + Zig; smoke test через `qemu-aarch64-static`
+
 - **Примеры конфигурации** (`examples/`):
   - `vless-tls/` — VLESS over TLS + Xray client JSON + `generate-certs.sh`
   - `socks5-tls/` — SOCKS5 user-pass over TLS

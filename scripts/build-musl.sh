@@ -14,8 +14,13 @@ case "$TARGET" in
     fi
     ;;
   aarch64-unknown-linux-musl)
-    if ! command -v aarch64-linux-musl-gcc &>/dev/null; then
-      echo "Install aarch64-linux-musl-gcc (see https://musl.cc/ or docs/DEVELOPMENT.md)" >&2
+    if command -v cargo-zigbuild &>/dev/null; then
+      USE_ZIGBUILD=1
+    elif command -v aarch64-linux-musl-gcc &>/dev/null; then
+      USE_ZIGBUILD=0
+    else
+      echo "Install cargo-zigbuild (pip install cargo-zigbuild) or aarch64-linux-musl-gcc" >&2
+      echo "See docs/DEVELOPMENT.md" >&2
       exit 1
     fi
     ;;
@@ -27,8 +32,13 @@ esac
 
 rustup target add "$TARGET"
 
-echo "==> cargo build --release -p skadi-server --target $TARGET"
-cargo build --release -p skadi-server --target "$TARGET"
+if [ "${USE_ZIGBUILD:-0}" = "1" ]; then
+  echo "==> cargo zigbuild --release -p skadi-server --target $TARGET"
+  cargo zigbuild --release -p skadi-server --target "$TARGET"
+else
+  echo "==> cargo build --release -p skadi-server --target $TARGET"
+  cargo build --release -p skadi-server --target "$TARGET"
+fi
 
 BIN="target/$TARGET/release/skadicore"
 file "$BIN"
