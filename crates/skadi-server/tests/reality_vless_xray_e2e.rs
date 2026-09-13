@@ -110,6 +110,7 @@ async fn vless_over_reality_with_xray_client() {
                 private_key: Some(keys.private_key_b64()),
                 short_ids: vec![keys.short_id_hex.clone()],
             },
+            ..Default::default()
         },
         api: Default::default(),
         metrics: Default::default(),

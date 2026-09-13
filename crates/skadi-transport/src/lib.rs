@@ -1,4 +1,4 @@
-//! Транспортный слой: TCP, TLS, REALITY.
+//! Транспортный слой: TCP, TLS, REALITY, XHTTP.
 
 pub mod mux;
 pub mod outbound;
@@ -8,6 +8,7 @@ pub mod tcp;
 pub mod tls;
 pub mod tls_client;
 pub mod udp;
+pub mod xhttp;
 mod xudp;
 
 pub use mux::relay_vless_mux_with_limits;
@@ -21,3 +22,4 @@ pub use tcp::TcpTransport;
 pub use tls::{TlsCertPaths, TlsError, TlsServerConfig, TlsSniCert, TlsTransport};
 pub use tls_client::{TlsClientConfig, TlsOutboundTransport};
 pub use udp::{relay_vless_udp_with_limits, UdpTransport};
+pub use xhttp::{accept_stream_one, PaddingRange, XhttpConfig, XhttpError, XhttpMode};

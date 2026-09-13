@@ -97,6 +97,7 @@ async fn socks5_over_tls_connect_and_relay() {
                 alpn: vec!["http/1.1".into()],
                 certificates: vec![],
             },
+            ..Default::default()
         },
         api: Default::default(),
         metrics: Default::default(),

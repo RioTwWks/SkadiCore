@@ -99,6 +99,7 @@ async fn reality_server_config_via_run_server() {
                 private_key: Some(base64::engine::general_purpose::STANDARD.encode([0x42u8; 32])),
                 short_ids: vec!["0102030405060708".into()],
             },
+            ..Default::default()
         },
         api: Default::default(),
         metrics: Default::default(),

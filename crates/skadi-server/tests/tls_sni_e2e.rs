@@ -89,6 +89,7 @@ async fn sni_routes_to_matching_certificate() {
                     },
                 ],
             },
+            ..Default::default()
         },
         api: Default::default(),
         metrics: Default::default(),
@@ -176,6 +177,7 @@ async fn sni_unknown_name_falls_back_to_default_cert() {
                     key: named_key.to_string_lossy().into_owned(),
                 }],
             },
+            ..Default::default()
         },
         api: Default::default(),
         metrics: Default::default(),

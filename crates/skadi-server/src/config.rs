@@ -2,8 +2,8 @@ use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use skadi_protocol::{Socks5Config, VlessConfig};
 use skadi_transport::{
-    OutboundTcpTransport, RealityServerConfig, TlsCertPaths, TlsClientConfig, TlsServerConfig,
-    TlsSniCert,
+    OutboundTcpTransport, PaddingRange, RealityServerConfig, TlsCertPaths, TlsClientConfig,
+    TlsServerConfig, TlsSniCert, XhttpConfig, XhttpMode,
 };
 use std::collections::HashSet;
 use std::net::{IpAddr, SocketAddr};
@@ -162,6 +162,44 @@ pub struct TransportConfig {
     pub tls: TlsConfig,
     #[serde(default)]
     pub reality: RealityConfig,
+    #[serde(default)]
+    pub xhttp: XhttpFileConfig,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct XhttpFileConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_xhttp_path")]
+    pub path: String,
+    pub host: Option<String>,
+    #[serde(default = "default_xhttp_mode")]
+    pub mode: String,
+    #[serde(default)]
+    pub no_sse_header: bool,
+    /// `[min, max]` длина X-Padding в ответе (байты).
+    pub x_padding_bytes: Option<[u32; 2]>,
+}
+
+fn default_xhttp_path() -> String {
+    "/xhttp".to_string()
+}
+
+fn default_xhttp_mode() -> String {
+    "auto".to_string()
+}
+
+impl Default for XhttpFileConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            path: default_xhttp_path(),
+            host: None,
+            mode: default_xhttp_mode(),
+            no_sse_header: false,
+            x_padding_bytes: None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -269,6 +307,7 @@ impl Config {
             bail!("transport.tls and transport.reality cannot both be enabled");
         }
 
+        self.validate_xhttp()?;
         self.validate_outbound_tls()?;
 
         if self.transport.tls.enabled {
@@ -509,6 +548,52 @@ impl Config {
         self.transport.reality.enabled
     }
 
+    /// XHTTP stream-one включён на inbound (поверх TLS/REALITY/plain TCP).
+    pub fn xhttp_enabled(&self) -> bool {
+        self.transport.xhttp.enabled
+    }
+
+    /// Runtime-конфиг XHTTP inbound.
+    pub fn xhttp_config(&self) -> Result<XhttpConfig> {
+        let xhttp = &self.transport.xhttp;
+        let mode = XhttpMode::parse(&xhttp.mode)
+            .ok_or_else(|| anyhow::anyhow!("transport.xhttp.mode invalid: {}", xhttp.mode))?;
+        let padding = match xhttp.x_padding_bytes {
+            Some([min, max]) if min <= max => PaddingRange::new(min, max),
+            Some([min, max]) => bail!(
+                "transport.xhttp.x_padding_bytes: min ({}) must be <= max ({})",
+                min,
+                max
+            ),
+            None => PaddingRange::default(),
+        };
+        Ok(XhttpConfig {
+            path: xhttp.path.clone(),
+            host: xhttp.host.clone(),
+            mode,
+            padding,
+            no_sse_header: xhttp.no_sse_header,
+        })
+    }
+
+    fn validate_xhttp(&self) -> Result<()> {
+        if !self.transport.xhttp.enabled {
+            return Ok(());
+        }
+        if self.transport.xhttp.path.trim().is_empty() {
+            bail!("transport.xhttp.path must not be empty when xhttp is enabled");
+        }
+        if XhttpMode::parse(&self.transport.xhttp.mode).is_none() {
+            bail!("transport.xhttp.mode must be auto, packet-up, stream-up, or stream-one");
+        }
+        if let Some([min, max]) = self.transport.xhttp.x_padding_bytes {
+            if min > max {
+                bail!("transport.xhttp.x_padding_bytes: min must be <= max");
+            }
+        }
+        Ok(())
+    }
+
     /// Собрать runtime-конфиг TLS для `TlsTransport`.
     pub fn tls_server_config(&self) -> Result<TlsServerConfig> {
         let tls = &self.transport.tls;
@@ -650,6 +735,17 @@ impl Config {
         );
         println!("  tls:     {}", on_off(self.transport.tls.enabled));
         println!("  reality: {}", on_off(self.transport.reality.enabled));
+        println!(
+            "  xhttp:   {}",
+            if self.transport.xhttp.enabled {
+                format!(
+                    "enabled (path={}, mode={})",
+                    self.transport.xhttp.path, self.transport.xhttp.mode
+                )
+            } else {
+                "disabled".to_string()
+            }
+        );
         println!("  outbound.tls: {}", on_off(self.outbound.tls.enabled));
         println!(
             "  api:     {}",
