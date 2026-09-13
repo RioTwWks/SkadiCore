@@ -314,6 +314,38 @@ key = "/etc/skadicore/client-key.pem"
 
 ---
 
+## Секция `[transport.xhttp]`
+
+XHTTP (SplitHTTP) — HTTP-транспорт поверх TLS, REALITY или plain TCP.
+В текущей версии поддерживается **stream-one** (bidirectional body stream без session id).
+
+```toml
+[transport.tls]
+enabled = true
+cert = "certs/default.pem"
+key = "certs/default.key"
+
+[transport.xhttp]
+enabled = true
+path = "/xhttp"
+mode = "stream-one"   # auto | stream-one | stream-up | packet-up
+# host = "example.com"   # опционально: проверка Host
+# x_padding_bytes = [100, 1000]
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `enabled` | `bool` | Включить XHTTP upgrade после inbound TLS/REALITY |
+| `path` | `string` | URL prefix (по умолчанию `/xhttp`) |
+| `mode` | `string` | `auto`, `stream-one`, `stream-up`, `packet-up` (сервер: stream-one/auto) |
+| `host` | `string?` | Ожидаемый HTTP Host |
+| `no_sse_header` | `bool` | Не отправлять `Content-Type: text/event-stream` |
+| `x_padding_bytes` | `[u32; 2]?` | Диапазон длины `X-Padding` в ответе |
+
+Режимы `packet-up` и `stream-up` (session id, отдельные GET/POST) — в roadmap.
+
+---
+
 ## Секция `[transport.reality]`
 
 REALITY — TLS-маскировка с fallback на реальный сайт при невалидном

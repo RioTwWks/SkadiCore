@@ -11,6 +11,11 @@
 
 ### Added
 
+- **XHTTP inbound (stream-one MVP)**
+  - `skadi-transport::xhttp` — HTTP upgrade поверх TLS/REALITY/plain TCP
+  - `[transport.xhttp]` в конфиге: `path`, `mode`, `host`, `x_padding_bytes`
+  - E2E: `xhttp_vless_e2e` (VLESS handshake over TLS + XHTTP POST)
+
 - **Кросс-компиляция Windows / macOS**
   - `scripts/build-cross.sh` — Windows GNU (`x86_64-pc-windows-gnu`), macOS (`aarch64`/`x86_64-apple-darwin`)
   - CI job `cross-platform`; release workflow: `.zip` (Windows) + `.tar.gz` (macOS)

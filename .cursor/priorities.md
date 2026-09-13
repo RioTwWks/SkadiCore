@@ -21,7 +21,7 @@
 
 | Задача | Описание |
 |--------|----------|
-| XHTTP | Транспорт поверх HTTP |
+| ~~XHTTP~~ | ✅ stream-one MVP (`[transport.xhttp]`, packet-up/stream-up — позже) |
 | TUN | Клиентский режим |
 | `skadi-config` | Выделить конфиг в отдельный крейт |
 | ~~Protocol enum~~ | ✅ `skadi_core::Protocol` |

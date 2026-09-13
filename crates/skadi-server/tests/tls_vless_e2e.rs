@@ -81,6 +81,7 @@ async fn spawn_vless_tls_server(
                 alpn: vec![],
                 certificates: vec![],
             },
+            ..Default::default()
         },
         api: Default::default(),
         metrics: Default::default(),

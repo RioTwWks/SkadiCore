@@ -19,9 +19,9 @@ use skadi_protocol::{
     REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE, REP_SUCCEEDED,
 };
 use skadi_transport::{
-    copy_bidirectional_with_limits, relay_vless_mux_with_limits, relay_vless_udp_with_limits,
-    OutboundTcpTransport, RealityError, RealityTransport, RelayLimits, TlsTransport, UdpTransport,
-    IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG,
+    accept_stream_one, copy_bidirectional_with_limits, relay_vless_mux_with_limits,
+    relay_vless_udp_with_limits, OutboundTcpTransport, RealityError, RealityTransport, RelayLimits,
+    TlsTransport, UdpTransport, XhttpConfig, IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG,
 };
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -111,6 +111,11 @@ pub async fn run_server_with_store(
     };
 
     let enabled_protocols = config.enabled_protocols();
+    let xhttp_config = if config.xhttp_enabled() {
+        Some(config.xhttp_config()?)
+    } else {
+        None
+    };
 
     let api_handle = if config.api.enabled {
         let api_config = config.api.clone();
@@ -147,6 +152,7 @@ pub async fn run_server_with_store(
         inbound,
         user_store,
         enabled_protocols,
+        xhttp_config,
         relay_limits,
         connection_gate,
         shutdown_rx,
@@ -178,6 +184,7 @@ async fn accept_loop(
     inbound: InboundTransport,
     user_store: Arc<UserStore>,
     enabled_protocols: EnabledProtocols,
+    xhttp_config: Option<XhttpConfig>,
     relay_limits: RelayLimits,
     connection_gate: ConnectionGate,
     mut shutdown_rx: watch::Receiver<bool>,
@@ -209,12 +216,14 @@ async fn accept_loop(
                         let outbound_udp = outbound_udp.clone();
                         let inbound = inbound.clone();
                         let user_store = Arc::clone(&user_store);
+                        let xhttp_config = xhttp_config.clone();
                         tokio::spawn(async move {
                             let _permit = permit;
                             let session = Session::new(peer);
                             let result = match inbound {
-                                InboundTransport::Plain => handle_connection(
+                                InboundTransport::Plain => serve_inbound(
                                     client,
+                                    xhttp_config,
                                     outbound_tcp,
                                     outbound_udp,
                                     session,
@@ -224,8 +233,9 @@ async fn accept_loop(
                                 )
                                 .await,
                                 InboundTransport::Tls(tls) => match tls.accept(client).await {
-                                    Ok(tls_stream) => handle_connection(
+                                    Ok(tls_stream) => serve_inbound(
                                         tls_stream,
+                                        xhttp_config,
                                         outbound_tcp,
                                         outbound_udp,
                                         session,
@@ -241,8 +251,9 @@ async fn accept_loop(
                                 },
                                 InboundTransport::Reality(reality) => {
                                     match reality.accept(client).await {
-                                        Ok(tls_stream) => handle_connection(
+                                        Ok(tls_stream) => serve_inbound(
                                             tls_stream,
+                                            xhttp_config,
                                             outbound_tcp,
                                             outbound_udp,
                                             session,
@@ -310,6 +321,47 @@ fn spawn_sighup_reload(config_path: PathBuf, user_store: Arc<UserStore>) {
 
 #[cfg(not(unix))]
 fn spawn_sighup_reload(_config_path: PathBuf, _user_store: Arc<UserStore>) {}
+
+async fn serve_inbound<S>(
+    stream: S,
+    xhttp_config: Option<XhttpConfig>,
+    outbound_tcp: OutboundTcpTransport,
+    outbound_udp: UdpTransport,
+    session: Session,
+    user_store: Arc<UserStore>,
+    enabled_protocols: EnabledProtocols,
+    relay_limits: RelayLimits,
+) -> Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    if let Some(cfg) = xhttp_config {
+        let upgraded = accept_stream_one(stream, cfg)
+            .await
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        return handle_connection(
+            upgraded,
+            outbound_tcp,
+            outbound_udp,
+            session,
+            user_store,
+            enabled_protocols,
+            relay_limits,
+        )
+        .await;
+    }
+
+    handle_connection(
+        stream,
+        outbound_tcp,
+        outbound_udp,
+        session,
+        user_store,
+        enabled_protocols,
+        relay_limits,
+    )
+    .await
+}
 
 async fn wait_for_shutdown() {
     #[cfg(unix)]
