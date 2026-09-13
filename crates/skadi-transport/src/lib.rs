@@ -8,6 +8,7 @@ pub mod tcp;
 pub mod tls;
 pub mod tls_client;
 pub mod udp;
+mod xudp;
 
 pub use mux::relay_vless_mux_with_limits;
 pub use outbound::{OutboundTcpTransport, TcpUpstream};

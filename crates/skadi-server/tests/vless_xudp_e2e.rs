@@ -16,6 +16,7 @@ use tokio::sync::watch;
 
 const TEST_USER_ID: &str = "b831381d-6324-4d53-ad4f-8cda48b30811";
 const TEST_GLOBAL_ID: [u8; 8] = [0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE];
+const TEST_GLOBAL_ID_RECONNECT: [u8; 8] = [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0];
 
 async fn spawn_udp_echo_server() -> SocketAddr {
     let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
@@ -73,14 +74,14 @@ async fn spawn_vless_server(proxy_addr: SocketAddr) -> watch::Sender<bool> {
     shutdown_tx
 }
 
-fn build_xudp_new_frame(target: SocketAddr, payload: &[u8]) -> Vec<u8> {
+fn build_xudp_new_frame(global_id: [u8; 8], target: SocketAddr, payload: &[u8]) -> Vec<u8> {
     let meta = MuxMeta {
         session_id: XUDP_SESSION_ID,
         status: SESSION_STATUS_NEW,
         option: OPTION_DATA,
         network: Some(NETWORK_UDP),
         target: Some(skadi_core::Endpoint::Ip(target)),
-        global_id: Some(TEST_GLOBAL_ID),
+        global_id: Some(global_id),
     };
     encode_data_frame(&meta, payload).unwrap()
 }
@@ -142,7 +143,7 @@ async fn vless_xudp_connect_and_relay() {
 
     let target = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), echo_addr.port());
     let payload = b"xudp-ping";
-    let frame = build_xudp_new_frame(target, payload);
+    let frame = build_xudp_new_frame(TEST_GLOBAL_ID, target, payload);
     stream.write_all(&frame).await.unwrap();
 
     let (source, received) = read_mux_payload(&mut stream).await;
@@ -161,6 +162,49 @@ async fn vless_xudp_connect_and_relay() {
 
     let (_, received2) = read_mux_payload(&mut stream).await;
     assert_eq!(received2, payload2);
+
+    let _ = shutdown_tx.send(true);
+}
+
+/// Два последовательных mux-соединения с одним GlobalID: второе должно hit'нуть cone.
+#[cfg_attr(tarpaulin, ignore)]
+#[tokio::test]
+async fn vless_xudp_hit_reconnect() {
+    let echo_addr = spawn_udp_echo_server().await;
+
+    let proxy_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let proxy_addr = proxy_listener.local_addr().unwrap();
+    drop(proxy_listener);
+
+    let shutdown_tx = spawn_vless_server(proxy_addr).await;
+    let uuid = *Uuid::parse(TEST_USER_ID).unwrap().as_bytes();
+    let target = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), echo_addr.port());
+
+    async fn xudp_roundtrip(
+        proxy_addr: SocketAddr,
+        uuid: &[u8; 16],
+        global_id: [u8; 8],
+        target: SocketAddr,
+    ) {
+        let mut stream = TcpStream::connect(proxy_addr).await.unwrap();
+        stream.write_all(&build_mux_request(uuid)).await.unwrap();
+
+        let mut response = [0u8; 2];
+        stream.read_exact(&mut response).await.unwrap();
+        assert_eq!(response, build_response_header(VLESS_VERSION));
+
+        let payload = b"xudp-reconnect";
+        stream
+            .write_all(&build_xudp_new_frame(global_id, target, payload))
+            .await
+            .unwrap();
+
+        let (_, received) = read_mux_payload(&mut stream).await;
+        assert_eq!(received, payload);
+    }
+
+    xudp_roundtrip(proxy_addr, &uuid, TEST_GLOBAL_ID_RECONNECT, target).await;
+    xudp_roundtrip(proxy_addr, &uuid, TEST_GLOBAL_ID_RECONNECT, target).await;
 
     let _ = shutdown_tx.send(true);
 }
