@@ -5,3 +5,7 @@ linker = "musl-gcc"
 # aarch64: musl.cc cross-gcc или cargo-zigbuild (рекомендуется, см. CI / DEVELOPMENT.md)
 [target.aarch64-unknown-linux-musl]
 linker = "aarch64-linux-musl-gcc"
+
+# Windows GNU (mingw-w64; Debian/Ubuntu: gcc-mingw-w64-x86-64)
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"

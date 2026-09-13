@@ -131,6 +131,29 @@ TARGET=aarch64-unknown-linux-musl ./scripts/build-musl.sh
 CI проверяет `x86_64-unknown-linux-musl` (musl-tools) и
 `aarch64-unknown-linux-musl` (cargo-zigbuild) на каждом PR (job `musl`).
 
+### Кросс-компиляция (Windows / macOS)
+
+**Windows (x86_64, GNU ABI):**
+
+```bash
+sudo apt install gcc-mingw-w64-x86-64   # Debian/Ubuntu
+TARGET=x86_64-pc-windows-gnu ./scripts/build-cross.sh
+file target/x86_64-pc-windows-gnu/release/skadicore.exe
+```
+
+Линкер `x86_64-w64-mingw32-gcc` задан в `.cargo/config.toml`.
+На Windows можно собирать нативно: `cargo build --release -p skadi-server`.
+
+**macOS (aarch64 / x86_64):** только на macOS (или в CI на `macos-latest`):
+
+```bash
+TARGET=aarch64-apple-darwin ./scripts/build-cross.sh
+TARGET=x86_64-apple-darwin ./scripts/build-cross.sh   # cross с Apple Silicon
+```
+
+CI job `cross-platform` собирает Windows GNU (Ubuntu + mingw) и оба macOS target
+на `macos-latest` с smoke `check-config`.
+
 ### GitHub Releases
 
 Релизные статические бинарники публикуются workflow `.github/workflows/release.yml`
@@ -147,6 +170,9 @@ git push origin v0.1.0
 
 - `skadicore-<version>-x86_64-unknown-linux-musl.tar.gz`
 - `skadicore-<version>-aarch64-unknown-linux-musl.tar.gz`
+- `skadicore-<version>-x86_64-pc-windows-gnu.zip`
+- `skadicore-<version>-aarch64-apple-darwin.tar.gz`
+- `skadicore-<version>-x86_64-apple-darwin.tar.gz`
 - `SHA256SUMS`
 
 Локальная упаковка после сборки:

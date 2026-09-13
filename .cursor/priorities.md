@@ -10,15 +10,12 @@
 - [x] VLESS TCP/UDP/Mux/XUDP + flow reject
 - [x] TLS inbound/outbound, REALITY, gRPC API, metrics
 - [x] Примеры конфигов: REALITY, VLESS TLS, SOCKS5 TLS
-- [x] CI: fmt, clippy, test, audit, deny, miri, musl, tarpaulin
+- [x] CI: fmt, clippy, test, audit, deny, miri, musl, cross-platform, tarpaulin
+- [x] GitHub Releases (Linux musl + Windows + macOS)
 
 ## Сейчас (ближайшие задачи)
 
-### 1. Релиз и распространение (этап 10)
-
-- [x] Кросс-компиляция aarch64 musl (CI: cargo-zigbuild)
-- [x] GitHub Releases (workflow на тег `v*`, musl x86_64 + aarch64)
-- [ ] Кросс-компиляция Windows / macOS
+Этап 10 (релиз/распространение) завершён. Следующие крупные фичи — см. «Позже».
 
 ## Позже
 
