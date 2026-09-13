@@ -24,6 +24,11 @@ impl XhttpMode {
     pub fn allows_stream_one(self) -> bool {
         matches!(self, Self::Auto | Self::StreamOne | Self::StreamUp)
     }
+
+    /// Сервер принимает stream-up (GET/POST с session id).
+    pub fn allows_stream_up(self) -> bool {
+        matches!(self, Self::Auto | Self::StreamUp | Self::StreamOne)
+    }
 }
 
 /// Диапазон длины X-Padding (байты).
