@@ -11,6 +11,9 @@
 
 ### Added
 
+- **XHTTP stream-up** — GET downlink + POST uplink с session id (`/xhttp/{id}`);
+  `XhttpSessionManager`, E2E `xhttp_stream_up_e2e`
+
 - **XHTTP inbound (stream-one MVP)**
   - `skadi-transport::xhttp` — HTTP upgrade поверх TLS/REALITY/plain TCP
   - `[transport.xhttp]` в конфиге: `path`, `mode`, `host`, `x_padding_bytes`
