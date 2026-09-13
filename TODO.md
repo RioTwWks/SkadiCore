@@ -202,7 +202,8 @@
 ## 📦 Этап 10: Релиз и распространение
 
 - [x] Кросс-компиляция musl (x86_64, CI + `scripts/build-musl.sh`)
-- [ ] Кросс-компиляция (Windows, macOS, aarch64 musl)
+- [x] Кросс-компиляция aarch64 musl (CI: cargo-zigbuild)
+- [ ] Кросс-компиляция (Windows, macOS)
 - [ ] Docker-образ
 - [ ] GitHub Releases
 - [x] Документация: README, ARCHITECTURE, PROTOCOLS, CONFIGURATION, DEVELOPMENT
@@ -249,7 +250,7 @@
 
 ## 📍 Следующие приоритеты
 
-1. ~~**Кросс-компиляция musl** (этап 10)~~ — x86_64 ✅
+1. ~~**Кросс-компиляция musl** (этап 10)~~ — x86_64 + aarch64 ✅
 2. ~~**UDP/Mux/Vision** (этап 4)~~ — UDP + Mux TCP/UDP/XUDP + flow reject + XUDP hit ✅
 3. ~~**TLS outbound** (этап 3)~~ ✅
 4. ~~**cargo miri + criterion** (этап 9)~~ ✅

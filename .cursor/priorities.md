@@ -16,7 +16,7 @@
 
 ### 1. Релиз и распространение (этап 10)
 
-- [ ] Кросс-компиляция aarch64 musl (CI)
+- [x] Кросс-компиляция aarch64 musl (CI: cargo-zigbuild)
 - [ ] GitHub Releases
 - [ ] Кросс-компиляция Windows / macOS
 

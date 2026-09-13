@@ -2,6 +2,6 @@
 [target.x86_64-unknown-linux-musl]
 linker = "musl-gcc"
 
-# aarch64: установите кросс-компилятор, например с https://musl.cc/
+# aarch64: musl.cc cross-gcc или cargo-zigbuild (рекомендуется, см. CI / DEVELOPMENT.md)
 [target.aarch64-unknown-linux-musl]
 linker = "aarch64-linux-musl-gcc"
