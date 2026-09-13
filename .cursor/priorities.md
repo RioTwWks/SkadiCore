@@ -17,7 +17,7 @@
 ### 1. Релиз и распространение (этап 10)
 
 - [x] Кросс-компиляция aarch64 musl (CI: cargo-zigbuild)
-- [ ] GitHub Releases
+- [x] GitHub Releases (workflow на тег `v*`, musl x86_64 + aarch64)
 - [ ] Кросс-компиляция Windows / macOS
 
 ### 2. gRPC API v2

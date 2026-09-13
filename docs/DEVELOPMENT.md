@@ -131,6 +131,33 @@ TARGET=aarch64-unknown-linux-musl ./scripts/build-musl.sh
 CI проверяет `x86_64-unknown-linux-musl` (musl-tools) и
 `aarch64-unknown-linux-musl` (cargo-zigbuild) на каждом PR (job `musl`).
 
+### GitHub Releases
+
+Релизные статические бинарники публикуются workflow `.github/workflows/release.yml`
+при push тега `v*` (версия в теге должна совпадать с `Cargo.toml`).
+
+```bash
+# 1. Обновить version в Cargo.toml и CHANGELOG.md
+# 2. Закоммитить, создать тег и запушить
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Артефакты релиза:
+
+- `skadicore-<version>-x86_64-unknown-linux-musl.tar.gz`
+- `skadicore-<version>-aarch64-unknown-linux-musl.tar.gz`
+- `SHA256SUMS`
+
+Локальная упаковка после сборки:
+
+```bash
+./scripts/build-musl.sh
+./scripts/package-release.sh 0.1.0 x86_64-unknown-linux-musl
+```
+
+Ручной запуск workflow: Actions → Release → Run workflow (указать существующий тег).
+
 ---
 
 ## Тестирование

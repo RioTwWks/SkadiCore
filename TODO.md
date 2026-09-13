@@ -205,7 +205,7 @@
 - [x] Кросс-компиляция aarch64 musl (CI: cargo-zigbuild)
 - [ ] Кросс-компиляция (Windows, macOS)
 - [ ] Docker-образ
-- [ ] GitHub Releases
+- [x] GitHub Releases (workflow `release.yml` на тег `v*`)
 - [x] Документация: README, ARCHITECTURE, PROTOCOLS, CONFIGURATION, DEVELOPMENT
 - [x] Примеры конфигов для типовых сценариев (`examples/reality-vless/`, `vless-tls/`, `socks5-tls/`)
 - [ ] Страница донатов
