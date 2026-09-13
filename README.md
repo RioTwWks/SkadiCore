@@ -76,7 +76,8 @@ SkadiCore — это попытка собрать в одном ядре сил
 **Не начато:**
 
 - [x] gRPC API — hot reload пользователей VLESS/SOCKS5 (`[api]`).
-- [ ] TUN, UDP/Mux VLESS, XHTTP, TLS outbound.
+- [ ] TUN, XHTTP.
+- [x] UDP/Mux/XUDP VLESS, TLS outbound — см. `examples/`.
 
 ⚠️ **Без `[transport.tls]` или `[transport.reality]` трафик идёт в открытом виде.**
 Для продакшена включайте REALITY (рекомендуется) или TLS.
@@ -230,9 +231,9 @@ Reply-коды соответствуют спецификации. Пароли
 - [x] UUID-аутентификация за постоянное время
 - [x] TCP CONNECT
 - [x] Ответный заголовок (2 байта)
-- [ ] UDP
+- [x] UDP
 - [x] Mux (TCP/UDP/XUDP)
-- [ ] Flow `xtls-rprx-vision`
+- [x] Flow `xtls-rprx-vision` (явный reject неподдерживаемого flow)
 
 VLESS рекомендуется поверх `[transport.tls]`. Без TLS — только для отладки.
 

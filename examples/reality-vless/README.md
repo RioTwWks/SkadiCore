@@ -1,5 +1,7 @@
 # VLESS + REALITY — пример для Xray / Nekoray / v2rayNG
 
+См. также [индекс примеров](../README.md) (VLESS TLS, SOCKS5 TLS).
+
 Сервер SkadiCore с REALITY inbound и VLESS. Клиент — любой Xray-совместимый
 клиент (Nekoray, v2rayNG, Xray-core).
 

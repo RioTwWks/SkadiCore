@@ -73,7 +73,7 @@
 - [x] Reply-коды
 - [x] Fuzz-тестирование парсера (`cargo-fuzz`)
 - [x] Интеграционный тест over TLS (`tls_socks5_e2e`)
-- [ ] Ручная проверка `curl --socks5` (документировать в DEVELOPMENT.md)
+- [x] Ручная проверка `curl --socks5` (DEVELOPMENT.md + `examples/`)
 
 **Критерий готовности:** `curl --socks5` через plain TCP или TLS.  
 🟡 **Частично** — автотесты есть, curl smoke test не задокументирован.
@@ -206,7 +206,7 @@
 - [ ] Docker-образ
 - [ ] GitHub Releases
 - [x] Документация: README, ARCHITECTURE, PROTOCOLS, CONFIGURATION, DEVELOPMENT
-- [ ] Примеры конфигов для типовых сценариев (частично: `examples/reality-vless/`)
+- [x] Примеры конфигов для типовых сценариев (`examples/reality-vless/`, `vless-tls/`, `socks5-tls/`)
 - [ ] Страница донатов
 
 🟡 **Частично** — документация и один пример REALITY+VLESS.

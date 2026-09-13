@@ -1,0 +1,38 @@
+{
+  "log": { "loglevel": "warning" },
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "port": 10808,
+      "protocol": "socks",
+      "settings": { "udp": true }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "127.0.0.1",
+            "port": 8443,
+            "users": [
+              {
+                "id": "b831381d-6324-4d53-ad4f-8cda48b30811",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "localhost",
+          "allowInsecure": true
+        }
+      }
+    }
+  ]
+}
