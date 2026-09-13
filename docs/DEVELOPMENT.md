@@ -196,6 +196,7 @@ VLESS Mux (TCP/UDP over CMD_MUX):
 ```bash
 cargo test -p skadi-server --test vless_mux_e2e
 cargo test -p skadi-server --test vless_mux_udp_e2e
+cargo test -p skadi-server --test vless_xudp_e2e
 ```
 
 VLESS over REALITY (рекомендуется):

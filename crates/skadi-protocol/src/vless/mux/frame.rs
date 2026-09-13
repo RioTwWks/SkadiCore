@@ -19,6 +19,10 @@ pub const NETWORK_UDP: u8 = 0x02;
 pub const MAX_META_LEN: usize = 512;
 pub const MAX_CHUNK_SIZE: usize = 8 * 1024;
 
+/// XUDP всегда использует session ID 0 (Mux.Cool / Xray).
+pub const XUDP_SESSION_ID: u16 = 0;
+pub const GLOBAL_ID_LEN: usize = 8;
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum MuxError {
     #[error("mux metadata too short")]
@@ -48,6 +52,8 @@ pub struct MuxMeta {
     pub option: u8,
     pub network: Option<u8>,
     pub target: Option<Endpoint>,
+    /// 8-byte GlobalID (только в первом XUDP New-кадре).
+    pub global_id: Option<[u8; 8]>,
 }
 
 impl MuxMeta {
@@ -75,6 +81,7 @@ pub fn parse_meta_body(body: &[u8]) -> Result<MuxMeta, MuxError> {
     let mut offset = 4usize;
     let mut network = None;
     let mut target = None;
+    let mut global_id = None;
 
     let needs_target = body.len() > offset
         && ((status == SESSION_STATUS_NEW
@@ -88,7 +95,14 @@ pub fn parse_meta_body(body: &[u8]) -> Result<MuxMeta, MuxError> {
         let (endpoint, consumed) =
             parse_port_address(&body[offset..]).map_err(|e| MuxError::Address(e.to_string()))?;
         target = Some(endpoint);
-        let _ = offset + consumed;
+        offset += consumed;
+
+        if status == SESSION_STATUS_NEW
+            && network == Some(NETWORK_UDP)
+            && body.len() >= offset + GLOBAL_ID_LEN
+        {
+            global_id = Some(body[offset..offset + GLOBAL_ID_LEN].try_into().unwrap());
+        }
     }
 
     Ok(MuxMeta {
@@ -97,6 +111,7 @@ pub fn parse_meta_body(body: &[u8]) -> Result<MuxMeta, MuxError> {
         option,
         network,
         target,
+        global_id,
     })
 }
 
@@ -107,11 +122,25 @@ pub fn encode_meta(meta: &MuxMeta) -> Vec<u8> {
     body.push(meta.status);
     body.push(meta.option);
 
-    if meta.status == SESSION_STATUS_NEW {
-        if let (Some(network), Some(target)) = (meta.network, &meta.target) {
-            body.push(network);
-            body.extend_from_slice(&encode_port_address(target));
+    match meta.status {
+        SESSION_STATUS_NEW => {
+            if let (Some(network), Some(target)) = (meta.network, &meta.target) {
+                body.push(network);
+                body.extend_from_slice(&encode_port_address(target));
+                if network == NETWORK_UDP {
+                    if let Some(id) = meta.global_id {
+                        body.extend_from_slice(&id);
+                    }
+                }
+            }
         }
+        SESSION_STATUS_KEEP => {
+            if let (Some(NETWORK_UDP), Some(target)) = (meta.network, &meta.target) {
+                body.push(NETWORK_UDP);
+                body.extend_from_slice(&encode_port_address(target));
+            }
+        }
+        _ => {}
     }
 
     let meta_len = body.len();
@@ -142,6 +171,7 @@ pub fn encode_end_frame(session_id: u16, with_error: bool) -> Vec<u8> {
         option,
         network: None,
         target: None,
+        global_id: None,
     })
 }
 
@@ -200,6 +230,7 @@ mod tests {
             option: OPTION_DATA,
             network: Some(NETWORK_TCP),
             target: Some(target.clone()),
+            global_id: None,
         };
 
         let encoded = encode_meta(&meta);
@@ -215,6 +246,45 @@ mod tests {
         assert_eq!(frame.meta.status, SESSION_STATUS_NEW);
         assert_eq!(frame.meta.target, Some(target));
         assert_eq!(frame.payload.as_deref(), Some(b"ping" as &[u8]));
+    }
+
+    #[test]
+    fn xudp_new_meta_roundtrip() {
+        let target = Endpoint::Ip(SocketAddr::new(Ipv4Addr::new(8, 8, 8, 8).into(), 53));
+        let global_id = [0xAB; 8];
+        let meta = MuxMeta {
+            session_id: XUDP_SESSION_ID,
+            status: SESSION_STATUS_NEW,
+            option: OPTION_DATA,
+            network: Some(NETWORK_UDP),
+            target: Some(target.clone()),
+            global_id: Some(global_id),
+        };
+
+        let encoded = encode_meta(&meta);
+        let parsed = parse_meta_body(&encoded[2..]).unwrap();
+        assert_eq!(parsed.session_id, 0);
+        assert_eq!(parsed.target, Some(target));
+        assert_eq!(parsed.global_id, Some(global_id));
+    }
+
+    #[test]
+    fn xudp_keep_meta_roundtrip() {
+        let target = Endpoint::Ip(SocketAddr::new(Ipv4Addr::new(1, 1, 1, 1).into(), 53));
+        let meta = MuxMeta {
+            session_id: XUDP_SESSION_ID,
+            status: SESSION_STATUS_KEEP,
+            option: OPTION_DATA,
+            network: Some(NETWORK_UDP),
+            target: Some(target.clone()),
+            global_id: None,
+        };
+
+        let encoded = encode_meta(&meta);
+        let parsed = parse_meta_body(&encoded[2..]).unwrap();
+        assert_eq!(parsed.session_id, 0);
+        assert_eq!(parsed.status, SESSION_STATUS_KEEP);
+        assert_eq!(parsed.target, Some(target));
     }
 
     #[test]

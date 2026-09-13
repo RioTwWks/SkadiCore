@@ -33,6 +33,9 @@ hex.workspace = true
 x25519-dalek.workspace = true
 rand = "0.8"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin)'] }
+
 [dev-dependencies]
 rcgen = "0.13"
 rustls.workspace = true

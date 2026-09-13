@@ -1,9 +1,10 @@
 //! VLESS Mux relay (Xray `common/mux` server worker, TCP/UDP sessions).
 
+use skadi_core::Endpoint;
 use skadi_protocol::vless::mux::{
     encode_data_frame, encode_end_frame, parse_meta_body, MuxError, MuxMeta, NETWORK_TCP,
     NETWORK_UDP, OPTION_DATA, SESSION_STATUS_END, SESSION_STATUS_KEEP, SESSION_STATUS_KEEP_ALIVE,
-    SESSION_STATUS_NEW,
+    SESSION_STATUS_NEW, XUDP_SESSION_ID,
 };
 use std::collections::HashMap;
 use std::io;
@@ -17,7 +18,7 @@ use tracing::{debug, warn};
 
 use crate::outbound::{OutboundTcpTransport, TcpUpstream};
 use crate::relay::{RelayLimits, IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG};
-use crate::udp::{UdpTransport, MAX_VLESS_UDP_PAYLOAD};
+use crate::udp::{resolve_endpoint, UdpTransport, MAX_VLESS_UDP_PAYLOAD};
 
 struct TcpMuxSession {
     upstream: Arc<Mutex<TcpUpstream>>,
@@ -32,6 +33,12 @@ struct UdpMuxSession {
 enum MuxSession {
     Tcp(TcpMuxSession),
     Udp(UdpMuxSession),
+}
+
+struct XudpCone {
+    global_id: Option<[u8; 8]>,
+    socket: Arc<UdpSocket>,
+    reader_task: Option<JoinHandle<()>>,
 }
 
 impl MuxSession {
@@ -63,12 +70,23 @@ where
     }
 
     async fn write_data(&self, session_id: u16, status: u8, payload: &[u8]) -> io::Result<()> {
+        self.write_mux_data(session_id, status, None, payload).await
+    }
+
+    async fn write_mux_data(
+        &self,
+        session_id: u16,
+        status: u8,
+        target: Option<Endpoint>,
+        payload: &[u8],
+    ) -> io::Result<()> {
         let meta = MuxMeta {
             session_id,
             status,
             option: OPTION_DATA,
-            network: None,
-            target: None,
+            network: target.as_ref().map(|_| NETWORK_UDP),
+            target,
+            global_id: None,
         };
         let frame = encode_data_frame(&meta, payload)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
@@ -93,6 +111,7 @@ where
     let (mut reader, writer) = tokio::io::split(client);
     let writer = MuxWriter::new(Arc::new(Mutex::new(writer)));
     let sessions: Arc<Mutex<HashMap<u16, MuxSession>>> = Arc::new(Mutex::new(HashMap::new()));
+    let xudp: Arc<Mutex<Option<XudpCone>>> = Arc::new(Mutex::new(None));
     let mut client_to_upstream = 0u64;
     let mut upstream_to_client = 0u64;
 
@@ -129,6 +148,7 @@ where
                             &outbound_udp,
                             &writer,
                             &sessions,
+                            &xudp,
                         ).await {
                             Ok(n) => n,
                             Err(e) => {
@@ -150,6 +170,11 @@ where
             session.abort();
         }
     }
+    if let Some(cone) = xudp.lock().await.take() {
+        if let Some(task) = cone.reader_task {
+            task.abort();
+        }
+    }
 
     Ok((client_to_upstream, upstream_to_client))
 }
@@ -165,6 +190,7 @@ async fn handle_mux_frame<W>(
     outbound_udp: &UdpTransport,
     writer: &MuxWriter<W>,
     sessions: &Arc<Mutex<HashMap<u16, MuxSession>>>,
+    xudp: &Arc<Mutex<Option<XudpCone>>>,
 ) -> io::Result<RelayBytes>
 where
     W: AsyncWrite + Unpin + Send + 'static,
@@ -173,6 +199,10 @@ where
         client_to_upstream: 0,
         upstream_to_client: 0,
     };
+
+    if is_xudp_frame(&frame.meta) {
+        return handle_xudp_frame(frame, outbound_udp, writer, xudp, &mut bytes).await;
+    }
 
     match frame.meta.status {
         SESSION_STATUS_NEW => {
@@ -218,6 +248,174 @@ where
     }
 
     Ok(bytes)
+}
+
+fn is_xudp_frame(meta: &MuxMeta) -> bool {
+    meta.session_id == XUDP_SESSION_ID && meta.network == Some(NETWORK_UDP)
+}
+
+async fn handle_xudp_frame<W>(
+    frame: &skadi_protocol::vless::mux::MuxFrame,
+    _outbound_udp: &UdpTransport,
+    writer: &MuxWriter<W>,
+    xudp: &Arc<Mutex<Option<XudpCone>>>,
+    bytes: &mut RelayBytes,
+) -> io::Result<RelayBytes>
+where
+    W: AsyncWrite + Unpin + Send + 'static,
+{
+    match frame.meta.status {
+        SESSION_STATUS_NEW => {
+            let target = frame.meta.target.as_ref().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidData, "xudp new frame without target")
+            })?;
+            ensure_xudp_cone(frame.meta.global_id, xudp).await?;
+            xudp_send(frame, target, xudp, bytes).await?;
+            start_xudp_reader_if_needed(writer, xudp).await?;
+        }
+        SESSION_STATUS_KEEP => {
+            if let Some(target) = frame.meta.target.as_ref() {
+                if xudp.lock().await.is_none() {
+                    ensure_xudp_cone(None, xudp).await?;
+                }
+                xudp_send(frame, target, xudp, bytes).await?;
+                start_xudp_reader_if_needed(writer, xudp).await?;
+            }
+        }
+        SESSION_STATUS_END => {
+            if let Some(cone) = xudp.lock().await.take() {
+                if let Some(task) = cone.reader_task {
+                    task.abort();
+                }
+            }
+        }
+        SESSION_STATUS_KEEP_ALIVE => {}
+        other => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("unknown xudp status: 0x{:02x}", other),
+            ));
+        }
+    }
+
+    Ok(RelayBytes {
+        client_to_upstream: bytes.client_to_upstream,
+        upstream_to_client: bytes.upstream_to_client,
+    })
+}
+
+async fn ensure_xudp_cone(
+    global_id: Option<[u8; 8]>,
+    xudp: &Arc<Mutex<Option<XudpCone>>>,
+) -> io::Result<()> {
+    let mut guard = xudp.lock().await;
+    if guard.is_some() {
+        if let Some(id) = global_id {
+            guard.as_mut().unwrap().global_id = Some(id);
+        }
+        return Ok(());
+    }
+
+    let socket = UdpSocket::bind("0.0.0.0:0")
+        .await
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+
+    *guard = Some(XudpCone {
+        global_id,
+        socket: Arc::new(socket),
+        reader_task: None,
+    });
+    debug!(global_id = ?global_id, "xudp cone opened");
+    Ok(())
+}
+
+async fn start_xudp_reader_if_needed<W>(
+    writer: &MuxWriter<W>,
+    xudp: &Arc<Mutex<Option<XudpCone>>>,
+) -> io::Result<()>
+where
+    W: AsyncWrite + Unpin + Send + 'static,
+{
+    let mut guard = xudp.lock().await;
+    let cone = guard
+        .as_mut()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotConnected, "xudp cone missing"))?;
+    if cone.reader_task.is_some() {
+        return Ok(());
+    }
+
+    let writer_clone = writer.inner.clone();
+    let socket_for_reader = Arc::clone(&cone.socket);
+    cone.reader_task = Some(tokio::spawn(async move {
+        let mux_writer = MuxWriter::new(writer_clone);
+        if let Err(e) = pump_xudp_upstream_to_client(socket_for_reader, &mux_writer).await {
+            debug!(error = %e, "xudp upstream reader finished");
+        }
+    }));
+    Ok(())
+}
+
+async fn xudp_send(
+    frame: &skadi_protocol::vless::mux::MuxFrame,
+    target: &Endpoint,
+    xudp: &Arc<Mutex<Option<XudpCone>>>,
+    bytes: &mut RelayBytes,
+) -> io::Result<()> {
+    let payload = frame.payload.as_deref().filter(|p| !p.is_empty());
+    if payload.is_none() {
+        return Ok(());
+    }
+    let payload = payload.unwrap();
+    let addr = resolve_endpoint(target)
+        .await
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    let guard = xudp.lock().await;
+    let cone = guard
+        .as_ref()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotConnected, "xudp cone missing"))?;
+    cone.socket
+        .send_to(payload, addr)
+        .await
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    bytes.client_to_upstream += payload.len() as u64;
+    Ok(())
+}
+
+async fn pump_xudp_upstream_to_client<W>(
+    socket: Arc<UdpSocket>,
+    writer: &MuxWriter<W>,
+) -> io::Result<()>
+where
+    W: AsyncWrite + Unpin + Send,
+{
+    let mut buf = vec![0u8; MAX_VLESS_UDP_PAYLOAD];
+
+    loop {
+        match socket.recv_from(&mut buf).await {
+            Ok((n, source)) => {
+                let target = Endpoint::Ip(source);
+                if writer
+                    .write_mux_data(
+                        XUDP_SESSION_ID,
+                        SESSION_STATUS_KEEP,
+                        Some(target),
+                        &buf[..n],
+                    )
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+            }
+            Err(e) => {
+                debug!(error = %e, "xudp recv_from ended");
+                break;
+            }
+        }
+    }
+
+    writer.write_end(XUDP_SESSION_ID).await?;
+    Ok(())
 }
 
 async fn open_tcp_session<W>(
@@ -482,4 +680,68 @@ where
 
 fn map_mux_error(err: MuxError) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, err.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::outbound::OutboundTcpTransport;
+    use crate::relay::RelayLimits;
+    use skadi_core::Endpoint;
+    use std::net::{Ipv4Addr, SocketAddr};
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn xudp_relay_roundtrip() {
+        let echo = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let echo_addr = echo.local_addr().unwrap();
+        tokio::spawn(async move {
+            let mut buf = [0u8; 1024];
+            while let Ok((n, peer)) = echo.recv_from(&mut buf).await {
+                let _ = echo.send_to(&buf[..n], peer).await;
+            }
+        });
+
+        let (mut client, server) = tokio::io::duplex(8192);
+        let outbound_tcp = OutboundTcpTransport::plain(Duration::from_secs(5));
+        let outbound_udp = UdpTransport::new(Duration::from_secs(5));
+
+        let relay = tokio::spawn(async move {
+            relay_vless_mux_with_limits(server, outbound_tcp, outbound_udp, RelayLimits::default())
+                .await
+        });
+
+        let target = Endpoint::Ip(SocketAddr::new(
+            Ipv4Addr::LOCALHOST.into(),
+            echo_addr.port(),
+        ));
+        let meta = MuxMeta {
+            session_id: XUDP_SESSION_ID,
+            status: SESSION_STATUS_NEW,
+            option: OPTION_DATA,
+            network: Some(NETWORK_UDP),
+            target: Some(target),
+            global_id: Some([0xAB; 8]),
+        };
+        let frame = encode_data_frame(&meta, b"ping").unwrap();
+        client.write_all(&frame).await.unwrap();
+
+        let mut len_buf = [0u8; 2];
+        client.read_exact(&mut len_buf).await.unwrap();
+        let meta_len = u16::from_be_bytes(len_buf) as usize;
+        let mut meta_body = vec![0u8; meta_len];
+        client.read_exact(&mut meta_body).await.unwrap();
+        let parsed = parse_meta_body(&meta_body).unwrap();
+        assert_eq!(parsed.session_id, 0);
+        assert_eq!(parsed.status, SESSION_STATUS_KEEP);
+
+        let mut chunk_len_buf = [0u8; 2];
+        client.read_exact(&mut chunk_len_buf).await.unwrap();
+        let chunk_len = u16::from_be_bytes(chunk_len_buf) as usize;
+        let mut payload = vec![0u8; chunk_len];
+        client.read_exact(&mut payload).await.unwrap();
+        assert_eq!(payload, b"ping");
+
+        relay.abort();
+    }
 }

@@ -42,7 +42,7 @@ impl UdpTransport {
     }
 }
 
-async fn resolve_endpoint(endpoint: &Endpoint) -> Result<std::net::SocketAddr> {
+pub(crate) async fn resolve_endpoint(endpoint: &Endpoint) -> Result<std::net::SocketAddr> {
     match endpoint {
         Endpoint::Ip(addr) => Ok(*addr),
         Endpoint::Domain(host, port) => {
