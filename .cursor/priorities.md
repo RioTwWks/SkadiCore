@@ -20,10 +20,6 @@
 - [x] GitHub Releases (workflow на тег `v*`, musl x86_64 + aarch64)
 - [ ] Кросс-компиляция Windows / macOS
 
-### 2. Качество (этап 9)
-
-- [ ] Soak-тесты на утечки памяти
-
 ## Позже
 
 | Задача | Описание |
@@ -31,7 +27,7 @@
 | XHTTP | Транспорт поверх HTTP |
 | TUN | Клиентский режим |
 | `skadi-config` | Выделить конфиг в отдельный крейт |
-| Protocol enum | Вместо sniffing первого байта |
+| ~~Protocol enum~~ | ✅ `skadi_core::Protocol` |
 
 ## Что НЕ делать сейчас
 

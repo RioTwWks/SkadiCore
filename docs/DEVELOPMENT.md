@@ -405,6 +405,21 @@ cargo test -p skadi-server --test connection_load_e2e massive -- --ignored
 Для прогона ближе к 10k соединений увеличьте константу `CONNECTIONS` в тесте
 `massive_concurrent_vless_connections` и `max_connections` в конфиге прокси.
 
+### Soak-тесты (утечки памяти / зависшие сессии)
+
+В CI: `connection_soak_e2e::sequential_connections_no_leak` — 120 последовательных
+VLESS connect/relay/close. Проверяется:
+
+- `skadicore_active_connections` возвращается к `0` (метрики)
+- рост VmRSS процесса (Linux `/proc/self/status`) не превышает порога
+
+```bash
+cargo test -p skadi-server --test connection_soak_e2e
+
+# Длинный прогон (2000 итераций):
+cargo test -p skadi-server --test connection_soak_e2e long -- --ignored
+```
+
 ### wrk / iperf3 (ручная проверка)
 
 Для TCP-throughput после поднятия прокси с echo/upstream:

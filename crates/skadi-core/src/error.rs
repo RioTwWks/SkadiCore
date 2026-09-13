@@ -24,4 +24,10 @@ pub enum Error {
 
     #[error("configuration error: {0}")]
     Config(String),
+
+    #[error("unknown protocol byte: 0x{0:02x}")]
+    UnknownProtocolByte(u8),
+
+    #[error("{0} is disabled in configuration")]
+    DisabledProtocol(&'static str),
 }

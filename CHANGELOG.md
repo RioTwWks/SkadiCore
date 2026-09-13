@@ -11,6 +11,12 @@
 
 ### Added
 
+- **`skadi_core::Protocol`** — enum SOCKS5/VLESS, wire bytes, `EnabledProtocols::detect()`
+  для sniffing; `skadi-server` использует вместо локального `ProtocolKind`
+
+- **Soak-тесты** (`connection_soak_e2e`) — 120 sequential VLESS sessions;
+  проверка `skadicore_active_connections == 0` и роста VmRSS; long-вариант `#[ignore]`
+
 - **gRPC API TLS + rate limiting**
   - `[api.tls]` — TLS 1.3 (PEM cert/key) для management API
   - `api.rate_limit_per_sec` — fixed-window лимит RPC/сек (`RESOURCE_EXHAUSTED`)
