@@ -147,10 +147,10 @@
 - [x] `GetStats` — счётчики пользователей
 - [x] Защита: loopback bind + Bearer token
 - [x] E2E тест `grpc_api_e2e`
-- [ ] TLS для gRPC API
-- [ ] Rate limiting
+- [x] TLS для gRPC API (`[api.tls]`, PEM cert/key)
+- [x] Rate limiting (`api.rate_limit_per_sec`)
 
-🟢 **Готово (v1)** — user CRUD + stats; TLS/rate limit — v2.
+🟢 **Готово (v1)** — user CRUD + stats + TLS + rate limit.
 
 ---
 
@@ -251,10 +251,11 @@
 ## 📍 Следующие приоритеты
 
 1. ~~**Кросс-компиляция musl** (этап 10)~~ — x86_64 + aarch64 ✅
-2. ~~**UDP/Mux/Vision** (этап 4)~~ — UDP + Mux TCP/UDP/XUDP + flow reject + XUDP hit ✅
-3. ~~**TLS outbound** (этап 3)~~ ✅
-4. ~~**cargo miri + criterion** (этап 9)~~ ✅
-5. ~~**Smoke-доки**~~ ✅ — `curl --socks5`, `openssl s_client` в DEVELOPMENT.md
+2. ~~**GitHub Releases** (этап 10)~~ — workflow на тег `v*` ✅
+3. ~~**UDP/Mux/Vision** (этап 4)~~ — UDP + Mux TCP/UDP/XUDP + flow reject + XUDP hit ✅
+4. ~~**TLS outbound** (этап 3)~~ ✅
+5. ~~**cargo miri + criterion** (этап 9)~~ ✅
+6. ~~**Smoke-доки**~~ ✅ — `curl --socks5`, `openssl s_client` в DEVELOPMENT.md
 
 ---
 

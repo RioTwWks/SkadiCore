@@ -11,6 +11,11 @@
 
 ### Added
 
+- **gRPC API TLS + rate limiting**
+  - `[api.tls]` — TLS 1.3 (PEM cert/key) для management API
+  - `api.rate_limit_per_sec` — fixed-window лимит RPC/сек (`RESOURCE_EXHAUSTED`)
+  - E2E: `grpc_api_over_tls`, `grpc_api_rate_limit`
+
 - **GitHub Releases** — workflow `release.yml`: статические musl-бинарники
   (x86_64 + aarch64), `SHA256SUMS`, публикация при push тега `v*`
 - **CI: aarch64 musl** — matrix job `musl` собирает `aarch64-unknown-linux-musl`

@@ -537,6 +537,12 @@ gRPC management API для hot reload пользователей без пере
 enabled = true
 listen = "127.0.0.1:10085"
 token = "change-me-to-a-long-random-secret"
+rate_limit_per_sec = 30   # опционально; 0 или отсутствие = без лимита
+
+[api.tls]
+enabled = true
+cert = "certs/api.pem"
+key = "certs/api-key.pem"
 ```
 
 | Поле | Тип | Описание |
@@ -544,6 +550,10 @@ token = "change-me-to-a-long-random-secret"
 | `enabled` | `bool` | Включить gRPC API |
 | `listen` | `string` | Адрес **только loopback** (`127.0.0.1` или `::1`) |
 | `token` | `string` | Bearer-токен; обязателен при `enabled = true` |
+| `rate_limit_per_sec` | `u32` | Макс. RPC/сек (глобально). Превышение → gRPC `RESOURCE_EXHAUSTED` |
+| `[api.tls]` | table | TLS 1.3 для gRPC (опционально) |
+| `api.tls.enabled` | `bool` | Включить TLS |
+| `api.tls.cert` / `key` | `string` | PEM-файлы; обязательны при `api.tls.enabled` |
 
 ### Методы (`skadi.api.v1.SkadiApi`)
 
@@ -566,6 +576,15 @@ grpcurl -plaintext \
   -H "authorization: Bearer change-me-to-a-long-random-secret" \
   -d '{"user":{"id":"b831381d-6324-4d53-ad4f-8cda48b30811","email":"alice@example.com"}}' \
   127.0.0.1:10085 skadi.api.v1.SkadiApi/AddVlessUser
+```
+
+С TLS (`[api.tls]`):
+
+```bash
+grpcurl \
+  -cacert certs/api.pem \
+  -H "authorization: Bearer change-me-to-a-long-random-secret" \
+  127.0.0.1:10085 skadi.api.v1.SkadiApi/ListVlessUsers
 ```
 
 Автотест: `cargo test -p skadi-server --test grpc_api_e2e`.

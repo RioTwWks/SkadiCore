@@ -20,12 +20,7 @@
 - [x] GitHub Releases (workflow на тег `v*`, musl x86_64 + aarch64)
 - [ ] Кросс-компиляция Windows / macOS
 
-### 2. gRPC API v2
-
-- [ ] TLS для gRPC API
-- [ ] Rate limiting
-
-### 3. Качество (этап 9)
+### 2. Качество (этап 9)
 
 - [ ] Soak-тесты на утечки памяти
 

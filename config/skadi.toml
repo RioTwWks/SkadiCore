@@ -44,6 +44,12 @@ email = "alice@example.com"
 # enabled = true
 # listen = "127.0.0.1:10085"
 # token = "change-me-to-a-long-random-secret"
+# rate_limit_per_sec = 30
+#
+# [api.tls]
+# enabled = true
+# cert = "certs/api.pem"
+# key = "certs/api-key.pem"
 
 # Prometheus metrics + health check.
 # [metrics]
