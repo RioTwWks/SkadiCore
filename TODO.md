@@ -193,9 +193,9 @@
 - [x] Бенчмарки (`criterion`: parse + relay)
 - [x] Нагрузочные тесты (64 conn CI, 512 `#[ignore]`; 10k — ручной прогон)
 - [x] `cargo deny` (CI + deny.toml)
-- [ ] Soak-тесты на утечки памяти
+- [x] Soak-тесты на утечки памяти (`connection_soak_e2e`, RSS + active_connections)
 
-🟡 **Частично** — tarpaulin/deny/miri/benchmarks в CI; soak — нет.
+🟢 **Готово** — tarpaulin/deny/miri/benchmarks/soak в CI.
 
 ---
 
@@ -244,7 +244,7 @@
 - [x] Проверка реальным VLESS-клиентом (Xray-core e2e)
 - [x] Статический musl-бинарник (x86_64, CI)
 
-✅ **MVP v1 выполнен** — musl x86_64 в CI; soak — этап 9.
+✅ **MVP v1 выполнен** — musl x86_64/aarch64 в CI; soak-тесты в CI.
 
 ---
 
