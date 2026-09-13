@@ -214,6 +214,7 @@ curl --socks5 127.0.0.1:10808 https://example.com
 
 Нужны `curl` и `unzip` для авто-скачивания Xray, либо `XRAY_BINARY=/path/to/xray`.
 См. `examples/reality-vless/README.md` для Nekoray и v2rayNG share link.
+Полный список примеров: `examples/README.md` (VLESS TLS, SOCKS5 TLS).
 
 ### Покрытие
 

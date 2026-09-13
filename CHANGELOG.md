@@ -9,6 +9,17 @@
 
 Текущая ветка разработки. Всё, что ниже, ещё не выпущено в релиз.
 
+### Added
+
+- **Примеры конфигурации** (`examples/`):
+  - `vless-tls/` — VLESS over TLS + Xray client JSON + `generate-certs.sh`
+  - `socks5-tls/` — SOCKS5 user-pass over TLS
+  - `README.md` — индекс всех примеров
+
+- **XUDP hit/reconnect** (`skadi-transport::xudp`):
+  - GlobalID registry с TTL 60s, reuse cone socket при reconnect
+  - E2E `vless_xudp_hit_reconnect`
+
 ### Changed
 
 - **Документация актуализирована** (2026-09-11):

@@ -1,0 +1,22 @@
+# SkadiCore: VLESS over TLS (пример для локальной проверки)
+# 1. ./examples/vless-tls/generate-certs.sh
+# 2. cargo run --bin skadicore -- --config examples/vless-tls/server.toml
+
+[server]
+listen = "127.0.0.1:8443"
+
+[transport.tls]
+enabled = true
+cert = "examples/vless-tls/certs/server.pem"
+key = "examples/vless-tls/certs/server.key"
+alpn = ["h2", "http/1.1"]
+
+[protocol.socks5]
+enabled = false
+
+[protocol.vless]
+enabled = true
+
+[[protocol.vless.users]]
+id = "b831381d-6324-4d53-ad4f-8cda48b30811"
+email = "demo@example.com"
