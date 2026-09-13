@@ -1,5 +1,6 @@
-//! E2E: gRPC API hot reload пользователей VLESS.
+//! E2E: gRPC API hot reload пользователей VLESS, TLS и rate limiting.
 
+use rcgen::generate_simple_self_signed;
 use skadi_api::skadi_api_client::SkadiApiClient;
 use skadi_api::{
     AddVlessUserRequest, GetStatsRequest, ListVlessUsersRequest, RemoveVlessUserRequest,
@@ -7,15 +8,17 @@ use skadi_api::{
 };
 use skadi_protocol::vless::{build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{VlessConfig, VlessUser};
-use skadi_server::config::{ApiConfig, Config, ProtocolConfig, ServerConfig, TransportConfig};
+use skadi_server::config::{
+    ApiConfig, ApiTlsConfig, Config, ProtocolConfig, ServerConfig, TransportConfig,
+};
 use skadi_server::run_server;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::watch;
 use tonic::metadata::MetadataValue;
-use tonic::transport::Channel;
-use tonic::Request;
+use tonic::transport::{Certificate, Channel, ClientTlsConfig};
+use tonic::{Code, Request};
 
 const INITIAL_USER_ID: &str = "b831381d-6324-4d53-ad4f-8cda48b30811";
 const ADDED_USER_ID: &str = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
@@ -130,6 +133,8 @@ async fn grpc_add_remove_vless_user_hot_reload() {
             enabled: true,
             listen: format!("127.0.0.1:{}", api_port),
             token: Some(API_TOKEN.to_string()),
+            tls: ApiTlsConfig::default(),
+            rate_limit_per_sec: None,
         },
         metrics: Default::default(),
         outbound: Default::default(),
@@ -228,6 +233,8 @@ async fn grpc_rejects_missing_token() {
             enabled: true,
             listen: format!("127.0.0.1:{}", api_port),
             token: Some(API_TOKEN.to_string()),
+            tls: ApiTlsConfig::default(),
+            rate_limit_per_sec: None,
         },
         metrics: Default::default(),
         outbound: Default::default(),
@@ -250,6 +257,136 @@ async fn grpc_rejects_missing_token() {
         .await
         .expect_err("should reject unauthenticated request");
     assert_eq!(err.code(), tonic::Code::Unauthenticated);
+
+    let _ = shutdown_tx.send(true);
+    let _ = tokio::time::timeout(Duration::from_secs(2), server).await;
+}
+
+#[tokio::test]
+async fn grpc_api_over_tls() {
+    let proxy_port = pick_free_port();
+    let api_port = pick_free_port();
+
+    let cert = generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+    let cert_pem = cert.cert.pem();
+    let key_pem = cert.key_pair.serialize_pem();
+
+    let dir = tempfile::tempdir().unwrap();
+    let cert_path = dir.path().join("api-cert.pem");
+    let key_path = dir.path().join("api-key.pem");
+    std::fs::write(&cert_path, &cert_pem).unwrap();
+    std::fs::write(&key_path, key_pem).unwrap();
+
+    let config = Config {
+        server: ServerConfig::with_listen(format!("127.0.0.1:{}", proxy_port)),
+        protocol: ProtocolConfig {
+            socks5: Default::default(),
+            vless: VlessConfig {
+                enabled: true,
+                users: vec![VlessUser {
+                    id: INITIAL_USER_ID.to_string(),
+                    email: None,
+                    flow: None,
+                }],
+            },
+        },
+        transport: TransportConfig::default(),
+        api: ApiConfig {
+            enabled: true,
+            listen: format!("127.0.0.1:{}", api_port),
+            token: Some(API_TOKEN.to_string()),
+            tls: ApiTlsConfig {
+                enabled: true,
+                cert: Some(cert_path.to_string_lossy().into_owned()),
+                key: Some(key_path.to_string_lossy().into_owned()),
+            },
+            rate_limit_per_sec: None,
+        },
+        metrics: Default::default(),
+        outbound: Default::default(),
+    };
+    config.validate().unwrap();
+
+    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    let server = tokio::spawn(run_server(config, shutdown_rx));
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    let tls = ClientTlsConfig::new()
+        .domain_name("localhost")
+        .ca_certificate(Certificate::from_pem(cert_pem.as_bytes()));
+    let channel = Channel::from_shared(format!("https://127.0.0.1:{}", api_port))
+        .unwrap()
+        .tls_config(tls)
+        .unwrap()
+        .connect()
+        .await
+        .expect("grpc tls connect");
+    let mut client = SkadiApiClient::new(channel);
+
+    let stats = client
+        .get_stats(authed_request(GetStatsRequest {}))
+        .await
+        .expect("get_stats over tls")
+        .into_inner();
+    assert_eq!(stats.vless_users, 1);
+
+    let _ = shutdown_tx.send(true);
+    let _ = tokio::time::timeout(Duration::from_secs(2), server).await;
+}
+
+#[tokio::test]
+async fn grpc_api_rate_limit() {
+    let proxy_port = pick_free_port();
+    let api_port = pick_free_port();
+
+    let config = Config {
+        server: ServerConfig::with_listen(format!("127.0.0.1:{}", proxy_port)),
+        protocol: ProtocolConfig {
+            socks5: Default::default(),
+            vless: VlessConfig {
+                enabled: true,
+                users: vec![VlessUser {
+                    id: INITIAL_USER_ID.to_string(),
+                    email: None,
+                    flow: None,
+                }],
+            },
+        },
+        transport: TransportConfig::default(),
+        api: ApiConfig {
+            enabled: true,
+            listen: format!("127.0.0.1:{}", api_port),
+            token: Some(API_TOKEN.to_string()),
+            tls: ApiTlsConfig::default(),
+            rate_limit_per_sec: Some(2),
+        },
+        metrics: Default::default(),
+        outbound: Default::default(),
+    };
+    config.validate().unwrap();
+
+    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    let server = tokio::spawn(run_server(config, shutdown_rx));
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    let channel = Channel::from_shared(format!("http://127.0.0.1:{}", api_port))
+        .unwrap()
+        .connect()
+        .await
+        .expect("grpc connect");
+    let mut client = SkadiApiClient::new(channel);
+
+    let mut ok = 0u32;
+    let mut limited = 0u32;
+    for _ in 0..5 {
+        match client.get_stats(authed_request(GetStatsRequest {})).await {
+            Ok(_) => ok += 1,
+            Err(e) if e.code() == Code::ResourceExhausted => limited += 1,
+            Err(e) => panic!("unexpected error: {}", e),
+        }
+    }
+    assert_eq!(ok, 2);
+    assert_eq!(limited, 3);
 
     let _ = shutdown_tx.send(true);
     let _ = tokio::time::timeout(Duration::from_secs(2), server).await;

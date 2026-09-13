@@ -45,7 +45,7 @@ rcgen = "0.13"
 ring = "0.17"
 
 # gRPC
-tonic = "0.12"
+tonic = { version = "0.12", features = ["tls", "tls-roots"] }
 prost = "0.13"
 tonic-build = "0.12"
 

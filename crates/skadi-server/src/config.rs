@@ -53,6 +53,19 @@ pub struct ApiConfig {
     #[serde(default = "default_api_listen")]
     pub listen: String,
     pub token: Option<String>,
+    #[serde(default)]
+    pub tls: ApiTlsConfig,
+    /// Макс. RPC в секунду (глобально). Не задано или `0` — без лимита.
+    #[serde(default)]
+    pub rate_limit_per_sec: Option<u32>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct ApiTlsConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    pub cert: Option<String>,
+    pub key: Option<String>,
 }
 
 fn default_api_listen() -> String {
@@ -65,6 +78,8 @@ impl Default for ApiConfig {
             enabled: false,
             listen: default_api_listen(),
             token: None,
+            tls: ApiTlsConfig::default(),
+            rate_limit_per_sec: None,
         }
     }
 }
@@ -315,6 +330,27 @@ impl Config {
             .ok_or_else(|| anyhow::anyhow!("api.token is required when api.enabled = true"))?;
         if token.trim().is_empty() {
             bail!("api.token must not be empty");
+        }
+
+        if self.api.tls.enabled {
+            let cert =
+                self.api.tls.cert.as_deref().ok_or_else(|| {
+                    anyhow::anyhow!("api.tls.cert is required when api.tls.enabled")
+                })?;
+            let key =
+                self.api.tls.key.as_deref().ok_or_else(|| {
+                    anyhow::anyhow!("api.tls.key is required when api.tls.enabled")
+                })?;
+            ensure_readable_file(cert, "api.tls.cert")?;
+            ensure_readable_file(key, "api.tls.key")?;
+        } else if self.api.tls.cert.is_some() || self.api.tls.key.is_some() {
+            bail!("api.tls.cert/key set but api.tls.enabled = false");
+        }
+
+        if let Some(limit) = self.api.rate_limit_per_sec {
+            if limit == 0 {
+                bail!("api.rate_limit_per_sec must be > 0 when set");
+            }
         }
 
         Ok(())
@@ -617,7 +653,12 @@ impl Config {
         println!(
             "  api:     {}",
             if self.api.enabled {
-                format!("enabled ({})", self.api.listen)
+                let tls = if self.api.tls.enabled { ", tls" } else { "" };
+                let rate = match self.api.rate_limit_per_sec {
+                    Some(n) => format!(", rate_limit={}/s", n),
+                    None => String::new(),
+                };
+                format!("enabled ({}{}{})", self.api.listen, tls, rate)
             } else {
                 "disabled".to_string()
             }
