@@ -2,9 +2,9 @@
 
 use crate::xhttp::common::{self, BoxBody, ChannelWriter, MpscBody, UploadReader};
 use crate::xhttp::config::{PaddingRange, XhttpConfig, XhttpMode};
-use crate::xhttp::session::XhttpSessionManager;
+use crate::xhttp::session::{XhttpSessionManager, DEFAULT_MAX_POST_BYTES};
 use bytes::Bytes;
-use futures_util::TryStreamExt;
+use futures_util::{StreamExt, TryStreamExt};
 use http::{header, Method, Request, Response, StatusCode};
 use http_body_util::{BodyExt, Full};
 use hyper::body::Incoming;
@@ -177,7 +177,10 @@ async fn handle_request(
     }
 
     if !seq.is_empty() {
-        return Ok(common::error_response(StatusCode::BAD_REQUEST));
+        return handle_packet_up(
+            req, mode, padding, no_sse, upgrade_tx, sessions, session_id, seq,
+        )
+        .await;
     }
 
     handle_stream_up(req, mode, padding, no_sse, upgrade_tx, sessions, session_id).await
@@ -206,6 +209,60 @@ async fn handle_stream_one(
     Ok(streaming_response(body_rx, padding, no_sse))
 }
 
+async fn handle_packet_up(
+    req: Request<Incoming>,
+    mode: XhttpMode,
+    _padding: PaddingRange,
+    _no_sse: bool,
+    upgrade_tx: Arc<Mutex<Option<oneshot::Sender<XhttpAcceptResult>>>>,
+    sessions: Arc<XhttpSessionManager>,
+    session_id: String,
+    seq_str: String,
+) -> Result<Response<BoxBody>, Infallible> {
+    if !mode.allows_packet_up() {
+        return Ok(common::error_response(StatusCode::BAD_REQUEST));
+    }
+
+    if *req.method() != Method::POST {
+        return Ok(common::error_response(StatusCode::METHOD_NOT_ALLOWED));
+    }
+
+    let seq = match seq_str.parse::<u64>() {
+        Ok(n) => n,
+        Err(_) => return Ok(common::error_response(StatusCode::BAD_REQUEST)),
+    };
+
+    let body = req.into_body();
+    let payload = match read_body_limited(body, DEFAULT_MAX_POST_BYTES).await {
+        Ok(p) => p,
+        Err(status) => return Ok(common::error_response(status)),
+    };
+
+    let session = sessions.get_or_create(&session_id);
+    session.push_packet(seq, payload);
+
+    send_upgrade(upgrade_tx, XhttpAcceptResult::PostHandled);
+    let mut response = Response::new(Full::new(Bytes::new()).boxed_unsync());
+    *response.status_mut() = StatusCode::OK;
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
+    Ok(response)
+}
+
+async fn read_body_limited(body: Incoming, max_bytes: usize) -> Result<Bytes, StatusCode> {
+    let mut stream = body.into_data_stream();
+    let mut out = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|_| StatusCode::BAD_REQUEST)?;
+        if out.len() + chunk.len() > max_bytes {
+            return Err(StatusCode::from_u16(413).unwrap_or(StatusCode::BAD_REQUEST));
+        }
+        out.extend_from_slice(&chunk);
+    }
+    Ok(Bytes::from(out))
+}
+
 async fn handle_stream_up(
     req: Request<Incoming>,
     mode: XhttpMode,
@@ -215,14 +272,13 @@ async fn handle_stream_up(
     sessions: Arc<XhttpSessionManager>,
     session_id: String,
 ) -> Result<Response<BoxBody>, Infallible> {
-    if !mode.allows_stream_up() {
-        return Ok(common::error_response(StatusCode::BAD_REQUEST));
-    }
-
     let session = sessions.get_or_create(&session_id);
 
     match *req.method() {
         Method::GET => {
+            if !mode.allows_stream_up() && !mode.allows_packet_up() {
+                return Ok(common::error_response(StatusCode::BAD_REQUEST));
+            }
             let upload_rx = session
                 .take_upload_rx()
                 .ok_or(())
@@ -241,6 +297,9 @@ async fn handle_stream_up(
             Ok(streaming_response(body_rx, padding, no_sse))
         }
         Method::POST => {
+            if !mode.allows_stream_up() {
+                return Ok(common::error_response(StatusCode::BAD_REQUEST));
+            }
             let body = req.into_body();
             let sessions = Arc::clone(&sessions);
             let sid = session_id.clone();

@@ -11,6 +11,9 @@
 
 ### Added
 
+- **XHTTP packet-up** — sequenced POST (`/xhttp/{id}/{seq}`) + GET downlink;
+  reassembly в `XhttpSession`, E2E `xhttp_packet_up_e2e`
+
 - **XHTTP stream-up** — GET downlink + POST uplink с session id (`/xhttp/{id}`);
   `XhttpSessionManager`, E2E `xhttp_stream_up_e2e`
 
