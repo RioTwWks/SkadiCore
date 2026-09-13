@@ -10,10 +10,10 @@ pub mod store;
 
 use connection_gate::ConnectionGate;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use config::Config;
 use prefixed::PrefixedStream;
-use skadi_core::Session;
+use skadi_core::{EnabledProtocols, Protocol, Session};
 use skadi_protocol::{
     Socks5Handler, VlessHandler, CMD_MUX, CMD_TCP, CMD_UDP, REP_CONNECTION_REFUSED,
     REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE, REP_SUCCEEDED,
@@ -33,11 +33,6 @@ use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::sync::watch;
 use tracing::{debug, error, info, info_span, Instrument};
-
-/// Первый байт SOCKS5 greeting.
-const SOCKS5_VERSION_BYTE: u8 = 0x05;
-/// Первый байт VLESS v0.
-const VLESS_VERSION_BYTE: u8 = 0x00;
 
 /// Проверить конфиг без запуска сервера.
 pub fn check_config(path: &Path) -> Result<()> {
@@ -115,7 +110,7 @@ pub async fn run_server_with_store(
         InboundTransport::Plain
     };
 
-    let sniff_protocols = config.enabled_protocol_count() > 1;
+    let enabled_protocols = config.enabled_protocols();
 
     let api_handle = if config.api.enabled {
         let api_config = config.api.clone();
@@ -151,7 +146,7 @@ pub async fn run_server_with_store(
         outbound_udp,
         inbound,
         user_store,
-        sniff_protocols,
+        enabled_protocols,
         relay_limits,
         connection_gate,
         shutdown_rx,
@@ -182,7 +177,7 @@ async fn accept_loop(
     outbound_udp: UdpTransport,
     inbound: InboundTransport,
     user_store: Arc<UserStore>,
-    sniff_protocols: bool,
+    enabled_protocols: EnabledProtocols,
     relay_limits: RelayLimits,
     connection_gate: ConnectionGate,
     mut shutdown_rx: watch::Receiver<bool>,
@@ -224,7 +219,7 @@ async fn accept_loop(
                                     outbound_udp,
                                     session,
                                     user_store,
-                                    sniff_protocols,
+                                    enabled_protocols,
                                     relay_limits,
                                 )
                                 .await,
@@ -235,7 +230,7 @@ async fn accept_loop(
                                         outbound_udp,
                                         session,
                                         user_store,
-                                        sniff_protocols,
+                                        enabled_protocols,
                                         relay_limits,
                                     )
                                     .await,
@@ -252,7 +247,7 @@ async fn accept_loop(
                                             outbound_udp,
                                             session,
                                             user_store,
-                                            sniff_protocols,
+                                            enabled_protocols,
                                             relay_limits,
                                         )
                                         .await,
@@ -340,7 +335,7 @@ async fn handle_connection<S>(
     outbound_udp: UdpTransport,
     session: Session,
     user_store: Arc<UserStore>,
-    sniff_protocols: bool,
+    enabled_protocols: EnabledProtocols,
     relay_limits: RelayLimits,
 ) -> Result<()>
 where
@@ -349,7 +344,7 @@ where
     let socks_config = user_store.socks5_config();
     let vless_config = user_store.vless_config();
 
-    let prefix_byte = if sniff_protocols {
+    let prefix_byte = if enabled_protocols.needs_sniffing() {
         let mut first = [0u8; 1];
         client
             .read_exact(&mut first)
@@ -362,39 +357,33 @@ where
 
     let mut stream = PrefixedStream::new(client, prefix_byte);
 
-    let (target, protocol, vless_command) = if sniff_protocols {
+    let protocol = if enabled_protocols.needs_sniffing() {
         let byte = prefix_byte.expect("sniffing requires first byte");
-        match byte {
-            SOCKS5_VERSION_BYTE if socks_config.enabled => {
-                let endpoint = Socks5Handler::negotiate(&mut stream, &socks_config).await?;
-                (endpoint, ProtocolKind::Socks5, CMD_TCP)
-            }
-            VLESS_VERSION_BYTE if vless_config.enabled => {
-                let handshake = VlessHandler::handshake(&mut stream, &vless_config).await?;
-                (handshake.target, ProtocolKind::Vless, handshake.command)
-            }
-            _ => bail!("unknown or disabled protocol byte: 0x{:02x}", byte),
-        }
-    } else if vless_config.enabled {
-        let handshake = VlessHandler::handshake(&mut stream, &vless_config).await?;
-        (handshake.target, ProtocolKind::Vless, handshake.command)
-    } else if socks_config.enabled {
-        let endpoint = Socks5Handler::negotiate(&mut stream, &socks_config).await?;
-        (endpoint, ProtocolKind::Socks5, CMD_TCP)
+        enabled_protocols
+            .detect(byte)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?
     } else {
-        bail!("no protocol enabled");
+        enabled_protocols
+            .sole()
+            .expect("at least one protocol enabled (validated at config load)")
     };
 
-    let protocol_label = match protocol {
-        ProtocolKind::Socks5 => "socks5",
-        ProtocolKind::Vless if vless_command == CMD_UDP => "vless-udp",
-        ProtocolKind::Vless if vless_command == CMD_MUX => "vless-mux",
-        ProtocolKind::Vless => "vless",
+    let (target, vless_command) = match protocol {
+        Protocol::Socks5 => {
+            let endpoint = Socks5Handler::negotiate(&mut stream, &socks_config).await?;
+            (endpoint, CMD_TCP)
+        }
+        Protocol::Vless => {
+            let handshake = VlessHandler::handshake(&mut stream, &vless_config).await?;
+            (handshake.target, handshake.command)
+        }
     };
+
+    let protocol_label = vless_metric_label(protocol, vless_command);
 
     observability::connection_opened(protocol_label);
 
-    if protocol == ProtocolKind::Vless && vless_command == CMD_MUX {
+    if protocol == Protocol::Vless && vless_command == CMD_MUX {
         info!(
             session = ?session.id,
             protocol = "vless-mux",
@@ -406,7 +395,7 @@ where
         return finish_relay(session.id, protocol_label, relay);
     }
 
-    if protocol == ProtocolKind::Vless && vless_command == CMD_UDP {
+    if protocol == Protocol::Vless && vless_command == CMD_UDP {
         let mut upstream = match outbound_udp.connect(&target).await {
             Ok(s) => s,
             Err(e) => {
@@ -429,7 +418,7 @@ where
     let mut upstream = match outbound_tcp.connect(&target).await {
         Ok(s) => s,
         Err(e) => {
-            if protocol == ProtocolKind::Socks5 {
+            if protocol == Protocol::Socks5 {
                 let code = classify_connect_error(&e);
                 let _ = Socks5Handler::send_error(&mut stream, code).await;
             }
@@ -438,7 +427,7 @@ where
         }
     };
 
-    if protocol == ProtocolKind::Socks5 {
+    if protocol == Protocol::Socks5 {
         let bound = upstream
             .local_addr()
             .unwrap_or_else(|_| "0.0.0.0:0".parse().expect("valid dummy addr"));
@@ -494,10 +483,15 @@ fn finish_relay(
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ProtocolKind {
-    Socks5,
-    Vless,
+fn vless_metric_label(protocol: Protocol, vless_command: u8) -> &'static str {
+    if protocol == Protocol::Socks5 {
+        return protocol.metric_label();
+    }
+    match vless_command {
+        CMD_UDP => "vless-udp",
+        CMD_MUX => "vless-mux",
+        _ => protocol.metric_label(),
+    }
 }
 
 fn classify_connect_error(e: &anyhow::Error) -> u8 {

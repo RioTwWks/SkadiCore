@@ -27,7 +27,7 @@
 | XHTTP | Транспорт поверх HTTP |
 | TUN | Клиентский режим |
 | `skadi-config` | Выделить конфиг в отдельный крейт |
-| Protocol enum | Вместо sniffing первого байта |
+| ~~Protocol enum~~ | ✅ `skadi_core::Protocol` |
 
 ## Что НЕ делать сейчас
 

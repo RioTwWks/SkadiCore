@@ -397,7 +397,10 @@ TcpListener::accept() → TcpStream
 TlsTransport::accept(TcpStream) → TlsStream   # опционально, [transport.tls]
           │
           ▼
-PrefixedStream (sniff 0x05/0x00)              # если оба протокола
+EnabledProtocols::detect(wire byte) → Protocol  # sniff при двух протоколах
+          │
+          ▼
+PrefixedStream (prefix byte)                   # если sniffing
           │
           ▼
 VlessHandler::handshake(S) / Socks5Handler::negotiate(S) → Endpoint

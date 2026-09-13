@@ -442,14 +442,15 @@ impl Config {
 
     /// Сколько протоколов включено.
     pub fn enabled_protocol_count(&self) -> usize {
-        let mut n = 0;
-        if self.protocol.socks5.enabled {
-            n += 1;
+        self.enabled_protocols().count()
+    }
+
+    /// Включённые inbound-протоколы (для sniffing / dispatch).
+    pub fn enabled_protocols(&self) -> skadi_core::EnabledProtocols {
+        skadi_core::EnabledProtocols {
+            socks5: self.protocol.socks5.enabled,
+            vless: self.protocol.vless.enabled,
         }
-        if self.protocol.vless.enabled {
-            n += 1;
-        }
-        n
     }
 
     fn validate_outbound_tls(&self) -> Result<()> {

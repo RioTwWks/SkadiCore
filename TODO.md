@@ -37,7 +37,7 @@
   - [x] `cargo audit`
 - [x] Настроить `tracing` + `tracing-subscriber` с JSON-форматом
 - [x] Базовые типы: `UserId`, `Session`, `Endpoint`
-- [ ] Тип `Protocol` (enum для SOCKS5/VLESS) — пока sniffing по первому байту
+- [x] Тип `Protocol` (enum для SOCKS5/VLESS) + `EnabledProtocols` в `skadi-core`
 - [x] Иерархия ошибок через `thiserror`, контекст через `anyhow`
 - [x] `.cursor/` — вспомогательные файлы для AI-агентов
 
