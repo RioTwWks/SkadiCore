@@ -126,8 +126,7 @@ impl XudpManager {
         let expired: Vec<[u8; 8]> = guard
             .iter()
             .filter(|(_, e)| {
-                e.status == XudpStatus::Expiring
-                    && e.expire_at.is_some_and(|t| now >= t)
+                e.status == XudpStatus::Expiring && e.expire_at.is_some_and(|t| now >= t)
             })
             .map(|(id, _)| *id)
             .collect();
