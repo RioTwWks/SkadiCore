@@ -838,6 +838,40 @@ sudo ss -tlnp | grep :443
 
 ---
 
+## Клиентский режим (`skadicore client`)
+
+Отдельный TOML-файл для локального SOCKS5-прокси, который туннелирует
+трафик через удалённый VLESS+TLS сервер.
+
+```bash
+skadicore client --config examples/client-vless-tls/client.toml
+```
+
+### Секция `[client]`
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `listen` | string | Адрес локального SOCKS5, например `127.0.0.1:1080` |
+
+### Секция `[remote]`
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `server` | string | Адрес удалённого прокси `host:port` |
+| `uuid` | string | UUID пользователя VLESS на сервере |
+
+### Секция `[remote.tls]`
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `enabled` | bool | TLS к удалённому прокси (по умолчанию `false`) |
+| `ca_file` | string? | PEM с доверенным CA; если не задан — системные корни |
+| `server_name` | string? | SNI для TLS; по умолчанию hostname из `server` |
+
+Пример: `examples/client-vless-tls/client.toml`.
+
+---
+
 ## Что дальше
 
 Когда конфиг разрастётся, в этот документ добавятся:

@@ -1941,6 +1941,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "skadi-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "skadi-core",
+ "skadi-protocol",
+ "skadi-transport",
+ "tokio",
+ "toml",
+ "tracing",
+]
+
+[[package]]
 name = "skadi-core"
 version = "0.1.0"
 dependencies = [
@@ -1981,6 +1995,7 @@ dependencies = [
  "rustls-pki-types",
  "serde",
  "skadi-api",
+ "skadi-client",
  "skadi-core",
  "skadi-protocol",
  "skadi-transport",

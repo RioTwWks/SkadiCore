@@ -11,6 +11,10 @@
 
 ### Added
 
+- **Клиентский режим (MVP)** — `skadicore client`: локальный SOCKS5 → VLESS+TLS
+  к удалённому прокси; крейт `skadi-client`, `VlessClient` в `skadi-protocol`;
+  пример `examples/client-vless-tls/`, E2E `client_socks5_vless_e2e`
+
 - **XHTTP packet-up** — sequenced POST (`/xhttp/{id}/{seq}`) + GET downlink;
   reassembly в `XhttpSession`, E2E `xhttp_packet_up_e2e`
 

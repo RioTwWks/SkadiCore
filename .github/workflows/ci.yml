@@ -28,13 +28,13 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: cargo clippy
-        run: cargo clippy -p skadi-core -p skadi-transport -p skadi-protocol -p skadi-api -p skadi-server --all-targets
+        run: cargo clippy -p skadi-core -p skadi-transport -p skadi-protocol -p skadi-api -p skadi-client -p skadi-server --all-targets
 
       - name: Install xray e2e dependencies
         run: sudo apt-get update && sudo apt-get install -y curl unzip
 
       - name: cargo test
-        run: cargo test -p skadi-core -p skadi-transport -p skadi-protocol -p skadi-api -p skadi-server
+        run: cargo test -p skadi-core -p skadi-transport -p skadi-protocol -p skadi-api -p skadi-client -p skadi-server
 
   audit:
     name: Security audit
