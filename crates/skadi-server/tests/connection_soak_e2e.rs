@@ -1,5 +1,6 @@
 //! Soak-тесты: многократные connect/relay/close без роста RSS и зависших сессий.
 
+mod common;
 use skadi_protocol::vless::{build_response_header, build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
 use skadi_server::config::{Config, MetricsConfig, ProtocolConfig, ServerConfig, TransportConfig};
@@ -73,7 +74,7 @@ async fn spawn_soak_proxy(proxy_port: u16, metrics_port: u16) -> watch::Sender<b
             enabled: true,
             listen: format!("127.0.0.1:{}", metrics_port),
         },
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 

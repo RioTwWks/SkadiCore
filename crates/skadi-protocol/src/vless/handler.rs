@@ -116,7 +116,7 @@ impl VlessHandler {
 
         let user = config.authenticate(&uuid);
         if user.is_none() {
-            warn!(uuid = ?uuid, "VLESS auth failed, closing silently");
+            debug!("VLESS auth failed, closing silently");
             bail!("authentication failed");
         }
         let user = user.unwrap();

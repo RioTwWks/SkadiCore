@@ -17,11 +17,23 @@ pub const MAX_VLESS_UDP_PAYLOAD: usize = u16::MAX as usize;
 #[derive(Clone)]
 pub struct UdpTransport {
     connect_timeout: Duration,
+    allow_private: bool,
 }
 
 impl UdpTransport {
     pub fn new(connect_timeout: Duration) -> Self {
-        Self { connect_timeout }
+        Self::with_policy(connect_timeout, true)
+    }
+
+    pub fn with_policy(connect_timeout: Duration, allow_private: bool) -> Self {
+        Self {
+            connect_timeout,
+            allow_private,
+        }
+    }
+
+    pub fn allow_private(&self) -> bool {
+        self.allow_private
     }
 
     /// Установить исходящее UDP-соединение (connected socket).
@@ -30,7 +42,7 @@ impl UdpTransport {
             .await
             .context("failed to bind UDP socket")?;
 
-        let target = resolve_endpoint(endpoint).await?;
+        let target = crate::outbound_policy::resolve_endpoint(endpoint, self.allow_private).await?;
         debug!(target = %target, "UDP connecting");
 
         tokio::time::timeout(self.connect_timeout, socket.connect(target))
@@ -39,20 +51,6 @@ impl UdpTransport {
             .with_context(|| format!("UDP connect failed to {}", target))?;
 
         Ok(socket)
-    }
-}
-
-pub(crate) async fn resolve_endpoint(endpoint: &Endpoint) -> Result<std::net::SocketAddr> {
-    match endpoint {
-        Endpoint::Ip(addr) => Ok(*addr),
-        Endpoint::Domain(host, port) => {
-            let mut addrs = tokio::net::lookup_host(format!("{}:{}", host, port))
-                .await
-                .with_context(|| format!("failed to resolve {}:{}", host, port))?;
-            addrs
-                .next()
-                .ok_or_else(|| anyhow::anyhow!("no addresses for {}:{}", host, port))
-        }
     }
 }
 

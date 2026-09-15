@@ -1,5 +1,6 @@
 //! Интеграционный тест: idle timeout закрывает неактивную сессию.
 
+mod common;
 use skadi_protocol::vless::{build_response_header, build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
 use skadi_server::config::{
@@ -56,7 +57,7 @@ async fn idle_timeout_closes_inactive_vless_session() {
                 idle_timeout_secs: Some(1),
                 max_session_lifetime_secs: None,
             },
-            max_connections: None,
+            ..Default::default()
         },
         protocol: ProtocolConfig {
             socks5: Socks5Config {
@@ -76,7 +77,7 @@ async fn idle_timeout_closes_inactive_vless_session() {
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 
@@ -125,7 +126,7 @@ async fn rejects_zero_idle_timeout_in_config() {
                 idle_timeout_secs: Some(0),
                 max_session_lifetime_secs: None,
             },
-            max_connections: None,
+            ..Default::default()
         },
         protocol: ProtocolConfig {
             socks5: Socks5Config {
@@ -141,7 +142,7 @@ async fn rejects_zero_idle_timeout_in_config() {
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
 
     let err = config.validate().unwrap_err().to_string();

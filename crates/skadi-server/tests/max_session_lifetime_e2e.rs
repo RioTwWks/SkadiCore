@@ -1,5 +1,6 @@
 //! Интеграционный тест: max session lifetime закрывает активную сессию.
 
+mod common;
 use skadi_protocol::vless::{build_response_header, build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
 use skadi_server::config::{
@@ -56,7 +57,7 @@ async fn max_session_lifetime_closes_active_vless_session() {
                 idle_timeout_secs: None,
                 max_session_lifetime_secs: Some(1),
             },
-            max_connections: None,
+            ..Default::default()
         },
         protocol: ProtocolConfig {
             socks5: Socks5Config {
@@ -76,7 +77,7 @@ async fn max_session_lifetime_closes_active_vless_session() {
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 
@@ -134,7 +135,7 @@ async fn rejects_zero_max_session_lifetime_in_config() {
                 idle_timeout_secs: None,
                 max_session_lifetime_secs: Some(0),
             },
-            max_connections: None,
+            ..Default::default()
         },
         protocol: ProtocolConfig {
             socks5: Socks5Config {
@@ -150,7 +151,7 @@ async fn rejects_zero_max_session_lifetime_in_config() {
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
 
     let err = config.validate().unwrap_err().to_string();

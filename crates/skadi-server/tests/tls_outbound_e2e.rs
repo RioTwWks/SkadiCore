@@ -1,5 +1,7 @@
 //! Интеграционный тест: VLESS через прокси с TLS outbound к upstream.
 
+mod common;
+
 use rcgen::generate_simple_self_signed;
 use skadi_protocol::vless::{build_response_header, build_tcp_domain_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
@@ -110,6 +112,8 @@ async fn vless_relay_over_tls_outbound() {
                 cert: None,
                 key: None,
             },
+            allow_private: true,
+            ..Default::default()
         },
     };
     config.validate().unwrap();

@@ -1,5 +1,6 @@
 //! Интеграционный тест: REALITY fallback на dest при невалидном клиенте.
 
+mod common;
 use base64::Engine;
 use skadi_protocol::{VlessConfig, VlessUser};
 use skadi_server::config::{Config, ProtocolConfig, RealityConfig, ServerConfig, TransportConfig};
@@ -103,7 +104,7 @@ async fn reality_server_config_via_run_server() {
         },
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 

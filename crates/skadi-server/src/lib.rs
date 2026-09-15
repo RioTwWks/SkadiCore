@@ -1,6 +1,7 @@
 //! SkadiCore server — сборка транспорта и протоколов в работающее ядро.
 
 pub mod api;
+mod auth_rate_limit;
 pub mod config;
 mod connection_gate;
 pub mod genkey;
@@ -8,15 +9,16 @@ pub mod observability;
 mod prefixed;
 pub mod store;
 
+use auth_rate_limit::{is_auth_failure, AuthRateLimiter};
 use connection_gate::ConnectionGate;
 
 use anyhow::{Context, Result};
 use config::Config;
 use prefixed::PrefixedStream;
-use skadi_core::{EnabledProtocols, Protocol, Session};
+use skadi_core::{validate_outbound_literal, EnabledProtocols, Protocol, Session};
 use skadi_protocol::{
     Socks5Handler, VlessHandler, CMD_MUX, CMD_TCP, CMD_UDP, REP_CONNECTION_REFUSED,
-    REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE, REP_SUCCEEDED,
+    REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE, REP_NOT_ALLOWED, REP_SUCCEEDED,
 };
 use skadi_transport::{
     accept_xhttp, copy_bidirectional_with_limits, relay_vless_mux_with_limits,
@@ -97,7 +99,9 @@ pub async fn run_server_with_store(
     );
 
     let outbound_tcp = config.outbound_tcp_transport()?;
-    let outbound_udp = UdpTransport::new(config.connect_timeout());
+    let outbound_udp =
+        UdpTransport::with_policy(config.connect_timeout(), config.allow_private_outbound());
+    let auth_rate_limiter = AuthRateLimiter::from_config(&config.server.auth_rate_limit);
     let relay_limits = RelayLimits {
         idle: config.idle_timeout(),
         max_lifetime: config.max_session_lifetime(),
@@ -156,6 +160,8 @@ pub async fn run_server_with_store(
         xhttp_inbound,
         relay_limits,
         connection_gate,
+        auth_rate_limiter,
+        config.allow_private_outbound(),
         shutdown_rx,
     )
     .await;
@@ -188,6 +194,8 @@ async fn accept_loop(
     xhttp_inbound: Option<(XhttpConfig, Arc<XhttpSessionManager>)>,
     relay_limits: RelayLimits,
     connection_gate: ConnectionGate,
+    auth_rate_limiter: Option<AuthRateLimiter>,
+    allow_private_outbound: bool,
     mut shutdown_rx: watch::Receiver<bool>,
 ) {
     loop {
@@ -204,6 +212,15 @@ async fn accept_loop(
             result = listener.accept() => {
                 match result {
                     Ok((client, peer)) => {
+                        if auth_rate_limiter
+                            .as_ref()
+                            .is_some_and(|limiter| limiter.is_blocked(peer.ip()))
+                        {
+                            observability::auth_blocked();
+                            debug!(peer = %peer, "connection dropped (auth rate limit)");
+                            continue;
+                        }
+
                         let permit = match connection_gate.try_acquire() {
                             Some(permit) => permit,
                             None => {
@@ -218,6 +235,7 @@ async fn accept_loop(
                         let inbound = inbound.clone();
                         let user_store = Arc::clone(&user_store);
                         let xhttp_inbound = xhttp_inbound.clone();
+                        let auth_rate_limiter = auth_rate_limiter.clone();
                         tokio::spawn(async move {
                             let _permit = permit;
                             let session = Session::new(peer);
@@ -231,6 +249,8 @@ async fn accept_loop(
                                     user_store,
                                     enabled_protocols,
                                     relay_limits,
+                                    auth_rate_limiter,
+                                    allow_private_outbound,
                                 )
                                 .await,
                                 InboundTransport::Tls(tls) => match tls.accept(client).await {
@@ -243,6 +263,8 @@ async fn accept_loop(
                                         user_store,
                                         enabled_protocols,
                                         relay_limits,
+                                        auth_rate_limiter,
+                                        allow_private_outbound,
                                     )
                                     .await,
                                     Err(e) => {
@@ -261,6 +283,8 @@ async fn accept_loop(
                                             user_store,
                                             enabled_protocols,
                                             relay_limits,
+                                            auth_rate_limiter,
+                                            allow_private_outbound,
                                         )
                                         .await,
                                         Err(e) => {
@@ -332,6 +356,8 @@ async fn serve_inbound<S>(
     user_store: Arc<UserStore>,
     enabled_protocols: EnabledProtocols,
     relay_limits: RelayLimits,
+    auth_rate_limiter: Option<AuthRateLimiter>,
+    allow_private_outbound: bool,
 ) -> Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -350,6 +376,8 @@ where
                     user_store,
                     enabled_protocols,
                     relay_limits,
+                    auth_rate_limiter,
+                    allow_private_outbound,
                 )
                 .await
             }
@@ -365,6 +393,8 @@ where
         user_store,
         enabled_protocols,
         relay_limits,
+        auth_rate_limiter,
+        allow_private_outbound,
     )
     .await
 }
@@ -395,6 +425,8 @@ async fn handle_connection<S>(
     user_store: Arc<UserStore>,
     enabled_protocols: EnabledProtocols,
     relay_limits: RelayLimits,
+    auth_rate_limiter: Option<AuthRateLimiter>,
+    allow_private_outbound: bool,
 ) -> Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -427,15 +459,40 @@ where
     };
 
     let (target, vless_command) = match protocol {
-        Protocol::Socks5 => {
-            let endpoint = Socks5Handler::negotiate(&mut stream, &socks_config).await?;
-            (endpoint, CMD_TCP)
-        }
-        Protocol::Vless => {
-            let handshake = VlessHandler::handshake(&mut stream, &vless_config).await?;
-            (handshake.target, handshake.command)
-        }
+        Protocol::Socks5 => match Socks5Handler::negotiate(&mut stream, &socks_config).await {
+            Ok(endpoint) => (endpoint, CMD_TCP),
+            Err(e) => {
+                if is_auth_failure(&e) {
+                    record_auth_failure(
+                        auth_rate_limiter.as_ref(),
+                        session.peer.ip(),
+                        Protocol::Socks5.metric_label(),
+                    );
+                }
+                return Err(e);
+            }
+        },
+        Protocol::Vless => match VlessHandler::handshake(&mut stream, &vless_config).await {
+            Ok(handshake) => (handshake.target, handshake.command),
+            Err(e) => {
+                if is_auth_failure(&e) {
+                    record_auth_failure(
+                        auth_rate_limiter.as_ref(),
+                        session.peer.ip(),
+                        Protocol::Vless.metric_label(),
+                    );
+                }
+                return Err(e);
+            }
+        },
     };
+
+    if let Err(err) = validate_outbound_literal(&target, allow_private_outbound) {
+        if protocol == Protocol::Socks5 {
+            let _ = Socks5Handler::send_error(&mut stream, REP_NOT_ALLOWED).await;
+        }
+        return Err(anyhow::anyhow!(err.to_string()));
+    }
 
     let protocol_label = vless_metric_label(protocol, vless_command);
 
@@ -552,9 +609,22 @@ fn vless_metric_label(protocol: Protocol, vless_command: u8) -> &'static str {
     }
 }
 
+fn record_auth_failure(
+    limiter: Option<&AuthRateLimiter>,
+    ip: std::net::IpAddr,
+    protocol: &'static str,
+) {
+    if let Some(limiter) = limiter {
+        limiter.record_failure(ip);
+    }
+    observability::auth_failure(protocol);
+}
+
 fn classify_connect_error(e: &anyhow::Error) -> u8 {
     let msg = e.to_string();
-    if msg.contains("refused") {
+    if msg.contains("forbidden destination") {
+        REP_NOT_ALLOWED
+    } else if msg.contains("refused") {
         REP_CONNECTION_REFUSED
     } else if msg.contains("unreachable") || msg.contains("timeout") {
         REP_HOST_UNREACHABLE

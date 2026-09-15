@@ -1,5 +1,6 @@
 //! Интеграционный тест: лимит одновременных соединений (backpressure).
 
+mod common;
 use skadi_protocol::vless::{build_response_header, build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
 use skadi_server::config::{
@@ -57,8 +58,8 @@ async fn rejects_connection_when_limit_reached() {
     let config = Config {
         server: ServerConfig {
             listen: proxy_addr.to_string(),
-            timeouts: ServerTimeoutsConfig::default(),
             max_connections: Some(1),
+            ..Default::default()
         },
         protocol: ProtocolConfig {
             socks5: Socks5Config {
@@ -78,7 +79,7 @@ async fn rejects_connection_when_limit_reached() {
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 
@@ -108,8 +109,8 @@ async fn rejects_zero_max_connections_in_config() {
     let config = Config {
         server: ServerConfig {
             listen: "127.0.0.1:0".to_string(),
-            timeouts: ServerTimeoutsConfig::default(),
             max_connections: Some(0),
+            ..Default::default()
         },
         protocol: ProtocolConfig {
             socks5: Socks5Config {
@@ -125,7 +126,7 @@ async fn rejects_zero_max_connections_in_config() {
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
 
     let err = config.validate().unwrap_err().to_string();

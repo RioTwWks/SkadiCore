@@ -26,6 +26,14 @@ pub fn install_recorder() -> anyhow::Result<PrometheusHandle> {
         "skadicore_connections_rejected_total",
         "Inbound connections rejected because max_connections limit was reached"
     );
+    describe_counter!(
+        "skadicore_auth_failures_total",
+        "Failed inbound authentications by protocol"
+    );
+    describe_counter!(
+        "skadicore_auth_blocked_total",
+        "Inbound connections dropped because auth rate limit was active"
+    );
 
     Ok(handle)
 }
@@ -76,4 +84,16 @@ pub fn connection_failed(protocol: &str) {
 
 pub fn connection_rejected() {
     counter!("skadicore_connections_rejected_total").increment(1);
+}
+
+pub fn auth_failure(protocol: &str) {
+    counter!(
+        "skadicore_auth_failures_total",
+        "protocol" => protocol.to_string()
+    )
+    .increment(1);
+}
+
+pub fn auth_blocked() {
+    counter!("skadicore_auth_blocked_total").increment(1);
 }

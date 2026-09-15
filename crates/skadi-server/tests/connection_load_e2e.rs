@@ -1,5 +1,6 @@
 //! Нагрузочные интеграционные тесты: множество одновременных VLESS-сессий.
 
+mod common;
 use skadi_protocol::vless::{build_response_header, build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
 use skadi_server::config::{
@@ -52,8 +53,8 @@ async fn spawn_load_proxy(
     let config = Config {
         server: ServerConfig {
             listen: proxy_addr.to_string(),
-            timeouts: ServerTimeoutsConfig::default(),
             max_connections: Some(max_connections),
+            ..Default::default()
         },
         protocol: ProtocolConfig {
             socks5: Socks5Config {
@@ -73,7 +74,7 @@ async fn spawn_load_proxy(
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 

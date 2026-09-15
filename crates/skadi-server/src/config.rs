@@ -92,6 +92,54 @@ pub struct ServerConfig {
     /// Максимум одновременных inbound-сессий. Не задано — без лимита.
     #[serde(default)]
     pub max_connections: Option<u32>,
+    #[serde(default)]
+    pub auth_rate_limit: AuthRateLimitConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AuthRateLimitConfig {
+    #[serde(default = "default_auth_rate_limit_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_auth_max_failures")]
+    pub max_failures: Option<u32>,
+    #[serde(default = "default_auth_window_secs")]
+    pub window_secs: u64,
+    #[serde(default = "default_auth_ban_base_secs")]
+    pub ban_base_secs: u64,
+    #[serde(default = "default_auth_ban_max_secs")]
+    pub ban_max_secs: u64,
+}
+
+fn default_auth_rate_limit_enabled() -> bool {
+    true
+}
+
+fn default_auth_max_failures() -> Option<u32> {
+    Some(10)
+}
+
+fn default_auth_window_secs() -> u64 {
+    600
+}
+
+fn default_auth_ban_base_secs() -> u64 {
+    60
+}
+
+fn default_auth_ban_max_secs() -> u64 {
+    3600
+}
+
+impl Default for AuthRateLimitConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_auth_rate_limit_enabled(),
+            max_failures: default_auth_max_failures(),
+            window_secs: default_auth_window_secs(),
+            ban_base_secs: default_auth_ban_base_secs(),
+            ban_max_secs: default_auth_ban_max_secs(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -121,12 +169,22 @@ impl Default for ServerTimeoutsConfig {
     }
 }
 
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            listen: "127.0.0.1:0".to_string(),
+            timeouts: ServerTimeoutsConfig::default(),
+            max_connections: None,
+            auth_rate_limit: AuthRateLimitConfig::default(),
+        }
+    }
+}
+
 impl ServerConfig {
     pub fn with_listen(listen: impl Into<String>) -> Self {
         Self {
             listen: listen.into(),
-            timeouts: ServerTimeoutsConfig::default(),
-            max_connections: None,
+            ..Default::default()
         }
     }
 }
@@ -143,6 +201,9 @@ pub struct ProtocolConfig {
 pub struct OutboundConfig {
     #[serde(default)]
     pub tls: OutboundTlsConfig,
+    /// Разрешить подключения к loopback/private/link-local адресам.
+    #[serde(default)]
+    pub allow_private: bool,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -269,6 +330,25 @@ impl Config {
         }
         if self.server.max_connections.is_some_and(|n| n == 0) {
             bail!("server.max_connections must be greater than 0 when set");
+        }
+        if self.server.auth_rate_limit.enabled {
+            if self
+                .server
+                .auth_rate_limit
+                .max_failures
+                .is_some_and(|n| n == 0)
+            {
+                bail!("server.auth_rate_limit.max_failures must be greater than 0 when enabled");
+            }
+            if self.server.auth_rate_limit.window_secs == 0 {
+                bail!("server.auth_rate_limit.window_secs must be greater than 0");
+            }
+            if self.server.auth_rate_limit.ban_base_secs == 0 {
+                bail!("server.auth_rate_limit.ban_base_secs must be greater than 0");
+            }
+            if self.server.auth_rate_limit.ban_max_secs == 0 {
+                bail!("server.auth_rate_limit.ban_max_secs must be greater than 0");
+            }
         }
         if self
             .server
@@ -514,13 +594,25 @@ impl Config {
         Ok(())
     }
 
+    pub fn allow_private_outbound(&self) -> bool {
+        self.outbound.allow_private
+    }
+
     /// Собрать исходящий TCP-транспорт (plain или TLS).
     pub fn outbound_tcp_transport(&self) -> Result<OutboundTcpTransport> {
         let timeout = self.connect_timeout();
+        let allow_private = self.allow_private_outbound();
         if self.outbound.tls.enabled {
-            OutboundTcpTransport::tls(timeout, &self.outbound_tls_client_config())
+            OutboundTcpTransport::tls_with_policy(
+                timeout,
+                &self.outbound_tls_client_config(),
+                allow_private,
+            )
         } else {
-            Ok(OutboundTcpTransport::plain(timeout))
+            Ok(OutboundTcpTransport::plain_with_policy(
+                timeout,
+                allow_private,
+            ))
         }
     }
 

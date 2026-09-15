@@ -11,6 +11,10 @@
 
 ### Added
 
+- **Безопасность (аудит)** — per-IP rate limiting на неудачные аутентификации
+  (`[server.auth_rate_limit]`); SSRF-защита outbound (`[outbound].allow_private`);
+  UUID не логируется в plaintext при auth failure
+
 - **TUN inbound (Linux MVP)** — `[client.tun]` в клиентском режиме: IP-туннель
   поверх VLESS (TCP + UDP через userspace netstack); `VlessClient::handshake_udp`;
   `[client.tun.routing]` (auto `ip rule`/`ip route`, bypass прокси);

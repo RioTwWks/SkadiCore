@@ -35,6 +35,14 @@ pub struct TlsOutboundTransport {
 
 impl TlsOutboundTransport {
     pub fn new(connect_timeout: Duration, config: &TlsClientConfig) -> Result<Self> {
+        Self::with_policy(connect_timeout, config, true)
+    }
+
+    pub fn with_policy(
+        connect_timeout: Duration,
+        config: &TlsClientConfig,
+        allow_private: bool,
+    ) -> Result<Self> {
         ensure_crypto_provider()?;
         let roots = build_root_store(config.ca_file.as_deref())?;
 
@@ -57,7 +65,7 @@ impl TlsOutboundTransport {
         };
 
         Ok(Self {
-            tcp: TcpTransport::new(connect_timeout),
+            tcp: TcpTransport::with_policy(connect_timeout, allow_private),
             connector: TlsConnector::from(Arc::new(client_config)),
             connect_timeout,
         })
