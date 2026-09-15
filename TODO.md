@@ -390,7 +390,7 @@ gRPC API слушает на `127.0.0.1` с Bearer-токеном. Но что �
 
 **Чего не хватает:** `proptest` или `quickcheck` для property-based тестов.
 
-- [ ] Property-based тесты (`proptest` / `quickcheck`) для парсеров
+- [x] Property-based тесты (`proptest`) для парсеров SOCKS5/VLESS/Mux
 
 #### 3.2. Тесты на утечки памяти
 

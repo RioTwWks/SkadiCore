@@ -56,6 +56,9 @@ metrics-exporter-prometheus = "0.16"
 # Бенчмарки
 criterion = { version = "0.5", features = ["html_reports"] }
 
+# Property-based тесты
+proptest = "1"
+
 # Внутренние крейты
 skadi-core = { path = "crates/skadi-core" }
 skadi-transport = { path = "crates/skadi-transport" }
