@@ -78,7 +78,7 @@ SkadiCore — это попытка собрать в одном ядре сил
 - [x] gRPC API — hot reload пользователей VLESS/SOCKS5 (`[api]`).
 - [x] XHTTP inbound (stream-one, stream-up, packet-up)
 - [x] Клиентский режим MVP (`skadicore client`: SOCKS5 → VLESS+TLS)
-- [ ] TUN
+- [x] TUN (Linux MVP, `[client.tun]`)
 - [x] UDP/Mux/XUDP VLESS, TLS outbound — см. `examples/`.
 
 ⚠️ **Без `[transport.tls]` или `[transport.reality]` трафик идёт в открытом виде.**
@@ -341,7 +341,7 @@ cargo audit
 | 6. gRPC API | 🟢 | Hot reload пользователей |
 | 7. Метрики | 🟢 | Prometheus, `/healthz`, `--log-format` |
 | 8. Конфиг/CLI | 🟢 | check-config, SIGHUP reload |
-| 9. TUN | ⏳ | Клиентский режим |
+| 9. TUN | 🟢 | Linux MVP (`[client.tun]`) |
 
 Легенда: ✅ готово, 🚧 в работе, 🟡 частично, ⏳ не начато.
 

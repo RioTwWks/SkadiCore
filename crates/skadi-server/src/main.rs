@@ -86,7 +86,8 @@ async fn run_client(cli: Cli) -> Result<()> {
         .with_context(|| format!("failed to load client config from {:?}", cli.config))?;
 
     info!(
-        listen = %config.client.listen,
+        socks5 = ?config.client.listen,
+        tun = config.client.tun.enabled,
         remote = %config.remote.server,
         tls = config.remote.tls.enabled,
         "SkadiCore client starting"

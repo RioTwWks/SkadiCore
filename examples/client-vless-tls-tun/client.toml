@@ -1,0 +1,27 @@
+# SOCKS5 + TUN → удалённый VLESS+TLS (Linux)
+#
+# Запуск (требуются права на создание TUN, обычно root или CAP_NET_ADMIN):
+#   skadicore client --config examples/client-vless-tls-tun/client.toml
+#
+# После старта настройте маршрутизацию, например:
+#   ip route add default dev skadi0 table 100
+#   ip rule add from 10.0.0.2 table 100
+
+[client]
+listen = "127.0.0.1:1080"
+
+[client.tun]
+enabled = true
+name = "skadi0"
+address = "10.0.0.2"
+gateway = "10.0.0.1"
+netmask = "255.255.255.0"
+mtu = 1500
+
+[remote]
+server = "127.0.0.1:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+
+[remote.tls]
+enabled = true
+server_name = "example.com"

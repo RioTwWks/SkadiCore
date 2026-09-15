@@ -123,7 +123,7 @@ where
     }
 }
 
-async fn read_vless_udp_frame<R>(reader: &mut R) -> io::Result<Option<Vec<u8>>>
+pub async fn read_vless_udp_frame<R>(reader: &mut R) -> io::Result<Option<Vec<u8>>>
 where
     R: AsyncRead + Unpin,
 {
@@ -150,7 +150,7 @@ where
     Ok(Some(payload))
 }
 
-async fn write_vless_udp_frame<W>(writer: &mut W, payload: &[u8]) -> io::Result<()>
+pub async fn write_vless_udp_frame<W>(writer: &mut W, payload: &[u8]) -> io::Result<()>
 where
     W: AsyncWrite + Unpin,
 {

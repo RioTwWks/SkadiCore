@@ -1,11 +1,11 @@
-//! Конфигурация клиентского режима (локальный SOCKS5 → удалённый VLESS).
+//! Конфигурация клиентского режима (локальный SOCKS5 / TUN → удалённый VLESS).
 
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use skadi_core::Endpoint;
 use skadi_protocol::vless::Uuid;
 use skadi_transport::TlsClientConfig;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 use std::time::Duration;
 
@@ -17,7 +17,64 @@ pub struct ClientConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ClientListenConfig {
-    pub listen: String,
+    /// Локальный SOCKS5. Опционально, если включён TUN.
+    pub listen: Option<String>,
+    #[serde(default)]
+    pub tun: TunConfig,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct TunConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_tun_name")]
+    pub name: String,
+    #[serde(default = "default_tun_address")]
+    pub address: String,
+    #[serde(default = "default_tun_gateway")]
+    pub gateway: String,
+    #[serde(default = "default_tun_netmask")]
+    pub netmask: String,
+    #[serde(default = "default_tun_mtu")]
+    pub mtu: u16,
+}
+
+fn default_tun_name() -> String {
+    "skadi0".to_string()
+}
+
+fn default_tun_address() -> String {
+    "10.0.0.2".to_string()
+}
+
+fn default_tun_gateway() -> String {
+    "10.0.0.1".to_string()
+}
+
+fn default_tun_netmask() -> String {
+    "255.255.255.0".to_string()
+}
+
+fn default_tun_mtu() -> u16 {
+    1500
+}
+
+impl TunConfig {
+    pub fn validate(&self) -> Result<()> {
+        if !self.enabled {
+            return Ok(());
+        }
+        parse_ip(&self.address, "client.tun.address")?;
+        parse_ip(&self.gateway, "client.tun.gateway")?;
+        parse_ip(&self.netmask, "client.tun.netmask")?;
+        if self.name.is_empty() {
+            bail!("client.tun.name must not be empty");
+        }
+        if self.mtu < 576 {
+            bail!("client.tun.mtu must be at least 576");
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -49,17 +106,33 @@ impl ClientConfig {
     }
 
     pub fn validate(&self) -> Result<()> {
-        parse_socket_addr(&self.client.listen, "client.listen")?;
+        if self.client.listen.is_none() && !self.client.tun.enabled {
+            bail!("client: set client.listen (SOCKS5) or client.tun.enabled = true");
+        }
+        if let Some(listen) = &self.client.listen {
+            parse_socket_addr(listen, "client.listen")?;
+        }
         parse_server_endpoint(&self.remote.server)?;
         Uuid::parse(&self.remote.uuid).map_err(|e| anyhow::anyhow!("remote.uuid: {}", e))?;
-        if self.remote.tls.enabled && self.remote.tls.ca_file.is_none() {
-            // Системные CA допустимы, если ca_file не задан.
-        }
+        self.client.tun.validate()?;
         Ok(())
     }
 
+    pub fn socks5_enabled(&self) -> bool {
+        self.client.listen.is_some()
+    }
+
+    pub fn tun_enabled(&self) -> bool {
+        self.client.tun.enabled
+    }
+
     pub fn listen_addr(&self) -> Result<SocketAddr> {
-        parse_socket_addr(&self.client.listen, "client.listen")
+        let listen = self
+            .client
+            .listen
+            .as_deref()
+            .context("client.listen is not configured")?;
+        parse_socket_addr(listen, "client.listen")
     }
 
     pub fn proxy_endpoint(&self) -> Result<Endpoint> {
@@ -97,6 +170,12 @@ fn parse_socket_addr(value: &str, field: &str) -> Result<SocketAddr> {
         .with_context(|| format!("invalid {}: {}", field, value))
 }
 
+fn parse_ip(value: &str, field: &str) -> Result<IpAddr> {
+    value
+        .parse()
+        .with_context(|| format!("invalid {}: {}", field, value))
+}
+
 fn parse_server_endpoint(value: &str) -> Result<Endpoint> {
     let (host, port) = split_host_port(value)?;
     if let Ok(ip) = host.parse() {
@@ -117,4 +196,39 @@ fn split_host_port(value: &str) -> Result<(String, u16)> {
         .parse()
         .with_context(|| format!("invalid server port in {}", value))?;
     Ok((host.to_string(), port))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tun_only_config_validates() {
+        let raw = r#"
+[client]
+[client.tun]
+enabled = true
+
+[remote]
+server = "127.0.0.1:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        config.validate().unwrap();
+        assert!(!config.socks5_enabled());
+        assert!(config.tun_enabled());
+    }
+
+    #[test]
+    fn missing_inbound_fails_validation() {
+        let raw = r#"
+[client]
+
+[remote]
+server = "127.0.0.1:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        assert!(config.validate().is_err());
+    }
 }

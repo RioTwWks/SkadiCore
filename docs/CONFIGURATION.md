@@ -840,18 +840,37 @@ sudo ss -tlnp | grep :443
 
 ## Клиентский режим (`skadicore client`)
 
-Отдельный TOML-файл для локального SOCKS5-прокси, который туннелирует
-трафик через удалённый VLESS+TLS сервер.
+Отдельный TOML-файл для локального inbound (SOCKS5 и/или TUN), который
+туннелирует трафик через удалённый VLESS+TLS сервер.
 
 ```bash
 skadicore client --config examples/client-vless-tls/client.toml
 ```
 
+Нужен хотя бы один inbound: `client.listen` (SOCKS5) или `client.tun.enabled = true`.
+
 ### Секция `[client]`
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `listen` | string | Адрес локального SOCKS5, например `127.0.0.1:1080` |
+| `listen` | string? | Адрес локального SOCKS5, например `127.0.0.1:1080` |
+
+### Секция `[client.tun]` (Linux)
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `enabled` | bool | Создать TUN-интерфейс (по умолчанию `false`) |
+| `name` | string | Имя интерфейса, например `skadi0` |
+| `address` | string | IPv4 клиента в туннеле, например `10.0.0.2` |
+| `gateway` | string | IPv4 шлюза в туннеле, например `10.0.0.1` |
+| `netmask` | string | Маска сети, например `255.255.255.0` |
+| `mtu` | u16 | MTU (по умолчанию `1500`) |
+
+TUN использует userspace netstack (`netstack-smoltcp`): TCP/UDP из
+интерфейса уходят в VLESS. Маршрутизацию ОС (`ip route`, policy routing)
+настраивает администратор вручную.
+
+Пример SOCKS5 + TUN: `examples/client-vless-tls-tun/client.toml`.
 
 ### Секция `[remote]`
 
