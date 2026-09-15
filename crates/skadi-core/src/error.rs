@@ -30,4 +30,7 @@ pub enum Error {
 
     #[error("{0} is disabled in configuration")]
     DisabledProtocol(&'static str),
+
+    #[error("forbidden destination: {0}")]
+    ForbiddenDestination(String),
 }

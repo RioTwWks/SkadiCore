@@ -17,8 +17,9 @@ use tokio::task::JoinHandle;
 use tracing::{debug, warn};
 
 use crate::outbound::{OutboundTcpTransport, TcpUpstream};
+use crate::outbound_policy::resolve_endpoint;
 use crate::relay::{RelayLimits, IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG};
-use crate::udp::{resolve_endpoint, UdpTransport, MAX_VLESS_UDP_PAYLOAD};
+use crate::udp::{UdpTransport, MAX_VLESS_UDP_PAYLOAD};
 use crate::xudp::XudpManager;
 
 struct TcpMuxSession {
@@ -260,7 +261,7 @@ fn is_xudp_frame(meta: &MuxMeta) -> bool {
 
 async fn handle_xudp_frame<W>(
     frame: &skadi_protocol::vless::mux::MuxFrame,
-    _outbound_udp: &UdpTransport,
+    outbound_udp: &UdpTransport,
     writer: &MuxWriter<W>,
     xudp: &Arc<Mutex<Option<XudpCone>>>,
     bytes: &mut RelayBytes,
@@ -274,7 +275,7 @@ where
                 io::Error::new(io::ErrorKind::InvalidData, "xudp new frame without target")
             })?;
             ensure_xudp_cone(frame.meta.global_id, xudp).await?;
-            xudp_send(frame, target, xudp, bytes).await?;
+            xudp_send(frame, target, outbound_udp, xudp, bytes).await?;
             start_xudp_reader_if_needed(writer, xudp).await?;
         }
         SESSION_STATUS_KEEP => {
@@ -282,7 +283,7 @@ where
                 if xudp.lock().await.is_none() {
                     ensure_xudp_cone(None, xudp).await?;
                 }
-                xudp_send(frame, target, xudp, bytes).await?;
+                xudp_send(frame, target, outbound_udp, xudp, bytes).await?;
                 start_xudp_reader_if_needed(writer, xudp).await?;
             }
         }
@@ -379,6 +380,7 @@ where
 async fn xudp_send(
     frame: &skadi_protocol::vless::mux::MuxFrame,
     target: &Endpoint,
+    outbound_udp: &UdpTransport,
     xudp: &Arc<Mutex<Option<XudpCone>>>,
     bytes: &mut RelayBytes,
 ) -> io::Result<()> {
@@ -387,7 +389,7 @@ async fn xudp_send(
         return Ok(());
     }
     let payload = payload.unwrap();
-    let addr = resolve_endpoint(target)
+    let addr = resolve_endpoint(target, outbound_udp.allow_private())
         .await
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
     let guard = xudp.lock().await;

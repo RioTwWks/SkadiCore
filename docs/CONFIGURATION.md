@@ -91,6 +91,20 @@ max_connections = 1000
 
 `max_connections = 0` — ошибка валидации.
 
+### `[server.auth_rate_limit]`
+
+Per-IP ограничение неудачных аутентификаций (SOCKS5/VLESS).
+
+| Поле | Тип | По умолчанию | Описание |
+|------|-----|--------------|----------|
+| `enabled` | bool | `true` | Включить rate limiting |
+| `max_failures` | u32? | `10` | Неудачных попыток до бана (`0` — выключить) |
+| `window_secs` | u64 | `600` | Окно подсчёта неудач (сек) |
+| `ban_base_secs` | u64 | `60` | Базовая длительность бана (сек), растёт экспоненциально |
+| `ban_max_secs` | u64 | `3600` | Максимальная длительность бана (сек) |
+
+Метрики: `skadicore_auth_failures_total`, `skadicore_auth_blocked_total`.
+
 **Допустимые значения**:
 
 - `"0.0.0.0:443"` — все IPv4-интерфейсы.
@@ -244,6 +258,21 @@ TCP accept → TLS handshake → протокол (SOCKS5/VLESS) → upstream TC
 ```
 
 ---
+
+## Секция `[outbound]`
+
+### `allow_private`
+
+**Тип**: `bool`  
+**По умолчанию**: `false`
+
+Запрещает relay к loopback, private, link-local и ULA адресам (SSRF-защита).
+При `false` подключения к `127.0.0.1`, `10.x`, `192.168.x` и т.п. блокируются.
+
+```toml
+[outbound]
+allow_private = false
+```
 
 ## Секция `[outbound.tls]`
 

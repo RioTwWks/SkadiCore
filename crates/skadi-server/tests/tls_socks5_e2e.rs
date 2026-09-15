@@ -1,5 +1,6 @@
 //! Интеграционный тест: SOCKS5 CONNECT поверх TLS.
 
+mod common;
 use rcgen::generate_simple_self_signed;
 use rustls::RootCertStore;
 use rustls_pki_types::pem::PemObject;
@@ -101,7 +102,7 @@ async fn socks5_over_tls_connect_and_relay() {
         },
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
 
     config.validate().unwrap();

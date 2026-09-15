@@ -78,13 +78,26 @@ pub enum OutboundTcpTransport {
 
 impl OutboundTcpTransport {
     pub fn plain(connect_timeout: Duration) -> Self {
-        Self::Plain(TcpTransport::new(connect_timeout))
+        Self::plain_with_policy(connect_timeout, true)
+    }
+
+    pub fn plain_with_policy(connect_timeout: Duration, allow_private: bool) -> Self {
+        Self::Plain(TcpTransport::with_policy(connect_timeout, allow_private))
     }
 
     pub fn tls(connect_timeout: Duration, config: &TlsClientConfig) -> Result<Self> {
-        Ok(Self::Tls(TlsOutboundTransport::new(
+        Self::tls_with_policy(connect_timeout, config, true)
+    }
+
+    pub fn tls_with_policy(
+        connect_timeout: Duration,
+        config: &TlsClientConfig,
+        allow_private: bool,
+    ) -> Result<Self> {
+        Ok(Self::Tls(TlsOutboundTransport::with_policy(
             connect_timeout,
             config,
+            allow_private,
         )?))
     }
 

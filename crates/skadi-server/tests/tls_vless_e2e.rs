@@ -1,5 +1,6 @@
 //! Интеграционный тест: VLESS TCP CONNECT поверх TLS.
 
+mod common;
 use rcgen::generate_simple_self_signed;
 use rustls::RootCertStore;
 use rustls_pki_types::pem::PemObject;
@@ -85,7 +86,7 @@ async fn spawn_vless_tls_server(
         },
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 

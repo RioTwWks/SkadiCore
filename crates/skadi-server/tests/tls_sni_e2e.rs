@@ -1,5 +1,6 @@
 //! Интеграционный тест: SNI-роутинг сертификатов.
 
+mod common;
 use rcgen::generate_simple_self_signed;
 use rustls::RootCertStore;
 use rustls_pki_types::pem::PemObject;
@@ -93,7 +94,7 @@ async fn sni_routes_to_matching_certificate() {
         },
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 
@@ -181,7 +182,7 @@ async fn sni_unknown_name_falls_back_to_default_cert() {
         },
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 

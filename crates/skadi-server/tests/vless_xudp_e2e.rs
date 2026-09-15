@@ -1,5 +1,6 @@
 //! Интеграционный тест: VLESS Mux XUDP (session_id=0, GlobalID, per-packet addressing).
 
+mod common;
 use skadi_protocol::vless::{
     build_mux_request, build_response_header, encode_data_frame, parse_meta_body, MuxMeta, Uuid,
     NETWORK_UDP, OPTION_DATA, SESSION_STATUS_KEEP, SESSION_STATUS_NEW, VLESS_VERSION,
@@ -64,7 +65,7 @@ async fn spawn_vless_server(proxy_addr: SocketAddr) -> watch::Sender<bool> {
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 

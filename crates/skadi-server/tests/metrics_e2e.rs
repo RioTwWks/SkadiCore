@@ -1,5 +1,6 @@
 //! E2E: Prometheus `/metrics` и `/healthz`.
 
+mod common;
 use skadi_protocol::vless::{build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{VlessConfig, VlessUser};
 use skadi_server::config::{Config, MetricsConfig, ProtocolConfig, ServerConfig, TransportConfig};
@@ -87,7 +88,7 @@ async fn healthz_and_metrics_endpoints() {
             enabled: true,
             listen: format!("127.0.0.1:{}", metrics_port),
         },
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 

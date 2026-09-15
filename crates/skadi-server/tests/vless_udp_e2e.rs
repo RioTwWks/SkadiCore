@@ -1,5 +1,6 @@
 //! Интеграционный тест: VLESS UDP over plain TCP.
 
+mod common;
 use skadi_protocol::vless::{build_response_header, build_udp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
 use skadi_server::config::{Config, ProtocolConfig, ServerConfig, TransportConfig};
@@ -58,7 +59,7 @@ async fn spawn_vless_server(proxy_addr: std::net::SocketAddr) -> watch::Sender<b
         transport: TransportConfig::default(),
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 

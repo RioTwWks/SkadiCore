@@ -333,7 +333,7 @@
 
 **Чего не хватает:** per-IP счётчика неудачных аутентификаций с экспоненциальным backoff. Даже простой `HashMap<IpAddr, u32>` с TTL в 10 минут закроет эту дыру.
 
-- [ ] Per-IP rate limiting на неудачные аутентификации (экспоненциальный backoff)
+- [x] Per-IP rate limiting на неудачные аутентификации (экспоненциальный backoff)
 
 #### 2.2. Фильтрация внутренних адресов
 
@@ -341,8 +341,8 @@
 
 **Чего не хватает:** функции `is_forbidden(ip: IpAddr) -> bool`, которая блокирует loopback, private, link-local и unique-local адреса. Это должно быть **по умолчанию**, с возможностью отключить через конфиг (`allow_private = false`).
 
-- [ ] `is_forbidden(ip)` — блокировка loopback/private/link-local по умолчанию
-- [ ] Опция конфига `allow_private`
+- [x] `is_forbidden(ip)` — блокировка loopback/private/link-local по умолчанию
+- [x] Опция конфига `allow_private`
 
 #### 2.3. Утечка UUID в логи
 
@@ -350,7 +350,7 @@
 
 **Чего не хватает:** логирования хеша UUID вместо самого UUID. Или, как минимум, уровня `debug`, а не `warn`.
 
-- [ ] Не логировать UUID в plaintext (хеш или debug-уровень)
+- [x] Не логировать UUID в plaintext (хеш или debug-уровень)
 
 #### 2.4. TLS: `dangerous_configuration` и проверка сертификатов
 

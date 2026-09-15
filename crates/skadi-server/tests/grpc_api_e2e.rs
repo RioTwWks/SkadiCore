@@ -1,5 +1,6 @@
 //! E2E: gRPC API hot reload пользователей VLESS, TLS и rate limiting.
 
+mod common;
 use rcgen::generate_simple_self_signed;
 use skadi_api::skadi_api_client::SkadiApiClient;
 use skadi_api::{
@@ -137,7 +138,7 @@ async fn grpc_add_remove_vless_user_hot_reload() {
             rate_limit_per_sec: None,
         },
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 
@@ -237,7 +238,7 @@ async fn grpc_rejects_missing_token() {
             rate_limit_per_sec: None,
         },
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 
@@ -303,7 +304,7 @@ async fn grpc_api_over_tls() {
             rate_limit_per_sec: None,
         },
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 
@@ -361,7 +362,7 @@ async fn grpc_api_rate_limit() {
             rate_limit_per_sec: Some(2),
         },
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 

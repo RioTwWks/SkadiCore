@@ -1,5 +1,6 @@
 //! VLESS over TLS + XHTTP stream-one.
 
+mod common;
 use rcgen::generate_simple_self_signed;
 use rustls::RootCertStore;
 use rustls_pki_types::pem::PemObject;
@@ -94,7 +95,7 @@ async fn spawn_xhttp_vless_server(
         },
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 

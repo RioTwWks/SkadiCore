@@ -1,5 +1,7 @@
 //! E2E: локальный SOCKS5 (skadi-client) → VLESS+TLS → skadi-server → echo.
 
+mod common;
+
 use rcgen::generate_simple_self_signed;
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
 use skadi_server::config::{Config, ProtocolConfig, ServerConfig, TlsConfig, TransportConfig};
@@ -79,7 +81,7 @@ async fn spawn_vless_tls_server(
         },
         api: Default::default(),
         metrics: Default::default(),
-        outbound: Default::default(),
+        outbound: common::test_outbound(),
     };
     config.validate().unwrap();
 
