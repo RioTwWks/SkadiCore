@@ -143,6 +143,16 @@ cargo build --release
 Готовые статические Linux-бинарники (musl, x86_64 и aarch64) — в
 [GitHub Releases](https://github.com/RioTwWks/SkadiCore/releases).
 
+Проверка целостности и подписи релиза:
+
+```bash
+sha256sum -c SHA256SUMS
+./scripts/verify-release.sh minisign.pub dist   # если есть .minisig
+```
+
+Docker (musl static, `FROM scratch`): `docker build -t skadicore:local .` — см.
+`docs/DEVELOPMENT.md`.
+
 ### Запуск
 
 ```bash
@@ -211,7 +221,7 @@ key = "certs/example-key.pem"
 
 ### Валидация
 
-- `server.listen` — валидный `SocketAddr`.
+- `server.listen` — валидный `SocketAddr` (строка или массив для dual-stack).
 - Хотя бы один протокол (`socks5` или `vless`) включён.
 - VLESS UUID — канонический формат; при TLS — файлы `cert`/`key` существуют и парсятся.
 

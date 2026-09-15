@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use serde::de::{self, Deserializer};
 use serde::Deserialize;
 use skadi_protocol::{Socks5Config, VlessConfig};
 use skadi_transport::{
@@ -84,9 +85,107 @@ impl Default for ApiConfig {
     }
 }
 
+/// Один или несколько адресов для inbound TCP (`IP:PORT` или массив для dual-stack).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ListenAddrs {
+    addrs: Vec<String>,
+}
+
+impl ListenAddrs {
+    pub fn single(addr: impl Into<String>) -> Self {
+        Self {
+            addrs: vec![addr.into()],
+        }
+    }
+
+    pub fn as_strings(&self) -> &[String] {
+        &self.addrs
+    }
+
+    pub fn socket_addrs(&self) -> Result<Vec<SocketAddr>> {
+        self.addrs
+            .iter()
+            .map(|s| {
+                s.parse()
+                    .with_context(|| format!("invalid server.listen: {}", s))
+            })
+            .collect()
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.addrs.is_empty() {
+            bail!("server.listen must specify at least one address");
+        }
+        let mut seen = HashSet::new();
+        for addr_str in &self.addrs {
+            let addr: SocketAddr = addr_str
+                .parse()
+                .with_context(|| format!("invalid server.listen: {}", addr_str))?;
+            if !seen.insert(addr) {
+                bail!("duplicate server.listen address: {}", addr);
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Default for ListenAddrs {
+    fn default() -> Self {
+        Self::single("127.0.0.1:0")
+    }
+}
+
+impl<'de> Deserialize<'de> for ListenAddrs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Raw {
+            One(String),
+            Many(Vec<String>),
+        }
+
+        match Raw::deserialize(deserializer)? {
+            Raw::One(addr) => Ok(Self::single(addr)),
+            Raw::Many(addrs) => {
+                if addrs.is_empty() {
+                    return Err(de::Error::custom("server.listen array must not be empty"));
+                }
+                Ok(Self { addrs })
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for ListenAddrs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.addrs.join(", "))
+    }
+}
+
+impl From<String> for ListenAddrs {
+    fn from(addr: String) -> Self {
+        Self::single(addr)
+    }
+}
+
+impl From<&str> for ListenAddrs {
+    fn from(addr: &str) -> Self {
+        Self::single(addr)
+    }
+}
+
+impl From<SocketAddr> for ListenAddrs {
+    fn from(addr: SocketAddr) -> Self {
+        Self::single(addr.to_string())
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ServerConfig {
-    pub listen: String,
+    pub listen: ListenAddrs,
     #[serde(default)]
     pub timeouts: ServerTimeoutsConfig,
     /// Максимум одновременных inbound-сессий. Не задано — без лимита.
@@ -172,7 +271,7 @@ impl Default for ServerTimeoutsConfig {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            listen: "127.0.0.1:0".to_string(),
+            listen: ListenAddrs::default(),
             timeouts: ServerTimeoutsConfig::default(),
             max_connections: None,
             auth_rate_limit: AuthRateLimitConfig::default(),
@@ -181,7 +280,7 @@ impl Default for ServerConfig {
 }
 
 impl ServerConfig {
-    pub fn with_listen(listen: impl Into<String>) -> Self {
+    pub fn with_listen(listen: impl Into<ListenAddrs>) -> Self {
         Self {
             listen: listen.into(),
             ..Default::default()
@@ -312,10 +411,7 @@ impl Config {
 
     /// Проверка конфигурации после десериализации.
     pub fn validate(&self) -> Result<()> {
-        self.server
-            .listen
-            .parse::<SocketAddr>()
-            .with_context(|| format!("invalid server.listen: {}", self.server.listen))?;
+        self.server.listen.validate()?;
 
         if self.server.timeouts.connect_timeout_secs == 0 {
             bail!("server.timeouts.connect_timeout_secs must be greater than 0");
@@ -905,4 +1001,36 @@ fn ensure_readable_file(path: &str, field: &str) -> Result<()> {
     }
     std::fs::File::open(&p).with_context(|| format!("{}: cannot read {}", field, path))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod listen_tests {
+    use super::ListenAddrs;
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    struct ListenOnly {
+        listen: ListenAddrs,
+    }
+
+    #[test]
+    fn deserializes_single_address() {
+        let cfg: ListenOnly = toml::from_str("listen = \"127.0.0.1:443\"").unwrap();
+        assert_eq!(cfg.listen.as_strings(), &["127.0.0.1:443".to_string()]);
+        cfg.listen.validate().unwrap();
+    }
+
+    #[test]
+    fn deserializes_dual_stack_array() {
+        let cfg: ListenOnly = toml::from_str("listen = [\"0.0.0.0:443\", \"[::]:443\"]").unwrap();
+        assert_eq!(cfg.listen.as_strings().len(), 2);
+        cfg.listen.validate().unwrap();
+    }
+
+    #[test]
+    fn rejects_duplicate_addresses() {
+        let cfg: ListenOnly =
+            toml::from_str("listen = [\"127.0.0.1:443\", \"127.0.0.1:443\"]").unwrap();
+        assert!(cfg.listen.validate().is_err());
+    }
 }

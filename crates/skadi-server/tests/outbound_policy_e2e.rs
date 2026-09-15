@@ -27,7 +27,7 @@ async fn rejects_loopback_target_by_default() {
 
     let config = Config {
         server: ServerConfig {
-            listen: proxy_addr.to_string(),
+            listen: proxy_addr.into(),
             ..Default::default()
         },
         protocol: ProtocolConfig {
