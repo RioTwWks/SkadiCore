@@ -36,9 +36,10 @@ pub async fn run(config: ClientConfig, mut shutdown: watch::Receiver<bool>) -> R
         {
             let outbound = outbound.clone();
             let tun = config.client.tun.clone();
+            let proxy_server = config.remote.server.clone();
             let shutdown_rx = shutdown.clone();
             tasks.push(tokio::spawn(async move {
-                tun::run(&tun, outbound, shutdown_rx).await
+                tun::run(&tun, &proxy_server, outbound, shutdown_rx).await
             }));
         }
         #[cfg(not(target_os = "linux"))]

@@ -23,7 +23,7 @@ pub struct ClientListenConfig {
     pub tun: TunConfig,
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct TunConfig {
     #[serde(default)]
     pub enabled: bool,
@@ -37,6 +37,77 @@ pub struct TunConfig {
     pub netmask: String,
     #[serde(default = "default_tun_mtu")]
     pub mtu: u16,
+    #[serde(default)]
+    pub routing: TunRoutingConfig,
+    #[serde(default)]
+    pub dns: TunDnsConfig,
+}
+
+impl Default for TunConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            name: default_tun_name(),
+            address: default_tun_address(),
+            gateway: default_tun_gateway(),
+            netmask: default_tun_netmask(),
+            mtu: default_tun_mtu(),
+            routing: TunRoutingConfig::default(),
+            dns: TunDnsConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TunRoutingConfig {
+    /// Автоматически настроить `ip rule` / `ip route` (требует root/CAP_NET_ADMIN).
+    #[serde(default)]
+    pub auto: bool,
+    #[serde(default = "default_routing_table")]
+    pub table: u32,
+    /// Дополнительные IPv4, которые не должны идти в TUN (помимо IP прокси).
+    #[serde(default)]
+    pub bypass: Vec<String>,
+}
+
+impl Default for TunRoutingConfig {
+    fn default() -> Self {
+        Self {
+            auto: false,
+            table: default_routing_table(),
+            bypass: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TunDnsConfig {
+    /// Перенаправлять UDP/53 через `server` в VLESS-туннель.
+    #[serde(default = "default_dns_hijack")]
+    pub hijack: bool,
+    #[serde(default = "default_dns_server")]
+    pub server: Option<String>,
+}
+
+impl Default for TunDnsConfig {
+    fn default() -> Self {
+        Self {
+            hijack: default_dns_hijack(),
+            server: default_dns_server(),
+        }
+    }
+}
+
+fn default_routing_table() -> u32 {
+    100
+}
+
+fn default_dns_hijack() -> bool {
+    true
+}
+
+fn default_dns_server() -> Option<String> {
+    Some("8.8.8.8".to_string())
 }
 
 fn default_tun_name() -> String {
@@ -72,6 +143,16 @@ impl TunConfig {
         }
         if self.mtu < 576 {
             bail!("client.tun.mtu must be at least 576");
+        }
+        if self.routing.table == 0 || self.routing.table > 252 {
+            bail!("client.tun.routing.table must be in 1..=252");
+        }
+        parse_ipv4_list(&self.routing.bypass, "client.tun.routing.bypass")?;
+        if self.dns.hijack && self.dns.server.is_none() {
+            bail!("client.tun.dns.hijack requires client.tun.dns.server");
+        }
+        if let Some(server) = &self.dns.server {
+            parse_dns_upstream(server)?;
         }
         Ok(())
     }
@@ -176,6 +257,28 @@ fn parse_ip(value: &str, field: &str) -> Result<IpAddr> {
         .with_context(|| format!("invalid {}: {}", field, value))
 }
 
+fn parse_ipv4_list(values: &[String], field: &str) -> Result<Vec<std::net::Ipv4Addr>> {
+    let mut out = Vec::with_capacity(values.len());
+    for value in values {
+        let ip = parse_ip(value, field)?;
+        match ip {
+            IpAddr::V4(v4) => out.push(v4),
+            IpAddr::V6(_) => bail!("{} must be IPv4: {}", field, value),
+        }
+    }
+    Ok(out)
+}
+
+fn parse_dns_upstream(value: &str) -> Result<SocketAddr> {
+    if value.contains(':') {
+        return value
+            .parse()
+            .with_context(|| format!("invalid client.tun.dns.server: {}", value));
+    }
+    let ip = parse_ip(value, "client.tun.dns.server")?;
+    Ok(SocketAddr::new(ip, 53))
+}
+
 fn parse_server_endpoint(value: &str) -> Result<Endpoint> {
     let (host, port) = split_host_port(value)?;
     if let Ok(ip) = host.parse() {
@@ -217,6 +320,51 @@ uuid = "00000000-0000-0000-0000-000000000001"
         config.validate().unwrap();
         assert!(!config.socks5_enabled());
         assert!(config.tun_enabled());
+    }
+
+    #[test]
+    fn tun_routing_dns_config_validates() {
+        let raw = r#"
+[client]
+[client.tun]
+enabled = true
+
+[client.tun.routing]
+auto = true
+table = 100
+bypass = ["192.168.0.1"]
+
+[client.tun.dns]
+hijack = true
+server = "1.1.1.1:53"
+
+[remote]
+server = "proxy.example.com:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        config.validate().unwrap();
+        assert!(config.client.tun.routing.auto);
+        assert_eq!(config.client.tun.routing.table, 100);
+        assert_eq!(config.client.tun.dns.server.as_deref(), Some("1.1.1.1:53"));
+    }
+
+    #[test]
+    fn tun_invalid_routing_table_fails() {
+        let raw = r#"
+[client]
+[client.tun]
+enabled = true
+
+[client.tun.routing]
+table = 0
+
+[remote]
+server = "127.0.0.1:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        assert!(config.validate().is_err());
     }
 
     #[test]
