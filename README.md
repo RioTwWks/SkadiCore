@@ -76,8 +76,8 @@ SkadiCore — это попытка собрать в одном ядре сил
 **Не начато:**
 
 - [x] gRPC API — hot reload пользователей VLESS/SOCKS5 (`[api]`).
-- [x] XHTTP stream-one + stream-up inbound
-- [ ] TUN, XHTTP packet-up
+- [x] XHTTP inbound (stream-one, stream-up, packet-up)
+- [ ] TUN
 - [x] UDP/Mux/XUDP VLESS, TLS outbound — см. `examples/`.
 
 ⚠️ **Без `[transport.tls]` или `[transport.reality]` трафик идёт в открытом виде.**

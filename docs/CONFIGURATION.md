@@ -317,8 +317,9 @@ key = "/etc/skadicore/client-key.pem"
 ## Секция `[transport.xhttp]`
 
 XHTTP (SplitHTTP) — HTTP-транспорт поверх TLS, REALITY или plain TCP.
-В текущей версии поддерживается **stream-one** (один HTTP-запрос) и **stream-up**
-(GET downlink + POST uplink с session id в path: `/xhttp/{sessionId}`).
+В текущей версии поддерживается **stream-one**, **stream-up**
+(GET downlink + POST uplink: `/xhttp/{sessionId}`) и **packet-up**
+(sequenced POST: `/xhttp/{sessionId}/{seq}` + GET downlink).
 
 ```toml
 [transport.tls]
@@ -338,12 +339,13 @@ mode = "stream-one"   # auto | stream-one | stream-up | packet-up
 |------|-----|----------|
 | `enabled` | `bool` | Включить XHTTP upgrade после inbound TLS/REALITY |
 | `path` | `string` | URL prefix (по умолчанию `/xhttp`) |
-| `mode` | `string` | `auto`, `stream-one`, `stream-up`, `packet-up` (сервер: stream-one/stream-up/auto) |
+| `mode` | `string` | `auto`, `stream-one`, `stream-up`, `packet-up` (все три режима на сервере в `auto`) |
 | `host` | `string?` | Ожидаемый HTTP Host |
 | `no_sse_header` | `bool` | Не отправлять `Content-Type: text/event-stream` |
 | `x_padding_bytes` | `[u32; 2]?` | Диапазон длины `X-Padding` в ответе |
 
-Режим `packet-up` (sequenced POST) — в roadmap.
+Packet-up: каждый POST содержит полный payload с monotonic `seq` (начиная с 0);
+сервер собирает пакеты в порядке seq перед передачей в VLESS/SOCKS5.
 
 ---
 
