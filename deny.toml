@@ -19,6 +19,7 @@ ignore = [
 version = 2
 confidence-threshold = 0.8
 allow = [
+    "0BSD",
     "AGPL-3.0",
     "AGPL-3.0-or-later",
     "Apache-2.0",
@@ -30,6 +31,7 @@ allow = [
     "MPL-2.0",
     "OpenSSL",
     "Unicode-3.0",
+    "WTFPL",
     "Zlib",
 ]
 
