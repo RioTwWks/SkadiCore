@@ -112,8 +112,7 @@ fn dual_stack_listen_deserializes() {
     struct ListenOnly {
         listen: ListenAddrs,
     }
-    let cfg: ListenOnly =
-        toml::from_str("listen = [\"0.0.0.0:443\", \"[::]:443\"]").unwrap();
+    let cfg: ListenOnly = toml::from_str("listen = [\"0.0.0.0:443\", \"[::]:443\"]").unwrap();
     cfg.listen.validate().unwrap();
     assert_eq!(cfg.listen.as_strings().len(), 2);
 }

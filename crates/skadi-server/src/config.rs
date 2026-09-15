@@ -1022,8 +1022,7 @@ mod listen_tests {
 
     #[test]
     fn deserializes_dual_stack_array() {
-        let cfg: ListenOnly =
-            toml::from_str("listen = [\"0.0.0.0:443\", \"[::]:443\"]").unwrap();
+        let cfg: ListenOnly = toml::from_str("listen = [\"0.0.0.0:443\", \"[::]:443\"]").unwrap();
         assert_eq!(cfg.listen.as_strings().len(), 2);
         cfg.listen.validate().unwrap();
     }
