@@ -4,12 +4,14 @@
 //! безопасность обеспечивается транспортным слоем (TLS/REALITY).
 
 pub mod addons;
+pub mod client;
 pub mod config;
 pub mod handler;
 pub mod mux;
 pub mod parse;
 
 pub use addons::{build_addons_with_flow, parse_addons, VlessAddons, FLOW_XTLS_VISION};
+pub use client::{build_tcp_endpoint_request, VlessClient};
 pub use config::{Uuid, UuidParseError, VlessConfig, VlessUser};
 pub use handler::{VlessHandler, VlessHandshake};
 pub use mux::{

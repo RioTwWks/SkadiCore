@@ -30,6 +30,8 @@ enum LogFormat {
 enum Command {
     /// Запустить сервер (по умолчанию).
     Run,
+    /// Локальный SOCKS5 → удалённый VLESS+TLS (клиентский режим).
+    Client,
     /// Проверить конфиг без запуска.
     CheckConfig,
     /// Сгенерировать ключи REALITY.
@@ -53,6 +55,10 @@ async fn main() -> Result<()> {
         Some(Command::Genkey { kind }) => match kind {
             GenkeyKind::Reality => skadi_server::genkey::generate_reality_keys(),
         },
+        Some(Command::Client) => {
+            init_tracing(&cli)?;
+            run_client(cli).await
+        }
         Some(Command::Run) | None => {
             init_tracing(&cli)?;
             run_server(cli).await
@@ -69,6 +75,32 @@ fn init_tracing(cli: &Cli) -> Result<()> {
         LogFormat::Json => builder.json().init(),
         LogFormat::Pretty => builder.init(),
     }
+    Ok(())
+}
+
+async fn run_client(cli: Cli) -> Result<()> {
+    use skadi_client::ClientConfig;
+    use tokio::sync::watch;
+
+    let config = ClientConfig::load(&cli.config)
+        .with_context(|| format!("failed to load client config from {:?}", cli.config))?;
+
+    info!(
+        listen = %config.client.listen,
+        remote = %config.remote.server,
+        tls = config.remote.tls.enabled,
+        "SkadiCore client starting"
+    );
+
+    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    let shutdown_task = tokio::spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() {
+            let _ = shutdown_tx.send(true);
+        }
+    });
+
+    skadi_client::run(config, shutdown_rx).await?;
+    shutdown_task.abort();
     Ok(())
 }
 

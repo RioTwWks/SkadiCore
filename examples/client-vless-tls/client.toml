@@ -1,0 +1,16 @@
+# Локальный SOCKS5 → удалённый VLESS+TLS (skadicore client)
+#
+# Запуск:
+#   skadicore client --config examples/client-vless-tls/client.toml
+
+[client]
+listen = "127.0.0.1:1080"
+
+[remote]
+server = "127.0.0.1:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+
+[remote.tls]
+enabled = true
+# ca_file = "/path/to/ca.pem"
+server_name = "example.com"

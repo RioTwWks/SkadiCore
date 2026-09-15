@@ -1,0 +1,16 @@
+[package]
+name = "skadi-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+skadi-core.workspace = true
+skadi-protocol.workspace = true
+skadi-transport.workspace = true
+
+tokio.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+toml.workspace = true

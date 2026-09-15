@@ -61,6 +61,7 @@ skadi-core = { path = "crates/skadi-core" }
 skadi-transport = { path = "crates/skadi-transport" }
 skadi-protocol = { path = "crates/skadi-protocol" }
 skadi-api = { path = "crates/skadi-api" }
+skadi-client = { path = "crates/skadi-client" }
 
 [patch.crates-io]
 rustls = { path = "third_party/rustls-reality/rustls" }

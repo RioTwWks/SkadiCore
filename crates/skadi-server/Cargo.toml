@@ -17,6 +17,7 @@ skadi-core.workspace = true
 skadi-transport.workspace = true
 skadi-protocol.workspace = true
 skadi-api.workspace = true
+skadi-client.workspace = true
 tonic.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
@@ -42,6 +43,7 @@ grpc-rustls = { package = "rustls", version = "0.23.45", default-features = fals
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin)'] }
 
 [dev-dependencies]
+skadi-client.workspace = true
 rcgen = "0.13"
 rustls.workspace = true
 rustls-pki-types.workspace = true
