@@ -6,6 +6,5 @@ target/
 examples/
 **/tests/
 **/fuzz/
-**/benches/
 tmp/
 *.tar.gz
