@@ -11,6 +11,10 @@
 
 ### Added
 
+- **TUN inbound (Linux MVP)** — `[client.tun]` в клиентском режиме: IP-туннель
+  поверх VLESS (TCP + UDP через userspace netstack); `VlessClient::handshake_udp`;
+  пример `examples/client-vless-tls-tun/`
+
 - **Клиентский режим (MVP)** — `skadicore client`: локальный SOCKS5 → VLESS+TLS
   к удалённому прокси; крейт `skadi-client`, `VlessClient` в `skadi-protocol`;
   пример `examples/client-vless-tls/`, E2E `client_socks5_vless_e2e`

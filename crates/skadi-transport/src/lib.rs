@@ -21,7 +21,9 @@ pub use relay::{
 pub use tcp::TcpTransport;
 pub use tls::{TlsCertPaths, TlsError, TlsServerConfig, TlsSniCert, TlsTransport};
 pub use tls_client::{TlsClientConfig, TlsOutboundTransport};
-pub use udp::{relay_vless_udp_with_limits, UdpTransport};
+pub use udp::{
+    read_vless_udp_frame, relay_vless_udp_with_limits, write_vless_udp_frame, UdpTransport,
+};
 pub use xhttp::{
     accept_stream_one, accept_xhttp, PaddingRange, XhttpAcceptResult, XhttpConfig, XhttpError,
     XhttpIo, XhttpMode, XhttpSessionManager,

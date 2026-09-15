@@ -6,8 +6,8 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use super::parse::{
-    build_response_header, build_tcp_domain_request, build_tcp_request, encode_port_address,
-    CMD_TCP, VLESS_VERSION,
+    build_response_header, build_tcp_domain_request, build_tcp_request, build_udp_domain_request,
+    build_udp_request, encode_port_address, CMD_TCP, CMD_UDP, VLESS_VERSION,
 };
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -20,28 +20,34 @@ impl VlessClient {
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
-        match tokio::time::timeout(
-            HANDSHAKE_TIMEOUT,
-            Self::handshake_tcp_inner(stream, uuid, target),
-        )
-        .await
+        Self::handshake(stream, uuid, &build_tcp_endpoint_request(uuid, target)).await
+    }
+
+    /// Отправить VLESS UDP-запрос и прочитать 2-байтовый ответ сервера.
+    pub async fn handshake_udp<S>(stream: &mut S, uuid: &[u8; 16], target: &Endpoint) -> Result<()>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
+        Self::handshake(stream, uuid, &build_udp_endpoint_request(uuid, target)).await
+    }
+
+    async fn handshake<S>(stream: &mut S, _uuid: &[u8; 16], request: &[u8]) -> Result<()>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
+        match tokio::time::timeout(HANDSHAKE_TIMEOUT, Self::handshake_inner(stream, request)).await
         {
             Ok(result) => result,
             Err(_) => bail!("VLESS client handshake timeout"),
         }
     }
 
-    async fn handshake_tcp_inner<S>(
-        stream: &mut S,
-        uuid: &[u8; 16],
-        target: &Endpoint,
-    ) -> Result<()>
+    async fn handshake_inner<S>(stream: &mut S, request: &[u8]) -> Result<()>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
-        let request = build_tcp_endpoint_request(uuid, target);
         stream
-            .write_all(&request)
+            .write_all(request)
             .await
             .context("failed to write VLESS request")?;
 
@@ -83,6 +89,25 @@ pub fn build_tcp_endpoint_request(uuid: &[u8; 16], target: &Endpoint) -> Vec<u8>
     }
 }
 
+/// Собрать VLESS UDP-запрос к произвольному `Endpoint`.
+pub fn build_udp_endpoint_request(uuid: &[u8; 16], target: &Endpoint) -> Vec<u8> {
+    match target {
+        Endpoint::Ip(addr) => match addr.ip() {
+            std::net::IpAddr::V4(ip) => build_udp_request(uuid, ip, addr.port()),
+            std::net::IpAddr::V6(_) => {
+                let mut buf = Vec::with_capacity(40);
+                buf.push(VLESS_VERSION);
+                buf.extend_from_slice(uuid);
+                buf.push(0);
+                buf.push(CMD_UDP);
+                buf.extend_from_slice(&encode_port_address(target));
+                buf
+            }
+        },
+        Endpoint::Domain(domain, port) => build_udp_domain_request(uuid, domain, *port),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -107,6 +132,17 @@ mod tests {
         let buf = build_tcp_endpoint_request(&uuid, &target);
         let (req, len) = parse_request(&buf).unwrap();
         assert_eq!(len, buf.len());
+        assert_eq!(req.target, target);
+    }
+
+    #[test]
+    fn build_udp_endpoint_request_ipv4_roundtrip() {
+        let uuid = [0xEF; 16];
+        let target = Endpoint::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53));
+        let buf = build_udp_endpoint_request(&uuid, &target);
+        let (req, len) = parse_request(&buf).unwrap();
+        assert_eq!(len, buf.len());
+        assert_eq!(req.command, CMD_UDP);
         assert_eq!(req.target, target);
     }
 }

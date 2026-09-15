@@ -1,7 +1,12 @@
-//! Клиентский режим SkadiCore: локальный SOCKS5 → удалённый VLESS+TLS.
+//! Клиентский режим SkadiCore: локальный SOCKS5 / TUN → удалённый VLESS+TLS.
 
 mod config;
+mod outbound;
 mod runner;
+mod socks5;
 
-pub use config::{ClientConfig, ClientListenConfig, RemoteConfig, RemoteTlsConfig};
+#[cfg(target_os = "linux")]
+mod tun;
+
+pub use config::{ClientConfig, ClientListenConfig, RemoteConfig, RemoteTlsConfig, TunConfig};
 pub use runner::run;

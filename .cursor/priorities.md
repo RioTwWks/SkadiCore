@@ -23,7 +23,7 @@
 |--------|----------|
 | ~~XHTTP~~ | ✅ stream-one + stream-up + packet-up (`[transport.xhttp]`) |
 | ~~Client MVP~~ | ✅ `skadicore client` (SOCKS5 → VLESS+TLS) |
-| TUN | IP-туннель поверх клиентского режима |
+| ~~TUN~~ | ✅ Linux MVP (`[client.tun]`, TCP/UDP → VLESS) |
 | `skadi-config` | Выделить конфиг в отдельный крейт |
 | ~~Protocol enum~~ | ✅ `skadi_core::Protocol` |
 
