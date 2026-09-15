@@ -38,6 +38,18 @@ cargo test --workspace
 cargo build --release
 ```
 
+## Soak-тест (длительный)
+
+```bash
+# Быстрый smoke (~2 мин):
+./scripts/soak.sh --quick
+
+# Ночной/релизный прогон:
+SOAK_DURATION=24h ./scripts/soak.sh
+```
+
+Логи и `samples.csv` — в `$SOAK_LOG_DIR`. См. `docs/DEVELOPMENT.md`.
+
 ## Коммит и PR
 
 ```bash

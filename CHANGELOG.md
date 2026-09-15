@@ -18,6 +18,14 @@
 - **Инфраструктура (аудит)** — `rust-toolchain.toml` (pinned `1.98.1`);
   multi-stage `Dockerfile` (musl static, `FROM scratch`); CI job `docker`
 
+- **Тестирование (аудит)** — property-based тесты (`proptest`) для парсеров
+  SOCKS5, VLESS и Mux: roundtrip encode/decode, инварианты `Incomplete`,
+  no-panic на произвольных байтах (`tests/proptest_*.rs`)
+
+- **Soak-тест (аудит)** — `scripts/soak.sh` (24h / `--quick`), бинарник
+  `soak_load`, режимы `native` / `iperf3` / `wrk`; CSV с RSS, FD,
+  `active_connections`; пример `examples/soak/server.toml`
+
 - **TUN inbound (Linux MVP)** — `[client.tun]` в клиентском режиме: IP-туннель
   поверх VLESS (TCP + UDP через userspace netstack); `VlessClient::handshake_udp`;
   `[client.tun.routing]` (auto `ip rule`/`ip route`, bypass прокси);
