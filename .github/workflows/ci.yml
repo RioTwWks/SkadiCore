@@ -112,8 +112,9 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+
+      - name: Install musl target (pinned toolchain)
+        run: rustup target add ${{ matrix.target }}
 
       - name: Install musl-tools (x86_64)
         if: ${{ !matrix.use_zigbuild }}
@@ -249,3 +250,12 @@ jobs:
             --exclude-files 'third_party/*' \
             --fail-under 70 \
             --timeout 600
+
+  docker:
+    name: Docker image (musl scratch)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t skadicore:ci .

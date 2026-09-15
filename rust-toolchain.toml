@@ -1,3 +1,5 @@
 [toolchain]
-channel = "stable"
+# Зафиксированная версия для воспроизводимых сборок (CI, Docker, локально).
+channel = "1.98.1"
 components = ["rustfmt", "clippy"]
+profile = "minimal"

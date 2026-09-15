@@ -1,0 +1,10 @@
+target/
+.git/
+.github/
+.cursor/
+**/*.md
+examples/
+**/tests/
+**/fuzz/
+tmp/
+*.tar.gz

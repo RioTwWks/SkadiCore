@@ -15,8 +15,8 @@
 
 ## Сейчас (ближайшие задачи)
 
-Обратная связь аудита (2026-09-15): приоритеты 1–2 (auth rate limit, SSRF) — ✅.
-Далее: `rust-toolchain.toml`, `Dockerfile`, property-based тесты.
+Обратная связь аудита (2026-09-15): приоритеты 1–3 (auth, SSRF, toolchain/Docker) — ✅.
+Далее: property-based тесты, подпись релизов, IPv6 в `listen`.
 
 ## Позже
 
@@ -30,7 +30,7 @@
 
 ## Что НЕ делать сейчас
 
-- Docker-образ (антипаттерн для проекта на текущем этапе)
+- ~~Docker-образ~~ — ✅ `Dockerfile` (musl scratch)
 - OpenTelemetry до стабилизации метрик Prometheus
 - BIND / UDP ASSOCIATE для SOCKS5 — низкий приоритет
 

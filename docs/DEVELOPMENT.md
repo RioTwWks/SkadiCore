@@ -131,6 +131,24 @@ TARGET=aarch64-unknown-linux-musl ./scripts/build-musl.sh
 CI проверяет `x86_64-unknown-linux-musl` (musl-tools) и
 `aarch64-unknown-linux-musl` (cargo-zigbuild) на каждом PR (job `musl`).
 
+### Docker (musl, `FROM scratch`)
+
+Версия Rust зафиксирована в `rust-toolchain.toml` (та же используется в Dockerfile).
+
+```bash
+docker build -t skadicore:local .
+
+docker run --rm -p 443:443 \
+  -v "$(pwd)/config:/config:ro" \
+  -v "$(pwd)/certs:/certs:ro" \
+  skadicore:local --config /config/skadi.toml
+```
+
+Образ содержит только статический бинарник `/skadicore` — без shell и libc.
+Конфигурация и TLS-сертификаты монтируются с хоста.
+
+Проверка сборки образа — job `docker` в CI.
+
 ### Кросс-компиляция (Windows / macOS)
 
 **Windows (x86_64, GNU ABI):**
