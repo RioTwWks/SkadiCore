@@ -8,5 +8,8 @@ mod socks5;
 #[cfg(target_os = "linux")]
 mod tun;
 
-pub use config::{ClientConfig, ClientListenConfig, RemoteConfig, RemoteTlsConfig, TunConfig};
+pub use config::{
+    ClientConfig, ClientListenConfig, RemoteConfig, RemoteTlsConfig, TunConfig, TunDnsConfig,
+    TunRoutingConfig,
+};
 pub use runner::run;

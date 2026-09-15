@@ -3,9 +3,8 @@
 # Запуск (требуются права на создание TUN, обычно root или CAP_NET_ADMIN):
 #   skadicore client --config examples/client-vless-tls-tun/client.toml
 #
-# После старта настройте маршрутизацию, например:
-#   ip route add default dev skadi0 table 100
-#   ip rule add from 10.0.0.2 table 100
+# При routing.auto = true маршрутизация настраивается автоматически.
+# IP прокси-сервера добавляется в bypass, чтобы избежать петли маршрутизации.
 
 [client]
 listen = "127.0.0.1:1080"
@@ -17,6 +16,15 @@ address = "10.0.0.2"
 gateway = "10.0.0.1"
 netmask = "255.255.255.0"
 mtu = 1500
+
+[client.tun.routing]
+auto = true
+table = 100
+bypass = []
+
+[client.tun.dns]
+hijack = true
+server = "8.8.8.8"
 
 [remote]
 server = "127.0.0.1:443"

@@ -1,29 +1,41 @@
 //! TUN inbound (Linux): IP-пакеты → VLESS outbound.
 
+mod dns;
+mod routing;
+
 use crate::config::TunConfig;
 use crate::outbound::Outbound;
 use anyhow::{Context, Result};
+use dns::DnsHijack;
 use futures::{SinkExt, StreamExt};
 use netstack_smoltcp::{StackBuilder, TcpListener, UdpSocket};
+use routing::{resolve_proxy_ipv4, RoutingGuard};
 use skadi_core::Endpoint;
 use skadi_transport::{
     copy_bidirectional_with_limits, read_vless_udp_frame, write_vless_udp_frame, RelayLimits,
 };
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tokio::sync::watch;
 use tracing::{debug, info, warn};
 
 pub async fn run(
     tun: &TunConfig,
+    proxy_host: &str,
     outbound: Outbound,
     mut shutdown: watch::Receiver<bool>,
 ) -> Result<()> {
+    let dns_hijack = DnsHijack::from_config(&tun.dns)?;
+    let proxy_ips = resolve_proxy_ipv4(proxy_host).await?;
+    let mut routing_guard = RoutingGuard::apply(tun, &tun.routing, &proxy_ips)?;
+
     let device = create_device(tun)?;
     info!(
         name = %tun.name,
         address = %tun.address,
         gateway = %tun.gateway,
         mtu = tun.mtu,
+        routing_auto = tun.routing.auto,
+        dns_hijack = dns_hijack.is_some(),
         "client TUN starting"
     );
 
@@ -82,7 +94,7 @@ pub async fn run(
     let udp_task = tokio::spawn({
         let outbound = outbound.clone();
         async move {
-            handle_udp_inbound(udp_socket, outbound).await;
+            handle_udp_inbound(udp_socket, outbound, dns_hijack).await;
         }
     });
 
@@ -99,14 +111,15 @@ pub async fn run(
     tun_to_stack.abort();
     tcp_task.abort();
     udp_task.abort();
+    if let Some(guard) = routing_guard.as_mut() {
+        guard.revert();
+    }
 
     info!("client TUN stopped");
     Ok(())
 }
 
 fn create_device(tun: &TunConfig) -> Result<tun::AsyncDevice> {
-    use std::net::Ipv4Addr;
-
     let address: Ipv4Addr = tun.address.parse().context("invalid client.tun.address")?;
     let gateway: Ipv4Addr = tun.gateway.parse().context("invalid client.tun.gateway")?;
     let netmask: Ipv4Addr = tun.netmask.parse().context("invalid client.tun.netmask")?;
@@ -149,7 +162,11 @@ async fn handle_tcp_inbound(mut tcp_listener: TcpListener, outbound: Outbound) {
     }
 }
 
-async fn handle_udp_inbound(udp_socket: UdpSocket, outbound: Outbound) {
+async fn handle_udp_inbound(
+    udp_socket: UdpSocket,
+    outbound: Outbound,
+    dns_hijack: Option<DnsHijack>,
+) {
     use std::collections::HashMap;
     use std::sync::Arc;
     use tokio::sync::Mutex;
@@ -167,7 +184,11 @@ async fn handle_udp_inbound(udp_socket: UdpSocket, outbound: Outbound) {
     });
 
     while let Some((data, local, remote)) = read_half.next().await {
-        let key = (local, remote);
+        let tunnel_remote = match dns_hijack {
+            Some(hijack) => hijack.rewrite(remote),
+            None => remote,
+        };
+        let key = (local, tunnel_remote);
         let sender = {
             let mut map = sessions.lock().await;
             if let Some(tx) = map.get(&key) {
@@ -178,8 +199,10 @@ async fn handle_udp_inbound(udp_socket: UdpSocket, outbound: Outbound) {
                 let outbound = outbound.clone();
                 let reply_tx = reply_tx.clone();
                 tokio::spawn(async move {
-                    if let Err(err) = relay_udp_flow(outbound, remote, local, rx, reply_tx).await {
-                        debug!(%local, %remote, error = %err, "TUN UDP flow ended");
+                    if let Err(err) =
+                        relay_udp_flow(outbound, tunnel_remote, local, rx, reply_tx).await
+                    {
+                        debug!(%local, %tunnel_remote, error = %err, "TUN UDP flow ended");
                     }
                 });
                 tx
@@ -231,5 +254,8 @@ async fn relay_udp_flow(
 }
 
 fn socket_to_endpoint(addr: SocketAddr) -> Endpoint {
-    Endpoint::Ip(addr)
+    match addr.ip() {
+        IpAddr::V4(_) => Endpoint::Ip(addr),
+        IpAddr::V6(_) => Endpoint::Ip(addr),
+    }
 }

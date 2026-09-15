@@ -13,6 +13,8 @@
 
 - **TUN inbound (Linux MVP)** — `[client.tun]` в клиентском режиме: IP-туннель
   поверх VLESS (TCP + UDP через userspace netstack); `VlessClient::handshake_udp`;
+  `[client.tun.routing]` (auto `ip rule`/`ip route`, bypass прокси);
+  `[client.tun.dns]` (UDP/53 hijack → upstream DNS через VLESS);
   пример `examples/client-vless-tls-tun/`
 
 - **Клиентский режим (MVP)** — `skadicore client`: локальный SOCKS5 → VLESS+TLS

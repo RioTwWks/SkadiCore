@@ -866,9 +866,31 @@ skadicore client --config examples/client-vless-tls/client.toml
 | `netmask` | string | Маска сети, например `255.255.255.0` |
 | `mtu` | u16 | MTU (по умолчанию `1500`) |
 
+#### `[client.tun.routing]`
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `auto` | bool | Автоматически настроить `ip rule` / `ip route` (по умолчанию `false`; требует root/CAP_NET_ADMIN) |
+| `table` | u32 | Номер таблицы маршрутизации (по умолчанию `100`, диапазон `1..=252`) |
+| `bypass` | string[] | Дополнительные IPv4, которые не должны идти в TUN (помимо IP прокси-сервера) |
+
+При `auto = true` клиент:
+1. Добавляет bypass-маршруты для IP прокси и `bypass` через основной шлюз.
+2. Устанавливает `default dev <tun.name> table <table>`.
+3. Добавляет `ip rule from <tun.address> table <table>`.
+
+При остановке правила и таблица откатываются.
+
+#### `[client.tun.dns]`
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `hijack` | bool | Перенаправлять UDP/53 через upstream DNS в VLESS (по умолчанию `true`) |
+| `server` | string? | Upstream DNS: IPv4 или `host:port` (по умолчанию `8.8.8.8`) |
+
 TUN использует userspace netstack (`netstack-smoltcp`): TCP/UDP из
-интерфейса уходят в VLESS. Маршрутизацию ОС (`ip route`, policy routing)
-настраивает администратор вручную.
+интерфейса уходят в VLESS. DNS-hijack перехватывает UDP на порт 53
+на уровне netstack и форвардит запросы на `dns.server` через туннель.
 
 Пример SOCKS5 + TUN: `examples/client-vless-tls-tun/client.toml`.
 
