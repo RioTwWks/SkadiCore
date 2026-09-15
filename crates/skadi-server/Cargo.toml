@@ -12,6 +12,10 @@ path = "src/lib.rs"
 name = "skadicore"
 path = "src/main.rs"
 
+[[bin]]
+name = "soak_load"
+path = "src/bin/soak_load.rs"
+
 [dependencies]
 skadi-core.workspace = true
 skadi-transport.workspace = true

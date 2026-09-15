@@ -251,6 +251,21 @@ jobs:
             --fail-under 70 \
             --timeout 600
 
+  soak-smoke:
+    name: Soak smoke (--quick)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install soak dependencies
+        run: sudo apt-get update && sudo apt-get install -y socat
+
+      - name: Run soak smoke
+        run: ./scripts/soak.sh --quick
+
   docker:
     name: Docker image (musl scratch)
     runs-on: ubuntu-latest

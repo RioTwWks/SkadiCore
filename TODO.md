@@ -406,7 +406,7 @@ README упоминает, что есть 29+ автотестов. Но нет
 
 **Чего не хватает:** скрипта `scripts/soak.sh`, который запускает SkadiCore, подаёт трафик через `wrk` или `iperf3` в течение 24 часов и снимает метрики RSS, FD count, latency.
 
-- [ ] 24-часовой soak-тест (`scripts/soak.sh`, wrk/iperf3, RSS/FD/latency)
+- [x] 24-часовой soak-тест (`scripts/soak.sh`, `soak_load`, wrk/iperf3, RSS/FD/latency)
 
 #### 3.4. Тесты на активное зондирование
 
@@ -486,7 +486,7 @@ REALITY реализован, но нет тестов, которые пров�
 2. **Фильтрация внутренних адресов**
 3. **`rust-toolchain.toml` и `Dockerfile`**
 4. **Property-based тесты**
-5. **Soak-тест (24 ч)**
+5. ~~**Soak-тест (24 ч)**~~ — ✅ `scripts/soak.sh`
 6. **Подпись релизов**
 7. **IPv6 в `listen`**
 

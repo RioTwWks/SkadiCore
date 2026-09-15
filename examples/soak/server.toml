@@ -1,0 +1,31 @@
+# Soak-тест: VLESS plain TCP + Prometheus metrics (loopback only).
+#
+# Используется scripts/soak.sh (генерирует свой конфиг в $SOAK_LOG_DIR).
+# Для ручного запуска:
+#   cargo build --release -p skadi-server
+#   socat TCP-LISTEN:5201,fork,reuseaddr EXEC:'cat' &
+#   cargo run --release --bin skadicore -- --config examples/soak/server.toml
+#   cargo run --release --bin soak_load -- --proxy 127.0.0.1:10800 --target-port 5201
+
+[server]
+listen = "127.0.0.1:10800"
+max_connections = 10000
+idle_timeout_secs = 300
+max_session_lifetime_secs = 3600
+
+[protocol.socks5]
+enabled = false
+
+[protocol.vless]
+enabled = true
+
+[[protocol.vless.users]]
+id = "b831381d-6324-4d53-ad4f-8cda48b30811"
+email = "soak@local"
+
+[metrics]
+enabled = true
+listen = "127.0.0.1:19090"
+
+[outbound]
+allow_private = true

@@ -451,7 +451,9 @@ cargo test -p skadi-server --test connection_load_e2e massive -- --ignored
 
 ### Soak-тесты (утечки памяти / зависшие сессии)
 
-В CI: `connection_soak_e2e::sequential_connections_no_leak` — 120 последовательных
+#### Rust E2E (CI)
+
+`connection_soak_e2e::sequential_connections_no_leak` — 120 последовательных
 VLESS connect/relay/close. Проверяется:
 
 - `skadicore_active_connections` возвращается к `0` (метрики)
@@ -464,17 +466,43 @@ cargo test -p skadi-server --test connection_soak_e2e
 cargo test -p skadi-server --test connection_soak_e2e long -- --ignored
 ```
 
-### wrk / iperf3 (ручная проверка)
+#### 24-часовой soak (`scripts/soak.sh`)
 
-Для TCP-throughput после поднятия прокси с echo/upstream:
+Скрипт поднимает SkadiCore + upstream, генерирует нагрузку и пишет CSV с метриками
+(RSS, FD, `skadicore_active_connections`) каждые `SOAK_INTERVAL` секунд.
+
+Зависимости: `socat` (режим `native`), опционально `iperf3`, `wrk`, `proxychains4`.
 
 ```bash
-# iperf3: upstream как iperf3 -s, клиент через SOCKS5/VLESS-туннель
-iperf3 -c <target> -t 30
+# Быстрая проверка (~2 мин, CI smoke):
+./scripts/soak.sh --quick
 
-# wrk: HTTP upstream за прокси (если есть HTTP backend)
-wrk -t4 -c256 -d30s http://<backend>/
+# Полный прогон 24 часа (нагрузка soak_load через VLESS):
+SOAK_DURATION=24h ./scripts/soak.sh
+
+# iperf3 upstream + VLESS relay:
+SOAK_LOAD=iperf3 SOAK_DURATION=1h ./scripts/soak.sh
+
+# HTTP через SOCKS5 + wrk (proxychains4):
+SOAK_LOAD=wrk SOAK_DURATION=30m ./scripts/soak.sh
 ```
+
+Переменные окружения:
+
+| Переменная | По умолчанию | Описание |
+|------------|--------------|----------|
+| `SOAK_DURATION` | `24h` | `24h`, `30m`, `3600s` |
+| `SOAK_INTERVAL` | `60` | Интервал снятия метрик (сек) |
+| `SOAK_LOAD` | `native` | `native` \| `iperf3` \| `wrk` |
+| `SOAK_CONCURRENCY` | `32` | Параллельность нагрузки |
+| `MAX_RSS_GROWTH_MB` | `256` | Порог роста RSS |
+| `MAX_FD_GROWTH` | `500` | Порог роста FD |
+
+Артефакты: `$SOAK_LOG_DIR/samples.csv`, `skadicore.log`, `load.log`.
+
+Генератор нагрузки VLESS: `cargo run --release --bin soak_load -- --help`.
+
+Пример конфига для ручного запуска: `examples/soak/server.toml`.
 
 Рекомендуется задавать `[server]` лимиты перед нагрузкой:
 
