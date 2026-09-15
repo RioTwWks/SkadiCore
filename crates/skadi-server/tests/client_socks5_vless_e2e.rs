@@ -2,9 +2,7 @@
 
 use rcgen::generate_simple_self_signed;
 use skadi_protocol::{Socks5Config, VlessConfig, VlessUser};
-use skadi_server::config::{
-    Config, ProtocolConfig, ServerConfig, TlsConfig, TransportConfig,
-};
+use skadi_server::config::{Config, ProtocolConfig, ServerConfig, TlsConfig, TransportConfig};
 use skadi_server::run_server;
 use std::net::Ipv4Addr;
 use std::time::Duration;

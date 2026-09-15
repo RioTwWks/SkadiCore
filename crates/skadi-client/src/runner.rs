@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use skadi_core::Endpoint;
 use skadi_protocol::socks5::{Socks5Config, Socks5Handler, REP_SUCCEEDED};
 use skadi_protocol::vless::VlessClient;
-use skadi_transport::{OutboundTcpTransport, RelayLimits, copy_bidirectional_with_limits};
+use skadi_transport::{copy_bidirectional_with_limits, OutboundTcpTransport, RelayLimits};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::watch;
@@ -63,15 +63,8 @@ pub async fn run(config: ClientConfig, mut shutdown: watch::Receiver<bool>) -> R
         let proxy_tcp = proxy_tcp.clone();
 
         tokio::spawn(async move {
-            if let Err(err) = handle_session(
-                &mut local,
-                peer,
-                &transport,
-                &proxy_tls,
-                &proxy_tcp,
-                &uuid,
-            )
-            .await
+            if let Err(err) =
+                handle_session(&mut local, peer, &transport, &proxy_tls, &proxy_tcp, &uuid).await
             {
                 debug!(peer = %peer, error = %err, "client session ended");
             }
@@ -110,11 +103,7 @@ async fn handle_session(
         Ok(stream) => stream,
         Err(err) => {
             warn!(peer = %peer, error = %err, "failed to connect to remote proxy");
-            let _ = Socks5Handler::send_error(
-                local,
-                skadi_protocol::REP_CONNECTION_REFUSED,
-            )
-            .await;
+            let _ = Socks5Handler::send_error(local, skadi_protocol::REP_CONNECTION_REFUSED).await;
             return Err(err).context("remote proxy connect failed");
         }
     };

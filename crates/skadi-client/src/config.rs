@@ -51,8 +51,7 @@ impl ClientConfig {
     pub fn validate(&self) -> Result<()> {
         parse_socket_addr(&self.client.listen, "client.listen")?;
         parse_server_endpoint(&self.remote.server)?;
-        Uuid::parse(&self.remote.uuid)
-            .map_err(|e| anyhow::anyhow!("remote.uuid: {}", e))?;
+        Uuid::parse(&self.remote.uuid).map_err(|e| anyhow::anyhow!("remote.uuid: {}", e))?;
         if self.remote.tls.enabled && self.remote.tls.ca_file.is_none() {
             // Системные CA допустимы, если ca_file не задан.
         }
