@@ -52,7 +52,7 @@ async fn spawn_load_proxy(
 
     let config = Config {
         server: ServerConfig {
-            listen: proxy_addr.to_string(),
+            listen: proxy_addr.into(),
             max_connections: Some(max_connections),
             ..Default::default()
         },

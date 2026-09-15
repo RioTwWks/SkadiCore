@@ -13,7 +13,7 @@ use auth_rate_limit::{is_auth_failure, AuthRateLimiter};
 use connection_gate::ConnectionGate;
 
 use anyhow::{Context, Result};
-use config::Config;
+use config::{Config, ListenAddrs};
 use prefixed::PrefixedStream;
 use skadi_core::{validate_outbound_literal, EnabledProtocols, Protocol, Session};
 use skadi_protocol::{
@@ -35,7 +35,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::sync::watch;
-use tracing::{debug, error, info, info_span, Instrument};
+use tracing::{debug, error, info, info_span, warn, Instrument};
 
 /// Проверить конфиг без запуска сервера.
 pub fn check_config(path: &Path) -> Result<()> {
@@ -75,18 +75,11 @@ pub async fn run_server_with_store(
     shutdown_rx: watch::Receiver<bool>,
     user_store: Arc<UserStore>,
 ) -> Result<()> {
-    let listen: SocketAddr = config
-        .server
-        .listen
-        .parse()
-        .with_context(|| format!("invalid listen address: {}", config.server.listen))?;
-
-    let listener = TcpListener::bind(listen)
-        .await
-        .with_context(|| format!("failed to bind {}", config.server.listen))?;
+    warn_missing_ipv6_dual_stack(&config.server.listen);
+    let listeners = bind_listeners(&config.server.listen).await?;
 
     info!(
-        addr = %config.server.listen,
+        addrs = %config.server.listen,
         tls = config.tls_enabled(),
         reality = config.reality_enabled(),
         api = config.api.enabled,
@@ -150,21 +143,37 @@ pub async fn run_server_with_store(
         None
     };
 
-    accept_loop(
-        listener,
-        outbound_tcp,
-        outbound_udp,
-        inbound,
-        user_store,
-        enabled_protocols,
-        xhttp_inbound,
-        relay_limits,
-        connection_gate,
-        auth_rate_limiter,
-        config.allow_private_outbound(),
-        shutdown_rx,
-    )
-    .await;
+    let mut accept_handles = Vec::with_capacity(listeners.len());
+    for listener in listeners {
+        let shutdown = shutdown_rx.clone();
+        let outbound_tcp = outbound_tcp.clone();
+        let outbound_udp = outbound_udp.clone();
+        let inbound = inbound.clone();
+        let user_store = Arc::clone(&user_store);
+        let xhttp_inbound = xhttp_inbound.clone();
+        let relay_limits = relay_limits;
+        let connection_gate = connection_gate.clone();
+        let auth_rate_limiter = auth_rate_limiter.clone();
+        let allow_private_outbound = config.allow_private_outbound();
+        accept_handles.push(tokio::spawn(accept_loop(
+            listener,
+            outbound_tcp,
+            outbound_udp,
+            inbound,
+            user_store,
+            enabled_protocols,
+            xhttp_inbound,
+            relay_limits,
+            connection_gate,
+            auth_rate_limiter,
+            allow_private_outbound,
+            shutdown,
+        )));
+    }
+
+    for handle in accept_handles {
+        let _ = handle.await;
+    }
 
     if let Some(handle) = api_handle {
         let _ = handle.await;
@@ -175,6 +184,44 @@ pub async fn run_server_with_store(
     }
 
     Ok(())
+}
+
+async fn bind_listeners(addrs: &ListenAddrs) -> Result<Vec<TcpListener>> {
+    let mut listeners = Vec::new();
+    for addr_str in addrs.as_strings() {
+        let addr: SocketAddr = addr_str
+            .parse()
+            .with_context(|| format!("invalid listen address: {}", addr_str))?;
+        let listener = TcpListener::bind(addr)
+            .await
+            .with_context(|| format!("failed to bind {}", addr_str))?;
+        listeners.push(listener);
+    }
+    Ok(listeners)
+}
+
+fn warn_missing_ipv6_dual_stack(addrs: &ListenAddrs) {
+    for addr_str in addrs.as_strings() {
+        let Ok(addr) = addr_str.parse::<SocketAddr>() else {
+            continue;
+        };
+        if !addr.ip().is_unspecified() || !addr.is_ipv4() {
+            continue;
+        }
+        let has_v6 = addrs.as_strings().iter().any(|other| {
+            other
+                .parse::<SocketAddr>()
+                .map(|s| s.is_ipv6() && s.ip().is_unspecified() && s.port() == addr.port())
+                .unwrap_or(false)
+        });
+        if !has_v6 {
+            warn!(
+                port = addr.port(),
+                "server.listen includes 0.0.0.0 without [::] on the same port — IPv6 clients may be unreachable; add \"[::]:{}\" for dual-stack",
+                addr.port()
+            );
+        }
+    }
 }
 
 #[derive(Clone)]

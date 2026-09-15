@@ -15,8 +15,8 @@
 
 ## Сейчас (ближайшие задачи)
 
-Обратная связь аудита (2026-09-15): приоритеты 1–5 (auth, SSRF, toolchain/Docker, proptest, soak) — ✅.
-Далее: подпись релизов, IPv6 в `listen`.
+Обратная связь аудита (2026-09-15): приоритеты 1–7 (auth, SSRF, toolchain/Docker, proptest, soak, minisign, IPv6 listen) — ✅.
+Далее: DNS-over-HTTPS, MTU/TUN, PQ-документация.
 
 ## Позже
 
