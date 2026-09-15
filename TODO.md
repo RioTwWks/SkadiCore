@@ -204,7 +204,7 @@
 - [x] Кросс-компиляция musl (x86_64, CI + `scripts/build-musl.sh`)
 - [x] Кросс-компиляция aarch64 musl (CI: cargo-zigbuild)
 - [x] Кросс-компиляция (Windows GNU, macOS aarch64/x86_64; CI + release)
-- [ ] Docker-образ
+- [x] Docker-образ
 - [x] GitHub Releases (workflow `release.yml` на тег `v*`)
 - [x] Документация: README, ARCHITECTURE, PROTOCOLS, CONFIGURATION, DEVELOPMENT
 - [x] Примеры конфигов для типовых сценариев (`examples/reality-vless/`, `vless-tls/`, `socks5-tls/`)
@@ -444,11 +444,11 @@ REALITY реализован, но нет тестов, которые пров�
 
 #### 5.1. `Dockerfile` отсутствует
 
-- [ ] Multi-stage `Dockerfile` (musl, `FROM scratch`)
+- [x] Multi-stage `Dockerfile` (musl, `FROM scratch`)
 
 #### 5.2. `rust-toolchain.toml` не зафиксирован
 
-- [ ] Явный `rust-toolchain.toml` (channel, rustfmt, clippy)
+- [x] Явный `rust-toolchain.toml` (channel, rustfmt, clippy)
 
 #### 5.3. Подпись релизов
 
@@ -456,7 +456,7 @@ REALITY реализован, но нет тестов, которые пров�
 
 #### 5.4. Воспроизводимые сборки
 
-- [ ] Dockerfile для воспроизводимой musl-сборки (фиксированные musl + rustc)
+- [x] Dockerfile для воспроизводимой musl-сборки (фиксированные musl + rustc)
 
 ---
 
