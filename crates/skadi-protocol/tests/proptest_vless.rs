@@ -8,7 +8,7 @@ use skadi_core::Endpoint;
 use skadi_protocol::vless::{
     build_addons_with_flow, build_mux_request, build_tcp_domain_request, build_tcp_request,
     build_udp_domain_request, build_udp_request, encode_port_address, parse_addons,
-    parse_port_address, parse_request, CMD_MUX, CMD_TCP, CMD_UDP, MUX_PLACEHOLDER_HOST, ParseError,
+    parse_port_address, parse_request, ParseError, CMD_MUX, CMD_TCP, CMD_UDP, MUX_PLACEHOLDER_HOST,
 };
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
