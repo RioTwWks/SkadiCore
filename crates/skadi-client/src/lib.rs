@@ -1,6 +1,8 @@
 //! Клиентский режим SkadiCore: локальный SOCKS5 / TUN → удалённый VLESS+TLS.
 
 mod config;
+mod dns;
+mod doh;
 mod outbound;
 mod runner;
 mod socks5;

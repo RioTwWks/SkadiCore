@@ -351,8 +351,10 @@ if config.authenticate(&uuid).is_none() {
 
 **Решение.**
 - SOCKS5 с `socks5h` (а не `socks5`) — DNS-резолвинг на стороне прокси.
-- Для TUN-режима — перехватывать DNS-запросы (UDP/53) и заворачивать в туннель.
-- Использовать DNS-over-HTTPS/TLS внутри туннеля.
+- TUN: `client.tun.dns.hijack = true` — перехват UDP/53.
+- TUN DoH: `client.tun.dns.mode = "doh"` — RFC 8484 через VLESS TCP+TLS
+  (например `https://cloudflare-dns.com/dns-query`).
+- Системный DoH/DoT (порты 443/853) по-прежнему не перехватывается.
 
 **Практика:**
 ```bash

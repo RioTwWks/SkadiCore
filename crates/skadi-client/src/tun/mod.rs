@@ -1,12 +1,11 @@
 //! TUN inbound (Linux): IP-пакеты → VLESS outbound.
 
-mod dns;
 mod routing;
 
 use crate::config::TunConfig;
+use crate::dns::DnsHandler;
 use crate::outbound::Outbound;
 use anyhow::{Context, Result};
-use dns::DnsHijack;
 use futures::{SinkExt, StreamExt};
 use netstack_smoltcp::{StackBuilder, TcpListener, UdpSocket};
 use routing::{resolve_proxy_ipv4, RoutingGuard};
@@ -24,7 +23,7 @@ pub async fn run(
     outbound: Outbound,
     mut shutdown: watch::Receiver<bool>,
 ) -> Result<()> {
-    let dns_hijack = DnsHijack::from_config(&tun.dns)?;
+    let dns_handler = DnsHandler::from_config(&tun.dns)?;
     let proxy_ips = resolve_proxy_ipv4(proxy_host).await?;
     let mut routing_guard = RoutingGuard::apply(tun, &tun.routing, &proxy_ips)?;
 
@@ -35,7 +34,8 @@ pub async fn run(
         gateway = %tun.gateway,
         mtu = tun.mtu,
         routing_auto = tun.routing.auto,
-        dns_hijack = dns_hijack.is_some(),
+        dns_hijack = dns_handler.is_some(),
+        dns_mode = %tun.dns.mode,
         "client TUN starting"
     );
 
@@ -94,7 +94,7 @@ pub async fn run(
     let udp_task = tokio::spawn({
         let outbound = outbound.clone();
         async move {
-            handle_udp_inbound(udp_socket, outbound, dns_hijack).await;
+            handle_udp_inbound(udp_socket, outbound, dns_handler).await;
         }
     });
 
@@ -165,7 +165,7 @@ async fn handle_tcp_inbound(mut tcp_listener: TcpListener, outbound: Outbound) {
 async fn handle_udp_inbound(
     udp_socket: UdpSocket,
     outbound: Outbound,
-    dns_hijack: Option<DnsHijack>,
+    dns_handler: Option<DnsHandler>,
 ) {
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -184,8 +184,28 @@ async fn handle_udp_inbound(
     });
 
     while let Some((data, local, remote)) = read_half.next().await {
-        let tunnel_remote = match dns_hijack {
-            Some(hijack) => hijack.rewrite(remote),
+        if let Some(DnsHandler::Doh(config)) = dns_handler.as_ref() {
+            if remote.port() == 53 {
+                let outbound = outbound.clone();
+                let config = config.clone();
+                let reply_tx = reply_tx.clone();
+                let query = data.clone();
+                tokio::spawn(async move {
+                    match config.query(&outbound, &query).await {
+                        Ok(response) => {
+                            let _ = reply_tx.send((response, local, remote));
+                        }
+                        Err(err) => {
+                            debug!(%local, %remote, error = %err, "DoH query failed");
+                        }
+                    }
+                });
+                continue;
+            }
+        }
+
+        let tunnel_remote = match dns_handler.as_ref() {
+            Some(handler) => handler.rewrite_udp_upstream(remote),
             None => remote,
         };
         let key = (local, tunnel_remote);
