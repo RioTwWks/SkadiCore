@@ -176,6 +176,38 @@ mod tests {
     }
 
     #[test]
+    fn hybrid_group_metadata() {
+        assert_eq!(X25519MlKem768.name(), X25519_MLKEM768_NAMED_GROUP);
+        let kx = X25519MlKem768.start().expect("start");
+        assert_eq!(kx.group(), X25519_MLKEM768_NAMED_GROUP);
+    }
+
+    #[test]
+    fn rejects_invalid_share_lengths() {
+        let short_client = vec![0u8; 64];
+        assert!(
+            X25519MlKem768
+                .start_and_complete(&short_client)
+                .expect("supported")
+                .is_err()
+        );
+
+        let client_kx = X25519MlKem768.start().expect("start");
+        assert!(client_kx.complete(&[0u8; 16]).is_err());
+    }
+
+    #[test]
+    fn parse_x25519_pk_rejects_wrong_length() {
+        assert!(parse_x25519_pk(&[0u8; 16]).is_err());
+    }
+
+    #[test]
+    fn concat_shared_secret_rejects_bad_lengths() {
+        assert!(concat_shared_secret(&[0u8; 16], &[0u8; 32]).is_err());
+        assert!(concat_shared_secret(&[0u8; 32], &[0u8; 16]).is_err());
+    }
+
+    #[test]
     fn hybrid_kex_secrets_match() {
         let client_kx = X25519MlKem768.start().expect("client start");
         let client_pub = client_kx.pub_key().to_vec();
