@@ -73,6 +73,7 @@ async fn handle_session(
         }
     };
 
+    crate::warnings::debug_socks5_target_resolution(&target);
     debug!(peer = %peer, target = %display_endpoint(&target), "client SOCKS5 request");
 
     let mut remote = match outbound.open_tcp(&target).await {

@@ -67,7 +67,7 @@ PR: draft по умолчанию, base `main`.
 RUST_LOG=skadi_protocol=debug,skadi_server=debug cargo run --bin skadicore
 
 # SOCKS5 вручную
-curl --socks5 127.0.0.1:1080 https://example.com
+curl --socks5-hostname 127.0.0.1:1080 https://example.com
 
 # Захват трафика
 sudo tcpdump -i lo -X 'tcp port 1080'

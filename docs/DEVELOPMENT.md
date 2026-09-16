@@ -259,7 +259,7 @@ SOCKS5 без TLS:
 
 ```bash
 cargo run --bin skadicore -- --config config/skadi.toml
-curl --socks5 127.0.0.1:1080 https://example.com
+curl --socks5-hostname 127.0.0.1:1080 https://example.com
 ```
 
 TLS inbound (нужны `cert.pem` / `key.pem`, `transport.tls.enabled = true`):
@@ -299,7 +299,7 @@ cargo test -p skadi-server --test reality_vless_xray_e2e
 cargo run --bin skadicore -- genkey reality
 cargo run --bin skadicore -- --config examples/reality-vless/server.toml
 xray run -c examples/reality-vless/client-xray.json
-curl --socks5 127.0.0.1:10808 https://example.com
+curl --socks5-hostname 127.0.0.1:10808 https://example.com
 ```
 
 Нужны `curl` и `unzip` для авто-скачивания Xray, либо `XRAY_BINARY=/path/to/xray`.
