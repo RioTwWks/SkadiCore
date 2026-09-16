@@ -48,7 +48,10 @@ mod tests {
     fn parses_kex_modes() {
         assert_eq!(TlsKexMode::parse("classic").unwrap(), TlsKexMode::Classic);
         assert_eq!(TlsKexMode::parse("x25519").unwrap(), TlsKexMode::Classic);
-        assert_eq!(TlsKexMode::parse("hybrid_pq").unwrap(), TlsKexMode::HybridPq);
+        assert_eq!(
+            TlsKexMode::parse("hybrid_pq").unwrap(),
+            TlsKexMode::HybridPq
+        );
         assert_eq!(TlsKexMode::parse("hybrid").unwrap(), TlsKexMode::HybridPq);
         assert_eq!(
             TlsKexMode::parse("x25519mlkem768").unwrap(),
@@ -62,9 +65,6 @@ mod tests {
         let classic = tls_crypto_provider(TlsKexMode::Classic).unwrap();
         let hybrid = tls_crypto_provider(TlsKexMode::HybridPq).unwrap();
         assert_ne!(classic.kx_groups.len(), hybrid.kx_groups.len());
-        assert_eq!(
-            hybrid.kx_groups[0].name(),
-            NamedGroup::X25519MLKEM768
-        );
+        assert_eq!(hybrid.kx_groups[0].name(), NamedGroup::X25519MLKEM768);
     }
 }

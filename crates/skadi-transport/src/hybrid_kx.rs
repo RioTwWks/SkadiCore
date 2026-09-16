@@ -185,12 +185,10 @@ mod tests {
     #[test]
     fn rejects_invalid_share_lengths() {
         let short_client = vec![0u8; 64];
-        assert!(
-            X25519MlKem768
-                .start_and_complete(&short_client)
-                .expect("supported")
-                .is_err()
-        );
+        assert!(X25519MlKem768
+            .start_and_complete(&short_client)
+            .expect("supported")
+            .is_err());
 
         let client_kx = X25519MlKem768.start().expect("start");
         assert!(client_kx.complete(&[0u8; 16]).is_err());
