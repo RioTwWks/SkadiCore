@@ -207,7 +207,7 @@ fn parse_content_length(headers: &[u8]) -> Result<usize> {
     bail!("DoH response missing Content-Length");
 }
 
-fn system_tls_connector() -> Result<TlsConnector> {
+pub(crate) fn system_tls_connector() -> Result<TlsConnector> {
     let mut roots = RootCertStore::empty();
     let native = rustls_native_certs::load_native_certs();
     for err in native.errors {

@@ -11,6 +11,13 @@
 
 ### Added
 
+- **DoT в TUN** — `client.tun.dns.mode = "dot"`: DNS-over-TLS (RFC 7858)
+  через VLESS TCP+TLS к upstream (`tls://one.one.one.one` и др.)
+
+- **Блокировка системного DoT/DoH** — `block_system_dot` (TCP/853) и
+  `block_system_doh` (TCP/443 к известным DoH-резолверам); приложения
+  откатываются на UDP/53, перехватываемый `dns.hijack`
+
 - **DoH в TUN** — `client.tun.dns.mode = "doh"`: DNS-over-HTTPS (RFC 8484)
   через VLESS TCP+TLS к upstream (`https://cloudflare-dns.com/dns-query` и др.)
 

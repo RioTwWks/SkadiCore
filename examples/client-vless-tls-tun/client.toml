@@ -24,7 +24,9 @@ bypass = []
 
 [client.tun.dns]
 hijack = true
-mode = "udp"   # или "doh" + server = "https://cloudflare-dns.com/dns-query"
+mode = "udp"   # или "doh" / "dot" (см. CONFIGURATION.md)
+# block_system_dot = true
+# block_system_doh = true
 server = "8.8.8.8"
 
 [remote]

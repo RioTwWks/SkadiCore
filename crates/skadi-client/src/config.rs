@@ -85,11 +85,17 @@ pub struct TunDnsConfig {
     /// Перенаправлять UDP/53 через `server` в VLESS-туннель.
     #[serde(default = "default_dns_hijack")]
     pub hijack: bool,
-    /// `udp` — форвард DNS UDP через VLESS; `doh` — DNS-over-HTTPS через VLESS TCP+TLS.
+    /// `udp` — форвард DNS UDP; `doh` — DoH; `dot` — DoT (все через VLESS).
     #[serde(default = "default_dns_mode")]
     pub mode: String,
     #[serde(default = "default_dns_server")]
     pub server: Option<String>,
+    /// Блокировать TCP/853 (системный DoT), чтобы приложения использовали UDP/53.
+    #[serde(default = "default_block_system_dot")]
+    pub block_system_dot: bool,
+    /// Блокировать TCP/443 к известным DoH-резолверам (Cloudflare, Google, …).
+    #[serde(default = "default_block_system_doh")]
+    pub block_system_doh: bool,
 }
 
 impl Default for TunDnsConfig {
@@ -98,6 +104,8 @@ impl Default for TunDnsConfig {
             hijack: default_dns_hijack(),
             mode: default_dns_mode(),
             server: default_dns_server(),
+            block_system_dot: default_block_system_dot(),
+            block_system_doh: default_block_system_doh(),
         }
     }
 }
@@ -116,6 +124,14 @@ fn default_dns_mode() -> String {
 
 fn default_dns_server() -> Option<String> {
     Some("8.8.8.8".to_string())
+}
+
+fn default_block_system_dot() -> bool {
+    true
+}
+
+fn default_block_system_doh() -> bool {
+    true
 }
 
 fn default_tun_name() -> String {
@@ -160,7 +176,7 @@ impl TunConfig {
             bail!("client.tun.dns.hijack requires client.tun.dns.server");
         }
         if self.dns.hijack {
-            let _ = crate::dns::DnsHandler::from_config(&self.dns)?;
+            let _ = crate::dns::DnsIntercept::from_config(&self.dns)?;
         }
         Ok(())
     }
@@ -358,6 +374,28 @@ uuid = "00000000-0000-0000-0000-000000000001"
         assert!(config.client.tun.routing.auto);
         assert_eq!(config.client.tun.routing.table, 100);
         assert_eq!(config.client.tun.dns.server.as_deref(), Some("1.1.1.1:53"));
+    }
+
+    #[test]
+    fn tun_dot_dns_config_validates() {
+        let raw = r#"
+[client]
+[client.tun]
+enabled = true
+
+[client.tun.dns]
+hijack = true
+mode = "dot"
+server = "tls://one.one.one.one"
+
+[remote]
+server = "proxy.example.com:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        config.validate().unwrap();
+        assert_eq!(config.client.tun.dns.mode, "dot");
+        assert!(config.client.tun.dns.block_system_dot);
     }
 
     #[test]
