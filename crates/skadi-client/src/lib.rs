@@ -3,6 +3,7 @@
 mod config;
 mod dns;
 mod doh;
+mod dot;
 mod outbound;
 mod runner;
 mod socks5;

@@ -3,7 +3,7 @@
 mod routing;
 
 use crate::config::TunConfig;
-use crate::dns::DnsHandler;
+use crate::dns::{DnsHandler, DnsIntercept};
 use crate::outbound::Outbound;
 use anyhow::{Context, Result};
 use futures::{SinkExt, StreamExt};
@@ -23,7 +23,7 @@ pub async fn run(
     outbound: Outbound,
     mut shutdown: watch::Receiver<bool>,
 ) -> Result<()> {
-    let dns_handler = DnsHandler::from_config(&tun.dns)?;
+    let dns_intercept = DnsIntercept::from_config(&tun.dns)?;
     let proxy_ips = resolve_proxy_ipv4(proxy_host).await?;
     let mut routing_guard = RoutingGuard::apply(tun, &tun.routing, &proxy_ips)?;
 
@@ -34,7 +34,7 @@ pub async fn run(
         gateway = %tun.gateway,
         mtu = tun.mtu,
         routing_auto = tun.routing.auto,
-        dns_hijack = dns_handler.is_some(),
+        dns_hijack = dns_intercept.is_active(),
         dns_mode = %tun.dns.mode,
         "client TUN starting"
     );
@@ -86,15 +86,17 @@ pub async fn run(
 
     let tcp_task = tokio::spawn({
         let outbound = outbound.clone();
+        let dns_intercept = dns_intercept.clone();
         async move {
-            handle_tcp_inbound(tcp_listener, outbound).await;
+            handle_tcp_inbound(tcp_listener, outbound, dns_intercept).await;
         }
     });
 
     let udp_task = tokio::spawn({
         let outbound = outbound.clone();
+        let dns_intercept = dns_intercept.clone();
         async move {
-            handle_udp_inbound(udp_socket, outbound, dns_handler).await;
+            handle_udp_inbound(udp_socket, outbound, dns_intercept).await;
         }
     });
 
@@ -137,10 +139,19 @@ fn create_device(tun: &TunConfig) -> Result<tun::AsyncDevice> {
         .with_context(|| format!("failed to create TUN device {}", tun.name))
 }
 
-async fn handle_tcp_inbound(mut tcp_listener: TcpListener, outbound: Outbound) {
+async fn handle_tcp_inbound(
+    mut tcp_listener: TcpListener,
+    outbound: Outbound,
+    dns_intercept: DnsIntercept,
+) {
     while let Some((mut stream, local, remote)) = tcp_listener.next().await {
         let outbound = outbound.clone();
+        let dns_intercept = dns_intercept.clone();
         tokio::spawn(async move {
+            if dns_intercept.should_block_tcp(remote) {
+                debug!(%local, %remote, "blocked system DoT/DoH TCP connection");
+                return;
+            }
             debug!(%local, %remote, "TUN TCP connection");
             match outbound.open_tcp(&socket_to_endpoint(remote)).await {
                 Ok(mut remote_stream) => {
@@ -165,7 +176,7 @@ async fn handle_tcp_inbound(mut tcp_listener: TcpListener, outbound: Outbound) {
 async fn handle_udp_inbound(
     udp_socket: UdpSocket,
     outbound: Outbound,
-    dns_handler: Option<DnsHandler>,
+    dns_intercept: DnsIntercept,
 ) {
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -184,27 +195,47 @@ async fn handle_udp_inbound(
     });
 
     while let Some((data, local, remote)) = read_half.next().await {
-        if let Some(DnsHandler::Doh(config)) = dns_handler.as_ref() {
-            if remote.port() == 53 {
-                let outbound = outbound.clone();
-                let config = config.clone();
-                let reply_tx = reply_tx.clone();
-                let query = data.clone();
-                tokio::spawn(async move {
-                    match config.query(&outbound, &query).await {
-                        Ok(response) => {
-                            let _ = reply_tx.send((response, local, remote));
+        if remote.port() == 53 {
+            match dns_intercept.handler() {
+                Some(DnsHandler::Doh(config)) => {
+                    let outbound = outbound.clone();
+                    let config = config.clone();
+                    let reply_tx = reply_tx.clone();
+                    let query = data.clone();
+                    tokio::spawn(async move {
+                        match config.query(&outbound, &query).await {
+                            Ok(response) => {
+                                let _ = reply_tx.send((response, local, remote));
+                            }
+                            Err(err) => {
+                                debug!(%local, %remote, error = %err, "DoH query failed");
+                            }
                         }
-                        Err(err) => {
-                            debug!(%local, %remote, error = %err, "DoH query failed");
+                    });
+                    continue;
+                }
+                Some(DnsHandler::Dot(config)) => {
+                    let outbound = outbound.clone();
+                    let config = config.clone();
+                    let reply_tx = reply_tx.clone();
+                    let query = data.clone();
+                    tokio::spawn(async move {
+                        match config.query(&outbound, &query).await {
+                            Ok(response) => {
+                                let _ = reply_tx.send((response, local, remote));
+                            }
+                            Err(err) => {
+                                debug!(%local, %remote, error = %err, "DoT query failed");
+                            }
                         }
-                    }
-                });
-                continue;
+                    });
+                    continue;
+                }
+                _ => {}
             }
         }
 
-        let tunnel_remote = match dns_handler.as_ref() {
+        let tunnel_remote = match dns_intercept.handler() {
             Some(handler) => handler.rewrite_udp_upstream(remote),
             None => remote,
         };

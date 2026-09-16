@@ -968,8 +968,10 @@ Path MTU Discovery в TUN-режиме **не реализован**. При `mt
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `hijack` | bool | Перенаправлять UDP/53 через upstream DNS в VLESS (по умолчанию `true`) |
-| `mode` | string | `udp` (форвард DNS UDP через VLESS) или `doh` (DNS-over-HTTPS через VLESS TCP+TLS) |
-| `server` | string? | Upstream: для `udp` — IPv4 или `host:53` (по умолчанию `8.8.8.8`); для `doh` — HTTPS URL, напр. `https://cloudflare-dns.com/dns-query` |
+| `mode` | string | `udp`, `doh` или `dot` (см. ниже) |
+| `server` | string? | Upstream: `udp` — IPv4/`host:53`; `doh` — `https://…/dns-query`; `dot` — `tls://host` или `host:853` |
+| `block_system_dot` | bool | Блокировать TCP/853 (системный DoT), по умолчанию `true` |
+| `block_system_doh` | bool | Блокировать TCP/443 к известным DoH-резолверам, по умолчанию `true` |
 
 TUN использует userspace netstack (`netstack-smoltcp`): TCP/UDP из
 интерфейса уходят в VLESS. DNS-hijack перехватывает UDP на порт 53
@@ -978,9 +980,15 @@ TUN использует userspace netstack (`netstack-smoltcp`): TCP/UDP из
 - **`mode = "udp"`** — DNS-пакеты форвардятся на `server` через VLESS UDP.
 - **`mode = "doh"`** — DNS-запрос отправляется как RFC 8484 POST на DoH-сервер
   через VLESS TCP + TLS (шифрование до Cloudflare/Google, не plain UDP).
+- **`mode = "dot"`** — DNS-over-TLS (RFC 7858) через VLESS TCP + TLS на порт 853.
 
-Системный DoH/DoT (порты 443/853 в обход TUN) **не** перехватывается.
-При `hijack = false` клиент предупреждает об утечке DNS при старте.
+При `hijack = true` по умолчанию блокируются системные обходы:
+- **`block_system_dot`** — TCP/853 (DoT) закрывается без relay;
+- **`block_system_doh`** — TCP/443 к известным DoH IP (1.1.1.1, 8.8.8.8, 9.9.9.9, …).
+
+Приложения должны откатиться на UDP/53, который перехватывается `hijack`.
+Произвольный HTTPS на 443 **не** блокируется. При `hijack = false` клиент
+предупреждает об утечке DNS при старте.
 
 Пример DoH:
 
@@ -989,6 +997,17 @@ TUN использует userspace netstack (`netstack-smoltcp`): TCP/UDP из
 hijack = true
 mode = "doh"
 server = "https://cloudflare-dns.com/dns-query"
+```
+
+Пример DoT:
+
+```toml
+[client.tun.dns]
+hijack = true
+mode = "dot"
+server = "tls://one.one.one.one"
+block_system_dot = true
+block_system_doh = true
 ```
 
 Пример SOCKS5 + TUN: `examples/client-vless-tls-tun/client.toml`.

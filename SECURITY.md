@@ -198,8 +198,9 @@ SkadiCore — инструмент обхода цензуры. Это опре�
   `curl --socks5-hostname`). Обычный `socks5` резолвит имена локально.
   Клиент предупреждает об этом при старте.
 - **TUN:** по умолчанию перехватывается UDP/53 (`mode = "udp"`).
-  Опционально `mode = "doh"` — DNS-over-HTTPS через VLESS. Системный
-  DoH/DoT (порты 443/853) не перехватывается. При `dns.hijack = false`
+  Опционально `mode = "doh"` или `mode = "dot"`. При `dns.hijack = true`
+  блокируются системный DoT (TCP/853) и DoH к известным резолверам
+  (`block_system_dot`, `block_system_doh`). При `dns.hijack = false`
   DNS уходит мимо туннеля.
 
 ### TUN и MTU

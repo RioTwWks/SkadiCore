@@ -470,7 +470,8 @@ REALITY реализован, но нет тестов, которые пров�
 
 - [x] Предупреждения при старте клиента (`socks5` vs `socks5h`, TUN `dns.hijack`)
 - [x] DoH-резолвер в TUN (`client.tun.dns.mode = "doh"`, RFC 8484 через VLESS)
-- [ ] DoT / перехват системного DoH (порты 443/853)
+- [x] DoT upstream в TUN (`client.tun.dns.mode = "dot"`, RFC 7858 через VLESS)
+- [x] Блокировка системного DoT/DoH (`block_system_dot`, `block_system_doh`)
 
 #### 6.3. MTU и фрагментация
 
