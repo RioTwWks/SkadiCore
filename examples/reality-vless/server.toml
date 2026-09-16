@@ -13,6 +13,8 @@ server_names = ["www.microsoft.com"]
 # Тестовый ключ — только для локальной проверки, не для продакшена.
 private_key = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI="
 short_ids = ["0123456789abcdef"]
+# fetch_impersonate_cert = true   # по умолчанию: leaf cert с dest для rkn-fix
+# impersonate_cert = "/path/to/dest-leaf.der"
 
 [protocol.socks5]
 enabled = false

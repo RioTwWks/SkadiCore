@@ -11,6 +11,10 @@
 
 ### Added
 
+- **REALITY-rkn-fix** — per-connection Ed25519 certs с реалистичными X.509
+  полями; `fetch_impersonate_cert` / `impersonate_cert` для клонирования
+  метаданных leaf-сертификата `dest` (ImpersonateCert)
+
 - **DoT в TUN** — `client.tun.dns.mode = "dot"`: DNS-over-TLS (RFC 7858)
   через VLESS TCP+TLS к upstream (`tls://one.one.one.one` и др.)
 

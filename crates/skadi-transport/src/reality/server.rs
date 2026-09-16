@@ -45,6 +45,8 @@ pub struct RealityServerConfig {
     pub server_names: Vec<String>,
     /// Short IDs (raw bytes, обычно 8 байт).
     pub short_ids: Vec<Vec<u8>>,
+    /// DER leaf-сертификата dest для ImpersonateCert (rkn-fix).
+    pub impersonate_cert: Option<Vec<u8>>,
     /// Таймаут подключения к fallback `dest`.
     pub connect_timeout: Duration,
     /// Таймаут неактивности relay после fallback.
@@ -60,6 +62,7 @@ pub struct RealityTransport {
     server_names: Vec<String>,
     private_key: [u8; 32],
     short_ids: Vec<Vec<u8>>,
+    impersonate_cert: Option<Vec<u8>>,
     connect_timeout: Duration,
     relay_limits: RelayLimits,
 }
@@ -96,6 +99,7 @@ impl RealityTransport {
                 .collect(),
             private_key: config.private_key,
             short_ids: short_ids_bytes,
+            impersonate_cert: config.impersonate_cert.clone(),
             connect_timeout: config.connect_timeout,
             relay_limits: RelayLimits {
                 idle: config.idle_timeout,
@@ -170,20 +174,16 @@ impl RealityTransport {
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let dest_str = self
-            .reality_config
-            .dest
-            .as_deref()
-            .unwrap_or("www.microsoft.com:443");
-        let dest_host = dest_str.split(':').next().unwrap_or("www.microsoft.com");
+        let server_name = info.server_name.as_deref().unwrap_or("localhost");
 
         info!(
-            sni = ?info.server_name,
-            dest_host,
+            sni = server_name,
+            impersonate = self.impersonate_cert.is_some(),
             "REALITY client verified, generating dynamic certificate"
         );
 
-        let (cert, key) = generate_reality_cert(&auth_key, dest_host)?;
+        let (cert, key) =
+            generate_reality_cert(&auth_key, server_name, self.impersonate_cert.as_deref())?;
 
         let mut conn_reality_config = (*self.reality_config).clone();
         conn_reality_config.private_key = auth_key.to_vec();

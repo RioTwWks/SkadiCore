@@ -450,6 +450,20 @@ short_ids = ["0123456789abcdef"]
 | `server_names` | `string[]` | Разрешённые SNI (Xray: `serverNames`) |
 | `private_key` | `string` | X25519 private key, standard base64 (32 байта) |
 | `short_ids` | `string[]` | Short ID в hex (1..8 байт каждый) |
+| `impersonate_cert` | `string?` | Путь к PEM/DER leaf-сертификата `dest` для ImpersonateCert (rkn-fix) |
+| `fetch_impersonate_cert` | `bool` | Получить leaf-сертификат с `dest` при старте (по умолчанию `true`) |
+
+### REALITY-rkn-fix (анти-DPI)
+
+Каждое соединение получает свежий Ed25519-сертификат с реалистичными X.509
+полями (случайный serial, CN = SNI клиента, валидность 30–89 дней назад +
+1–2 года). Механизм HMAC-SHA512 REALITY не меняется.
+
+При `fetch_impersonate_cert = true` (или `impersonate_cert = "/path/to/leaf.der"`)
+метаданные сертификата клонируются с leaf-сертификата `dest` — пассивный DPI
+не видит статический отпечаток `SerialNumber=0` / пустой Subject.
+
+Если fetch не удался, сервер продолжает работу с randomized per-connection certs.
 
 **Криптографические ограничения:** REALITY использует X25519. Это не защищает
 от store-now-decrypt-later (квантовый перехват в будущем). См. `docs/RISKS.md`
@@ -475,7 +489,7 @@ standard base64 — используйте значение из `genkey`, не 
 
 ```
 TCP accept → sniff ClientHello → REALITY verify?
-  ├─ да  → dynamic Ed25519 cert → TLS 1.3 → VLESS/SOCKS5 → upstream
+  ├─ да  → per-connection Ed25519 cert (rkn-fix) → TLS 1.3 → VLESS/SOCKS5 → upstream
   └─ нет → transparent proxy к dest (зонд видит реальный сайт)
 ```
 

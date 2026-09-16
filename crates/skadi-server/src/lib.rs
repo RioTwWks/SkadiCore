@@ -101,7 +101,28 @@ pub async fn run_server_with_store(
     };
     let connection_gate = ConnectionGate::new(config.max_connections());
     let inbound = if config.reality_enabled() {
-        InboundTransport::Reality(RealityTransport::new(&config.reality_server_config()?)?)
+        let mut reality_cfg = config.reality_server_config()?;
+        if reality_cfg.impersonate_cert.is_none() && config.transport.reality.fetch_impersonate_cert
+        {
+            match skadi_transport::fetch_impersonate_cert_from_dest(&reality_cfg.dest).await {
+                Ok(cert) => {
+                    info!(
+                        dest = %reality_cfg.dest,
+                        cert_len = cert.len(),
+                        "fetched REALITY impersonate cert from dest"
+                    );
+                    reality_cfg.impersonate_cert = Some(cert);
+                }
+                Err(err) => {
+                    warn!(
+                        error = %err,
+                        dest = %reality_cfg.dest,
+                        "failed to fetch REALITY impersonate cert; using randomized per-connection certs"
+                    );
+                }
+            }
+        }
+        InboundTransport::Reality(RealityTransport::new(&reality_cfg)?)
     } else if config.tls_enabled() {
         InboundTransport::Tls(TlsTransport::new(&config.tls_server_config()?)?)
     } else {

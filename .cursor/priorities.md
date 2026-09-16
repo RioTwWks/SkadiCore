@@ -17,7 +17,7 @@
 
 Обратная связь аудита (2026-09-15): приоритеты 1–7 + 6.2–6.4 — ✅.
 DoT/блокировка системного DoH, гибридный PQ-KEX — ✅.
-Далее: PMTUD, REALITY-rkn-fix, SNI-based DoH block.
+Далее: PMTUD, SNI-based DoH block.
 
 ## Позже
 
