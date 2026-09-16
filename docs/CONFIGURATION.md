@@ -938,15 +938,28 @@ Path MTU Discovery в TUN-режиме **не реализован**. При `mt
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `hijack` | bool | Перенаправлять UDP/53 через upstream DNS в VLESS (по умолчанию `true`) |
-| `server` | string? | Upstream DNS: IPv4 или `host:port` (по умолчанию `8.8.8.8`) |
+| `mode` | string | `udp` (форвард DNS UDP через VLESS) или `doh` (DNS-over-HTTPS через VLESS TCP+TLS) |
+| `server` | string? | Upstream: для `udp` — IPv4 или `host:53` (по умолчанию `8.8.8.8`); для `doh` — HTTPS URL, напр. `https://cloudflare-dns.com/dns-query` |
 
 TUN использует userspace netstack (`netstack-smoltcp`): TCP/UDP из
 интерфейса уходят в VLESS. DNS-hijack перехватывает UDP на порт 53
-на уровне netstack и форвардит запросы на `dns.server` через туннель.
-DoH/DoT (порты 443/853) **не** перехватываются — отключайте системный
-DoH или используйте `hijack = true` и доверенный upstream DNS.
+на уровне netstack.
 
+- **`mode = "udp"`** — DNS-пакеты форвардятся на `server` через VLESS UDP.
+- **`mode = "doh"`** — DNS-запрос отправляется как RFC 8484 POST на DoH-сервер
+  через VLESS TCP + TLS (шифрование до Cloudflare/Google, не plain UDP).
+
+Системный DoH/DoT (порты 443/853 в обход TUN) **не** перехватывается.
 При `hijack = false` клиент предупреждает об утечке DNS при старте.
+
+Пример DoH:
+
+```toml
+[client.tun.dns]
+hijack = true
+mode = "doh"
+server = "https://cloudflare-dns.com/dns-query"
+```
 
 Пример SOCKS5 + TUN: `examples/client-vless-tls-tun/client.toml`.
 

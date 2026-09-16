@@ -85,6 +85,9 @@ pub struct TunDnsConfig {
     /// Перенаправлять UDP/53 через `server` в VLESS-туннель.
     #[serde(default = "default_dns_hijack")]
     pub hijack: bool,
+    /// `udp` — форвард DNS UDP через VLESS; `doh` — DNS-over-HTTPS через VLESS TCP+TLS.
+    #[serde(default = "default_dns_mode")]
+    pub mode: String,
     #[serde(default = "default_dns_server")]
     pub server: Option<String>,
 }
@@ -93,6 +96,7 @@ impl Default for TunDnsConfig {
     fn default() -> Self {
         Self {
             hijack: default_dns_hijack(),
+            mode: default_dns_mode(),
             server: default_dns_server(),
         }
     }
@@ -104,6 +108,10 @@ fn default_routing_table() -> u32 {
 
 fn default_dns_hijack() -> bool {
     true
+}
+
+fn default_dns_mode() -> String {
+    "udp".to_string()
 }
 
 fn default_dns_server() -> Option<String> {
@@ -151,8 +159,8 @@ impl TunConfig {
         if self.dns.hijack && self.dns.server.is_none() {
             bail!("client.tun.dns.hijack requires client.tun.dns.server");
         }
-        if let Some(server) = &self.dns.server {
-            parse_dns_upstream(server)?;
+        if self.dns.hijack {
+            let _ = crate::dns::DnsHandler::from_config(&self.dns)?;
         }
         Ok(())
     }
@@ -269,16 +277,6 @@ fn parse_ipv4_list(values: &[String], field: &str) -> Result<Vec<std::net::Ipv4A
     Ok(out)
 }
 
-fn parse_dns_upstream(value: &str) -> Result<SocketAddr> {
-    if value.contains(':') {
-        return value
-            .parse()
-            .with_context(|| format!("invalid client.tun.dns.server: {}", value));
-    }
-    let ip = parse_ip(value, "client.tun.dns.server")?;
-    Ok(SocketAddr::new(ip, 53))
-}
-
 fn parse_server_endpoint(value: &str) -> Result<Endpoint> {
     let (host, port) = split_host_port(value)?;
     if let Ok(ip) = host.parse() {
@@ -347,6 +345,27 @@ uuid = "00000000-0000-0000-0000-000000000001"
         assert!(config.client.tun.routing.auto);
         assert_eq!(config.client.tun.routing.table, 100);
         assert_eq!(config.client.tun.dns.server.as_deref(), Some("1.1.1.1:53"));
+    }
+
+    #[test]
+    fn tun_doh_dns_config_validates() {
+        let raw = r#"
+[client]
+[client.tun]
+enabled = true
+
+[client.tun.dns]
+hijack = true
+mode = "doh"
+server = "https://cloudflare-dns.com/dns-query"
+
+[remote]
+server = "proxy.example.com:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        config.validate().unwrap();
+        assert_eq!(config.client.tun.dns.mode, "doh");
     }
 
     #[test]

@@ -11,6 +11,9 @@
 
 ### Added
 
+- **DoH в TUN** — `client.tun.dns.mode = "doh"`: DNS-over-HTTPS (RFC 8484)
+  через VLESS TCP+TLS к upstream (`https://cloudflare-dns.com/dns-query` и др.)
+
 - **DNS-утечки (аудит 6.2)** — предупреждения при старте клиента
   (`socks5` vs `socks5h`, TUN `dns.hijack`); исправлены примеры `curl`
   на `--socks5-hostname`
