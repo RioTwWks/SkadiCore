@@ -2452,6 +2452,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "futures",
+ "libc",
  "netstack-smoltcp",
  "rustls 0.22.4",
  "rustls-native-certs",

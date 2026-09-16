@@ -956,11 +956,19 @@ SkadiCore при старте клиента выводит предупрежд
 | `address` | string | IPv4 клиента в туннеле, например `10.0.0.2` |
 | `gateway` | string | IPv4 шлюза в туннеле, например `10.0.0.1` |
 | `netmask` | string | Маска сети, например `255.255.255.0` |
-| `mtu` | u16 | MTU интерфейса (по умолчанию `1500`; для VLESS+TLS рекомендуется `1400`) |
+| `mtu` | u16 | MTU интерфейса (по умолчанию `1400`) |
+| `pmtud` | string | `static` (по умолчанию), `probe` или `off` — см. ниже |
+| `mtu_overhead` | u16 | Запас на VLESS+TLS при `pmtud = "probe"` (по умолчанию `100`) |
 
-Path MTU Discovery в TUN-режиме **не реализован**. При `mtu = 1500` большие
-пакеты могут фрагментироваться на оверлее VLESS+TLS. Клиент при старте
-предупреждает, если MTU ≥ 1500.
+**PMTUD (Phase 1):** полноценный ICMP-driven PMTUD в userspace netstack не
+реализован. Доступно:
+
+- **`static`** — использовать `mtu` как есть (по умолчанию `1400`).
+- **`probe`** — при старте измерить path MTU до прокси (Linux `IP_MTU` на UDP
+  connect) и выставить `effective_mtu = min(mtu, path_mtu - mtu_overhead)`.
+- **`off`** — как `static`, без дополнительной логики.
+
+При `mtu >= 1500` и `pmtud != "probe"` клиент предупреждает о риске фрагментации.
 
 #### `[client.tun.routing]`
 

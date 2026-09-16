@@ -5,6 +5,7 @@ mod dns;
 mod doh;
 mod dot;
 mod outbound;
+mod pmtud;
 mod runner;
 mod socks5;
 mod warnings;

@@ -52,7 +52,9 @@ pub async fn run(config: ClientConfig, mut shutdown: watch::Receiver<bool>) -> R
             if !config.client.tun.dns.hijack {
                 crate::warnings::warn_tun_dns_disabled();
             }
-            crate::warnings::warn_tun_mtu_high(config.client.tun.mtu);
+            if config.client.tun.pmtud != "probe" {
+                crate::warnings::warn_tun_mtu_high(config.client.tun.mtu);
+            }
         }
     }
 

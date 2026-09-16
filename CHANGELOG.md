@@ -11,6 +11,9 @@
 
 ### Added
 
+- **TUN PMTUD Phase 1** — default `client.tun.mtu = 1400`; `pmtud = "probe"`
+  измеряет path MTU до прокси (Linux IP_MTU) и вычитает `mtu_overhead`
+
 - **REALITY-rkn-fix** — per-connection Ed25519 certs с реалистичными X.509
   полями; `fetch_impersonate_cert` / `impersonate_cert` для клонирования
   метаданных leaf-сертификата `dest` (ImpersonateCert)
