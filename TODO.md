@@ -480,7 +480,8 @@ REALITY реализован, но нет тестов, которые пров�
 #### 6.4. Квантовые атаки на REALITY
 
 - [x] Документация: REALITY не защищён от store-now-decrypt-later (`docs/RISKS.md` §1.5, `SECURITY.md`)
-- [ ] Гибридный KEX (X25519 + ML-KEM) и crypto-agility
+- [x] Гибридный KEX X25519MLKEM768 для обычного TLS (`kex_mode = "hybrid_pq"`, RFC 10024)
+- [ ] PQ-KEX для REALITY; расширенная crypto-agility
 
 ---
 

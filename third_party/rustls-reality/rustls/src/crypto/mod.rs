@@ -232,6 +232,17 @@ pub trait SupportedKxGroup: Send + Sync + Debug {
     /// If the `NamedGroup` enum does not have a name for the algorithm you are implementing,
     /// you can use [`NamedGroup::Unknown`].
     fn name(&self) -> NamedGroup;
+
+    /// Server-side hybrid KEX: encapsulate to the client's share and return the server share
+    /// plus the combined shared secret (RFC 10024 PQ/T hybrids).
+    ///
+    /// Returns `None` if this group only supports the classic `start` + `complete` flow.
+    fn start_and_complete(
+        &self,
+        _peer_pub_key: &[u8],
+    ) -> Option<Result<CompletedKeyExchange, Error>> {
+        None
+    }
 }
 
 /// An in-progress key exchange originating from a [`SupportedKxGroup`].
@@ -256,6 +267,13 @@ pub trait ActiveKeyExchange: Send + Sync {
 
     /// Return the group being used.
     fn group(&self) -> NamedGroup;
+}
+
+/// Result of a server-side hybrid key exchange ([`SupportedKxGroup::start_and_complete`]).
+pub struct CompletedKeyExchange {
+    pub group: NamedGroup,
+    pub pub_key: Vec<u8>,
+    pub secret: SharedSecret,
 }
 
 /// The result from [`ActiveKeyExchange::complete`].

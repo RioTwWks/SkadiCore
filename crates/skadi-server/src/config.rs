@@ -4,7 +4,7 @@ use serde::Deserialize;
 use skadi_protocol::{Socks5Config, VlessConfig};
 use skadi_transport::{
     OutboundTcpTransport, PaddingRange, RealityServerConfig, TlsCertPaths, TlsClientConfig,
-    TlsServerConfig, TlsSniCert, XhttpConfig, XhttpMode,
+    TlsKexMode, TlsServerConfig, TlsSniCert, XhttpConfig, XhttpMode,
 };
 use std::collections::HashSet;
 use std::net::{IpAddr, SocketAddr};
@@ -305,7 +305,7 @@ pub struct OutboundConfig {
     pub allow_private: bool,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 pub struct OutboundTlsConfig {
     #[serde(default)]
     pub enabled: bool,
@@ -314,6 +314,21 @@ pub struct OutboundTlsConfig {
     /// Клиентский сертификат (mTLS).
     pub cert: Option<String>,
     pub key: Option<String>,
+    /// `classic` или `hybrid_pq` (X25519MLKEM768).
+    #[serde(default = "default_tls_kex_mode")]
+    pub kex_mode: String,
+}
+
+impl Default for OutboundTlsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            ca_file: None,
+            cert: None,
+            key: None,
+            kex_mode: default_tls_kex_mode(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -362,7 +377,7 @@ impl Default for XhttpFileConfig {
     }
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 pub struct TlsConfig {
     #[serde(default)]
     pub enabled: bool,
@@ -374,6 +389,26 @@ pub struct TlsConfig {
     /// SNI-специфичные сертификаты.
     #[serde(default)]
     pub certificates: Vec<TlsSniCertConfig>,
+    /// `classic` (по умолчанию) или `hybrid_pq` (X25519MLKEM768, RFC 10024).
+    #[serde(default = "default_tls_kex_mode")]
+    pub kex_mode: String,
+}
+
+fn default_tls_kex_mode() -> String {
+    "classic".to_string()
+}
+
+impl Default for TlsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            cert: None,
+            key: None,
+            alpn: Vec::new(),
+            certificates: Vec::new(),
+            kex_mode: default_tls_kex_mode(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -592,6 +627,7 @@ impl Config {
         if let Some(key) = &tls.key {
             ensure_readable_file(key, "transport.tls.key")?;
         }
+        parse_tls_kex_mode(&tls.kex_mode, "transport.tls.kex_mode")?;
 
         let mut seen_names = HashSet::new();
         for (idx, entry) in tls.certificates.iter().enumerate() {
@@ -686,6 +722,7 @@ impl Config {
         if let Some(ca) = &tls.ca_file {
             ensure_readable_file(ca, "outbound.tls.ca_file")?;
         }
+        parse_tls_kex_mode(&tls.kex_mode, "outbound.tls.kex_mode")?;
 
         Ok(())
     }
@@ -718,6 +755,8 @@ impl Config {
             ca_file: tls.ca_file.clone(),
             client_cert: tls.cert.clone(),
             client_key: tls.key.clone(),
+            kex_mode: parse_tls_kex_mode(&tls.kex_mode, "outbound.tls.kex_mode")
+                .expect("outbound TLS KEX mode validated in validate()"),
         }
     }
 
@@ -815,6 +854,7 @@ impl Config {
             default,
             sni_certs,
             alpn: tls.alpn.clone(),
+            kex_mode: parse_tls_kex_mode(&tls.kex_mode, "transport.tls.kex_mode")?,
         })
     }
 
@@ -992,6 +1032,10 @@ fn is_loopback(addr: &SocketAddr) -> bool {
         IpAddr::V4(v4) => v4.octets()[0] == 127,
         IpAddr::V6(v6) => v6.is_loopback(),
     }
+}
+
+fn parse_tls_kex_mode(value: &str, field: &str) -> Result<TlsKexMode> {
+    TlsKexMode::parse(value).with_context(|| format!("invalid {}", field))
 }
 
 fn ensure_readable_file(path: &str, field: &str) -> Result<()> {

@@ -1,5 +1,6 @@
 //! TLS-транспорт на базе rustls + tokio-rustls.
 
+use crate::crypto::TlsKexMode;
 use anyhow::{Context, Result};
 use rustls::server::{ClientHello, ResolvesServerCert};
 use rustls::sign::CertifiedKey;
@@ -61,6 +62,8 @@ pub struct TlsServerConfig {
     pub sni_certs: Vec<TlsSniCert>,
     /// ALPN-протоколы, например `h2`, `http/1.1`.
     pub alpn: Vec<String>,
+    /// Режим key exchange: классический или гибридный PQ (X25519MLKEM768).
+    pub kex_mode: TlsKexMode,
 }
 
 impl TlsServerConfig {
@@ -73,6 +76,7 @@ impl TlsServerConfig {
             }),
             sni_certs: Vec::new(),
             alpn,
+            kex_mode: TlsKexMode::Classic,
         }
     }
 }
@@ -87,7 +91,7 @@ impl TlsTransport {
     /// Создать acceptor из конфигурации (single-cert или SNI).
     pub fn new(config: &TlsServerConfig) -> Result<Self> {
         ensure_crypto_provider()?;
-        let provider = crypto_provider()?;
+        let provider = crypto_provider_for_kex(config.kex_mode)?;
         let resolver = build_resolver(config, &provider)?;
 
         let mut server_config = ServerConfig::builder_with_provider(provider)
@@ -210,7 +214,13 @@ fn normalize_server_name(name: &str) -> Result<String> {
 }
 
 pub(crate) fn crypto_provider() -> Result<Arc<rustls::crypto::CryptoProvider>> {
-    Ok(Arc::new(rustls::crypto::ring::default_provider()))
+    crypto_provider_for_kex(crate::crypto::TlsKexMode::Classic)
+}
+
+pub(crate) fn crypto_provider_for_kex(
+    mode: crate::crypto::TlsKexMode,
+) -> Result<Arc<rustls::crypto::CryptoProvider>> {
+    crate::crypto::tls_crypto_provider(mode)
 }
 
 pub(crate) fn ensure_crypto_provider() -> Result<()> {

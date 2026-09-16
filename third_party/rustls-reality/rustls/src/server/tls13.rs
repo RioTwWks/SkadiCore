@@ -499,11 +499,25 @@ mod client_hello {
         // Prepare key exchange; the caller already found the matching SupportedKxGroup
         let (share, kxgroup) = share_and_kxgroup;
         debug_assert_eq!(kxgroup.name(), share.group);
-        let kx = kxgroup
-            .start()
+        let hybrid_completed = kxgroup
+            .start_and_complete(&share.payload.0)
+            .transpose()
             .map_err(|_| Error::FailedToGetRandomBytes)?;
+        let kx = if hybrid_completed.is_none() {
+            Some(
+                kxgroup
+                    .start()
+                    .map_err(|_| Error::FailedToGetRandomBytes)?,
+            )
+        } else {
+            None
+        };
 
-        let kse = KeyShareEntry::new(share.group, kx.pub_key());
+        let kse = if let Some(ref completed) = hybrid_completed {
+            KeyShareEntry::new(completed.group, &completed.pub_key)
+        } else {
+            KeyShareEntry::new(share.group, kx.as_ref().unwrap().pub_key())
+        };
         extensions.push(ServerExtension::KeyShare(kse));
         extensions.push(ServerExtension::SupportedVersions(ProtocolVersion::TLSv1_3));
 
@@ -559,7 +573,11 @@ mod client_hello {
         };
 
         // Do key exchange
-        let key_schedule = key_schedule_pre_handshake.into_handshake(kx, &share.payload.0)?;
+        let key_schedule = if let Some(completed) = hybrid_completed {
+            key_schedule_pre_handshake.into_handshake_with_secret(completed.secret)?
+        } else {
+            key_schedule_pre_handshake.into_handshake(kx.unwrap(), &share.payload.0)?
+        };
 
         let handshake_hash = transcript.get_current_hash();
         let key_schedule = key_schedule.derive_server_handshake_secrets(

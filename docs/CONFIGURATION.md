@@ -211,6 +211,29 @@ ALPN-протоколы для TLS handshake:
 alpn = ["h2", "http/1.1"]
 ```
 
+### `kex_mode`
+
+**Тип**: `string`  
+**По умолчанию**: `"classic"`
+
+Режим key exchange для TLS 1.3:
+
+| Значение | Описание |
+|----------|----------|
+| `classic` | X25519 / ECDHE (по умолчанию) |
+| `hybrid_pq` | X25519MLKEM768 — гибрид X25519 + ML-KEM-768 ([RFC 10024](https://www.rfc-editor.org/rfc/rfc10024.html)) |
+
+```toml
+[transport.tls]
+enabled = true
+kex_mode = "hybrid_pq"
+cert = "certs/server.pem"
+key = "certs/server.key"
+```
+
+Клиент и сервер должны использовать один и тот же режим. **REALITY** остаётся
+на классическом X25519 (несовместим с `hybrid_pq`).
+
 ### `[[transport.tls.certificates]]`
 
 **Тип**: массив таблиц
@@ -325,6 +348,13 @@ ca_file = "/etc/skadicore/upstream-ca.pem"
 
 Опциональный клиентский сертификат (mTLS). Оба поля должны быть заданы
 вместе.
+
+### `kex_mode`
+
+**Тип**: `string`  
+**По умолчанию**: `"classic"`
+
+`classic` или `hybrid_pq` (X25519MLKEM768). Должен совпадать с режимом upstream TLS.
 
 ```toml
 [outbound.tls]
@@ -977,6 +1007,7 @@ server = "https://cloudflare-dns.com/dns-query"
 | `enabled` | bool | TLS к удалённому прокси (по умолчанию `false`) |
 | `ca_file` | string? | PEM с доверенным CA; если не задан — системные корни |
 | `server_name` | string? | SNI для TLS; по умолчанию hostname из `server` |
+| `kex_mode` | string | `classic` (по умолчанию) или `hybrid_pq` (X25519MLKEM768) |
 
 Пример: `examples/client-vless-tls/client.toml`.
 

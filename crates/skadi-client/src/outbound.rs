@@ -17,7 +17,7 @@ pub struct Outbound {
 impl Outbound {
     pub fn from_config(config: &ClientConfig) -> Result<Self> {
         let transport = if config.remote.tls.enabled {
-            OutboundTcpTransport::tls(config.connect_timeout(), &config.tls_client_config())?
+            OutboundTcpTransport::tls(config.connect_timeout(), &config.tls_client_config()?)?
         } else {
             OutboundTcpTransport::plain(config.connect_timeout())
         };

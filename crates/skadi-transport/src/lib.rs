@@ -1,5 +1,7 @@
 //! Транспортный слой: TCP, TLS, REALITY, XHTTP.
 
+pub mod crypto;
+mod hybrid_kx;
 pub mod mux;
 pub mod outbound;
 mod outbound_policy;
@@ -12,6 +14,7 @@ pub mod udp;
 pub mod xhttp;
 mod xudp;
 
+pub use crypto::TlsKexMode;
 pub use mux::relay_vless_mux_with_limits;
 pub use outbound::{OutboundTcpTransport, TcpUpstream};
 pub use reality::{RealityError, RealityServerConfig, RealityTransport};

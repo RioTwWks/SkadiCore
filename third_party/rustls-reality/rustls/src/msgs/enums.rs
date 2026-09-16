@@ -185,6 +185,7 @@ enum_builder! {
         secp521r1 => 0x0019,
         X25519 => 0x001d,
         X448 => 0x001e,
+        X25519MLKEM768 => 0x11ec,
         FFDHE2048 => 0x0100,
         FFDHE3072 => 0x0101,
         FFDHE4096 => 0x0102,
