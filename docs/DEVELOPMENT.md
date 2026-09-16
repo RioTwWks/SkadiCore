@@ -192,12 +192,27 @@ git push origin v0.1.0
 - `skadicore-<version>-aarch64-apple-darwin.tar.gz`
 - `skadicore-<version>-x86_64-apple-darwin.tar.gz`
 - `SHA256SUMS`
+- `*.minisig` — подписи minisign (если в репозитории задан секрет `MINISIGN_SECRET_KEY`)
 
 Локальная упаковка после сборки:
 
 ```bash
 ./scripts/build-musl.sh
 ./scripts/package-release.sh 0.1.0 x86_64-unknown-linux-musl
+```
+
+Подпись релиза (опционально, требуется [minisign](https://github.com/jedisct1/minisign)):
+
+```bash
+# Сгенерировать ключи (один раз): minisign -G -p minisign.pub -s minisign.key
+export MINISIGN_SECRET_KEY="$(cat minisign.key)"
+./scripts/sign-release.sh
+```
+
+Проверка подписи на стороне пользователя:
+
+```bash
+./scripts/verify-release.sh minisign.pub dist
 ```
 
 Ручной запуск workflow: Actions → Release → Run workflow (указать существующий тег).

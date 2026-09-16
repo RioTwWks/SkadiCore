@@ -156,6 +156,20 @@ jobs:
           )
           ls -la dist/
 
+      - name: Sign release artifacts
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+        run: |
+          if [ -n "${MINISIGN_SECRET_KEY}" ]; then
+            curl -fsSL https://github.com/jedisct1/minisign/releases/download/0.11/minisign-0.11-linux.tar.gz \
+              | tar xz -C /tmp
+            sudo mv /tmp/minisign-0.11-linux/x86_64/minisign /usr/local/bin/
+            chmod +x scripts/sign-release.sh
+            ./scripts/sign-release.sh
+          else
+            echo "MINISIGN_SECRET_KEY not configured — skipping signatures"
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -167,3 +181,12 @@ jobs:
             dist/skadicore-*.zip
             dist/SHA256SUMS
           fail_on_unmatched_files: true
+
+      - name: Upload release signatures
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+        run: |
+          if [ -n "${MINISIGN_SECRET_KEY}" ] && compgen -G "dist/*.minisig" > /dev/null; then
+            gh release upload "${{ steps.version.outputs.tag }}" dist/*.minisig --clobber
+          fi

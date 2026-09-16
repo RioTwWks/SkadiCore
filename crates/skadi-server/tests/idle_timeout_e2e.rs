@@ -51,7 +51,7 @@ async fn idle_timeout_closes_inactive_vless_session() {
 
     let config = Config {
         server: ServerConfig {
-            listen: proxy_addr.to_string(),
+            listen: proxy_addr.into(),
             timeouts: ServerTimeoutsConfig {
                 connect_timeout_secs: 10,
                 idle_timeout_secs: Some(1),
@@ -120,7 +120,7 @@ async fn idle_timeout_closes_inactive_vless_session() {
 async fn rejects_zero_idle_timeout_in_config() {
     let config = Config {
         server: ServerConfig {
-            listen: "127.0.0.1:0".to_string(),
+            listen: "127.0.0.1:0".into(),
             timeouts: ServerTimeoutsConfig {
                 connect_timeout_secs: 10,
                 idle_timeout_secs: Some(0),

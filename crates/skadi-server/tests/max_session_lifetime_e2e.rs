@@ -51,7 +51,7 @@ async fn max_session_lifetime_closes_active_vless_session() {
 
     let config = Config {
         server: ServerConfig {
-            listen: proxy_addr.to_string(),
+            listen: proxy_addr.into(),
             timeouts: ServerTimeoutsConfig {
                 connect_timeout_secs: 10,
                 idle_timeout_secs: None,
@@ -129,7 +129,7 @@ async fn max_session_lifetime_closes_active_vless_session() {
 async fn rejects_zero_max_session_lifetime_in_config() {
     let config = Config {
         server: ServerConfig {
-            listen: "127.0.0.1:0".to_string(),
+            listen: "127.0.0.1:0".into(),
             timeouts: ServerTimeoutsConfig {
                 connect_timeout_secs: 10,
                 idle_timeout_secs: None,

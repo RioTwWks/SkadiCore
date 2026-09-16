@@ -11,6 +11,14 @@
 
 ### Added
 
+- **Релизы (аудит)** — подпись артефактов `minisign` в CI (секрет
+  `MINISIGN_SECRET_KEY`); `scripts/sign-release.sh` и
+  `scripts/verify-release.sh`; инструкция в README / `docs/DEVELOPMENT.md`
+
+- **IPv6 listen (аудит)** — `server.listen` как строка или массив
+  (`["0.0.0.0:443", "[::]:443"]`); несколько accept-loop на разных сокетах;
+  предупреждение при `0.0.0.0` без `[::]`; E2E `ipv6_listen_e2e`
+
 - **Безопасность (аудит)** — per-IP rate limiting на неудачные аутентификации
   (`[server.auth_rate_limit]`); SSRF-защита outbound (`[outbound].allow_private`);
   UUID не логируется в plaintext при auth failure

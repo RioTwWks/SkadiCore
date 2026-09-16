@@ -44,7 +44,7 @@ async fn blocks_ip_after_repeated_auth_failures() {
 
     let config = Config {
         server: ServerConfig {
-            listen: proxy_addr.to_string(),
+            listen: proxy_addr.into(),
             auth_rate_limit: AuthRateLimitConfig {
                 enabled: true,
                 max_failures: Some(2),
