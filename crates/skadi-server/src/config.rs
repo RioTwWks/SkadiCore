@@ -425,6 +425,15 @@ pub struct RealityConfig {
     /// Short IDs, hex (1..8 bytes each).
     #[serde(default)]
     pub short_ids: Vec<String>,
+    /// Путь к PEM/DER leaf-сертификата dest для ImpersonateCert (rkn-fix).
+    pub impersonate_cert: Option<String>,
+    /// Получить leaf-сертификат с `dest` при старте (если `impersonate_cert` не задан).
+    #[serde(default = "default_fetch_impersonate_cert")]
+    pub fetch_impersonate_cert: bool,
+}
+
+fn default_fetch_impersonate_cert() -> bool {
+    true
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -916,11 +925,19 @@ impl Config {
             .map(|sid| hex::decode(sid).with_context(|| format!("invalid short_id hex: {}", sid)))
             .collect::<Result<Vec<_>>>()?;
 
+        let impersonate_cert = reality
+            .impersonate_cert
+            .as_deref()
+            .map(skadi_transport::load_impersonate_cert_file)
+            .transpose()
+            .context("transport.reality.impersonate_cert")?;
+
         Ok(RealityServerConfig {
             private_key,
             dest: reality.dest.clone().unwrap(),
             server_names: reality.server_names.clone(),
             short_ids,
+            impersonate_cert,
             connect_timeout: self.connect_timeout(),
             idle_timeout: self.idle_timeout(),
             max_session_lifetime: self.max_session_lifetime(),

@@ -109,6 +109,8 @@ async fn vless_over_reality_with_xray_client() {
                 server_names: vec![SERVER_NAME.to_string()],
                 private_key: Some(keys.private_key_b64()),
                 short_ids: vec![keys.short_id_hex.clone()],
+                impersonate_cert: None,
+                fetch_impersonate_cert: false,
             },
             ..Default::default()
         },

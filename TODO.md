@@ -519,7 +519,7 @@ REALITY реализован, но нет тестов, которые пров�
 1. Свежий ed25519-сертификат на каждое соединение (реалистичные X.509 поля).
 2. `ImpersonateCert` — повтор DER целевого сайта.
 
-- [ ] REALITY-rkn-fix: per-connection certs + `ImpersonateCert`
+- [x] REALITY-rkn-fix: per-connection certs + `ImpersonateCert`
 
 #### 🌐 Hysteria2 и TUIC
 

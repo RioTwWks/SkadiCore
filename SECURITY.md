@@ -187,8 +187,11 @@ SkadiCore — инструмент обхода цензуры. Это опре�
 - **Обычный TLS** (`transport.tls`, `remote.tls`, `outbound.tls`) поддерживает
   опциональный гибридный KEX **X25519MLKEM768** (`kex_mode = "hybrid_pq"`,
   RFC 10024). Клиент и сервер должны использовать один режим.
-- **REALITY** по-прежнему использует только X25519 (совместимость с Xray);
-  гибридный PQ-KEX для REALITY не реализован.
+- **REALITY** (`transport.reality`) генерирует per-connection Ed25519-сертификаты
+  с реалистичными X.509 полями (rkn-fix); опционально клонирует метаданные
+  leaf-сертификата `dest` (`fetch_impersonate_cert` / `impersonate_cert`).
+  KEX остаётся X25519 (совместимость с Xray); гибридный PQ-KEX для REALITY
+  не реализован.
 - Без `hybrid_pq` TLS 1.3 не защищает от **store-now-decrypt-later**.
   Подробнее: `docs/RISKS.md` §1.5.
 

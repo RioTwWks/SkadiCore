@@ -32,6 +32,7 @@ async fn reality_fallback_to_dest() {
         dest: dest_addr.to_string(),
         server_names: vec!["example.com".into()],
         short_ids: vec![vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]],
+        impersonate_cert: None,
         connect_timeout: Duration::from_secs(10),
         idle_timeout: None,
         max_session_lifetime: None,
@@ -99,6 +100,8 @@ async fn reality_server_config_via_run_server() {
                 server_names: vec!["example.com".into()],
                 private_key: Some(base64::engine::general_purpose::STANDARD.encode([0x42u8; 32])),
                 short_ids: vec!["0102030405060708".into()],
+                impersonate_cert: None,
+                fetch_impersonate_cert: false,
             },
             ..Default::default()
         },
