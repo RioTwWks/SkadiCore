@@ -12,8 +12,9 @@ use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
 use tracing::debug;
 
+use crate::crypto::TlsKexMode;
 use crate::tcp::TcpTransport;
-use crate::tls::{crypto_provider, ensure_crypto_provider, load_certs, load_private_key};
+use crate::tls::{crypto_provider_for_kex, ensure_crypto_provider, load_certs, load_private_key};
 
 /// Конфигурация TLS outbound.
 #[derive(Debug, Clone, Default)]
@@ -23,6 +24,8 @@ pub struct TlsClientConfig {
     /// Клиентский сертификат (mTLS), опционально.
     pub client_cert: Option<String>,
     pub client_key: Option<String>,
+    /// Режим key exchange: классический или гибридный PQ (X25519MLKEM768).
+    pub kex_mode: TlsKexMode,
 }
 
 /// Исходящий транспорт: TCP + TLS handshake с проверкой сертификата.
@@ -46,7 +49,7 @@ impl TlsOutboundTransport {
         ensure_crypto_provider()?;
         let roots = build_root_store(config.ca_file.as_deref())?;
 
-        let provider = crypto_provider()?;
+        let provider = crypto_provider_for_kex(config.kex_mode)?;
         let builder = ClientConfig::builder_with_provider(provider)
             .with_safe_default_protocol_versions()
             .context("unsupported TLS protocol versions")?
@@ -192,6 +195,7 @@ mod tests {
                 ca_file: Some(ca_path.to_string_lossy().into_owned()),
                 client_cert: None,
                 client_key: None,
+                kex_mode: TlsKexMode::Classic,
             },
         )
         .unwrap();

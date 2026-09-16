@@ -83,6 +83,7 @@ async fn spawn_xhttp_vless_server(
                 key: Some(key_path.to_string_lossy().into_owned()),
                 alpn: vec![],
                 certificates: vec![],
+                ..Default::default()
             },
             xhttp: XhttpFileConfig {
                 enabled: true,

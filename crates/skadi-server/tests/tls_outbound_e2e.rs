@@ -111,6 +111,7 @@ async fn vless_relay_over_tls_outbound() {
                 ca_file: Some(ca_path.to_string_lossy().into_owned()),
                 cert: None,
                 key: None,
+                ..Default::default()
             },
             allow_private: true,
             ..Default::default()

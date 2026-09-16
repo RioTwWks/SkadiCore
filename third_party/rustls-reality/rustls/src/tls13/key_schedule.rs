@@ -150,6 +150,16 @@ impl KeySchedulePreHandshake {
             .input_from_key_exchange(kx, peer_public_key)?;
         Ok(KeyScheduleHandshakeStart { ks: self.ks })
     }
+
+    /// Install a pre-computed PQ/T hybrid shared secret (server path).
+    pub(crate) fn into_handshake_with_secret(
+        mut self,
+        secret: crate::crypto::SharedSecret,
+    ) -> Result<KeyScheduleHandshakeStart, Error> {
+        self.ks
+            .input_from_shared_secret(secret.secret_bytes())?;
+        Ok(KeyScheduleHandshakeStart { ks: self.ks })
+    }
 }
 
 impl From<KeyScheduleEarly> for KeySchedulePreHandshake {
@@ -627,6 +637,16 @@ impl KeySchedule {
             .suite
             .hkdf_provider
             .extract_from_kx_shared_secret(Some(salt.as_ref()), kx, peer_public_key)?;
+        Ok(())
+    }
+
+    /// Input a pre-computed shared secret (PQ/T hybrid server path).
+    fn input_from_shared_secret(&mut self, secret: &[u8]) -> Result<(), Error> {
+        let salt = self.derive_for_empty_hash(SecretKind::DerivedSecret);
+        self.current = self
+            .suite
+            .hkdf_provider
+            .extract_from_secret(Some(salt.as_ref()), secret);
         Ok(())
     }
 

@@ -76,6 +76,7 @@ async fn spawn_vless_tls_server(
                 key: Some(key_path.to_string_lossy().into_owned()),
                 alpn: vec![],
                 certificates: vec![],
+                ..Default::default()
             },
             ..Default::default()
         },

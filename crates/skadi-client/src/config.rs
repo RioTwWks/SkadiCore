@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use skadi_core::Endpoint;
 use skadi_protocol::vless::Uuid;
-use skadi_transport::TlsClientConfig;
+use skadi_transport::{TlsClientConfig, TlsKexMode};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 use std::time::Duration;
@@ -182,6 +182,13 @@ pub struct RemoteTlsConfig {
     pub ca_file: Option<String>,
     /// SNI для TLS handshake. По умолчанию — hostname из `server`.
     pub server_name: Option<String>,
+    /// `classic` (по умолчанию) или `hybrid_pq` (X25519MLKEM768, RFC 10024).
+    #[serde(default = "default_remote_tls_kex_mode")]
+    pub kex_mode: String,
+}
+
+fn default_remote_tls_kex_mode() -> String {
+    "classic".to_string()
 }
 
 impl ClientConfig {
@@ -204,6 +211,10 @@ impl ClientConfig {
         parse_server_endpoint(&self.remote.server)?;
         Uuid::parse(&self.remote.uuid).map_err(|e| anyhow::anyhow!("remote.uuid: {}", e))?;
         self.client.tun.validate()?;
+        if self.remote.tls.enabled {
+            TlsKexMode::parse(&self.remote.tls.kex_mode)
+                .with_context(|| "invalid remote.tls.kex_mode")?;
+        }
         Ok(())
     }
 
@@ -240,12 +251,14 @@ impl ClientConfig {
         Ok(*Uuid::parse(&self.remote.uuid)?.as_bytes())
     }
 
-    pub fn tls_client_config(&self) -> TlsClientConfig {
-        TlsClientConfig {
+    pub fn tls_client_config(&self) -> Result<TlsClientConfig> {
+        Ok(TlsClientConfig {
             ca_file: self.remote.tls.ca_file.clone(),
             client_cert: None,
             client_key: None,
-        }
+            kex_mode: TlsKexMode::parse(&self.remote.tls.kex_mode)
+                .with_context(|| "invalid remote.tls.kex_mode")?,
+        })
     }
 
     pub fn connect_timeout(&self) -> Duration {
