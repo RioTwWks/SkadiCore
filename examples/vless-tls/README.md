@@ -35,7 +35,7 @@ openssl s_client -connect 127.0.0.1:8443 -servername localhost
 
 ```bash
 xray run -c examples/vless-tls/client-xray.json
-curl --socks5 127.0.0.1:10808 https://example.com
+curl --socks5-hostname 127.0.0.1:10808 https://example.com
 ```
 
 `allowInsecure: true` — только для self-signed. В продакшене используйте

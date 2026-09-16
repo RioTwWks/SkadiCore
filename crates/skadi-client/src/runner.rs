@@ -23,6 +23,7 @@ pub async fn run(config: ClientConfig, mut shutdown: watch::Receiver<bool>) -> R
     let mut tasks = Vec::new();
 
     if config.socks5_enabled() {
+        crate::warnings::warn_socks5_dns_resolution();
         let outbound = outbound.clone();
         let cfg = config.clone();
         let shutdown_rx = shutdown.clone();
@@ -45,6 +46,13 @@ pub async fn run(config: ClientConfig, mut shutdown: watch::Receiver<bool>) -> R
         #[cfg(not(target_os = "linux"))]
         {
             anyhow::bail!("client.tun is only supported on Linux");
+        }
+        #[cfg(target_os = "linux")]
+        {
+            if !config.client.tun.dns.hijack {
+                crate::warnings::warn_tun_dns_disabled();
+            }
+            crate::warnings::warn_tun_mtu_high(config.client.tun.mtu);
         }
     }
 

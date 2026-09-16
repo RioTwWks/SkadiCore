@@ -468,15 +468,18 @@ REALITY реализован, но нет тестов, которые пров�
 
 #### 6.2. DNS-over-HTTPS и DNS-утечки
 
-- [ ] Встроенный DNS-резолвер в туннель или предупреждение про `socks5` vs `socks5h`
+- [x] Предупреждения при старте клиента (`socks5` vs `socks5h`, TUN `dns.hijack`)
+- [ ] Встроенный DoH/DoT-резолвер в туннель
 
 #### 6.3. MTU и фрагментация
 
-- [ ] MTU в конфиге TUN + Path MTU Discovery
+- [x] MTU в конфиге TUN + рекомендация `1400` + предупреждение при `mtu >= 1500`
+- [ ] Path MTU Discovery в userspace netstack
 
 #### 6.4. Квантовые атаки на REALITY
 
-- [ ] Документация: REALITY не защищён от store-now-decrypt-later; планы PQ-миграции
+- [x] Документация: REALITY не защищён от store-now-decrypt-later (`docs/RISKS.md` §1.5, `SECURITY.md`)
+- [ ] Гибридный KEX (X25519 + ML-KEM) и crypto-agility
 
 ---
 

@@ -11,6 +11,16 @@
 
 ### Added
 
+- **DNS-утечки (аудит 6.2)** — предупреждения при старте клиента
+  (`socks5` vs `socks5h`, TUN `dns.hijack`); исправлены примеры `curl`
+  на `--socks5-hostname`
+
+- **MTU / фрагментация (аудит 6.3)** — константа `RECOMMENDED_TUN_MTU`
+  (1400), предупреждение при `client.tun.mtu >= 1500`; документация PMTUD
+
+- **Пост-квантовые риски (аудит 6.4)** — `docs/RISKS.md` §1.5,
+  обновлён `SECURITY.md` (SN-DL, X25519 в REALITY/TLS)
+
 - **Релизы (аудит)** — подпись артефактов `minisign` в CI (секрет
   `MINISIGN_SECRET_KEY`); `scripts/sign-release.sh` и
   `scripts/verify-release.sh`; инструкция в README / `docs/DEVELOPMENT.md`

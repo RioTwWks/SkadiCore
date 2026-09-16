@@ -15,7 +15,7 @@ name = "skadi0"
 address = "10.0.0.2"
 gateway = "10.0.0.1"
 netmask = "255.255.255.0"
-mtu = 1500
+mtu = 1400  # рекомендуется для VLESS+TLS (см. docs/CONFIGURATION.md)
 
 [client.tun.routing]
 auto = true

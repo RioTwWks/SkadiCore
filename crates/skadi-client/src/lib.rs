@@ -4,6 +4,7 @@ mod config;
 mod outbound;
 mod runner;
 mod socks5;
+mod warnings;
 
 #[cfg(target_os = "linux")]
 mod tun;

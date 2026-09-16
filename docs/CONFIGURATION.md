@@ -421,6 +421,10 @@ short_ids = ["0123456789abcdef"]
 | `private_key` | `string` | X25519 private key, standard base64 (32 байта) |
 | `short_ids` | `string[]` | Short ID в hex (1..8 байт каждый) |
 
+**Криптографические ограничения:** REALITY использует X25519. Это не защищает
+от store-now-decrypt-later (квантовый перехват в будущем). См. `docs/RISKS.md`
+§1.5 и `SECURITY.md`.
+
 ### Клиент (Xray / Nekoray / v2rayNG)
 
 | Поле клиента | Значение |
@@ -895,6 +899,10 @@ skadicore client --config examples/client-vless-tls/client.toml
 |------|-----|----------|
 | `listen` | string? | Адрес локального SOCKS5, например `127.0.0.1:1080` |
 
+Приложения должны использовать **удалённый DNS** (`socks5h`, `curl --socks5-hostname`).
+Обычный `socks5`/`--socks5` резолвит имена локально — DNS-запросы уходят провайдеру.
+SkadiCore при старте клиента выводит предупреждение об этом риске.
+
 ### Секция `[client.tun]` (Linux)
 
 | Поле | Тип | Описание |
@@ -904,7 +912,11 @@ skadicore client --config examples/client-vless-tls/client.toml
 | `address` | string | IPv4 клиента в туннеле, например `10.0.0.2` |
 | `gateway` | string | IPv4 шлюза в туннеле, например `10.0.0.1` |
 | `netmask` | string | Маска сети, например `255.255.255.0` |
-| `mtu` | u16 | MTU (по умолчанию `1500`) |
+| `mtu` | u16 | MTU интерфейса (по умолчанию `1500`; для VLESS+TLS рекомендуется `1400`) |
+
+Path MTU Discovery в TUN-режиме **не реализован**. При `mtu = 1500` большие
+пакеты могут фрагментироваться на оверлее VLESS+TLS. Клиент при старте
+предупреждает, если MTU ≥ 1500.
 
 #### `[client.tun.routing]`
 
@@ -931,6 +943,10 @@ skadicore client --config examples/client-vless-tls/client.toml
 TUN использует userspace netstack (`netstack-smoltcp`): TCP/UDP из
 интерфейса уходят в VLESS. DNS-hijack перехватывает UDP на порт 53
 на уровне netstack и форвардит запросы на `dns.server` через туннель.
+DoH/DoT (порты 443/853) **не** перехватываются — отключайте системный
+DoH или используйте `hijack = true` и доверенный upstream DNS.
+
+При `hijack = false` клиент предупреждает об утечке DNS при старте.
 
 Пример SOCKS5 + TUN: `examples/client-vless-tls-tun/client.toml`.
 
