@@ -37,6 +37,12 @@ pub struct TunConfig {
     pub netmask: String,
     #[serde(default = "default_tun_mtu")]
     pub mtu: u16,
+    /// `off` | `static` | `probe` — см. `docs/CONFIGURATION.md` (PMTUD).
+    #[serde(default = "default_tun_pmtud")]
+    pub pmtud: String,
+    /// Запас на VLESS+TLS оверхед при `pmtud = "probe"`.
+    #[serde(default = "default_tun_mtu_overhead")]
+    pub mtu_overhead: u16,
     #[serde(default)]
     pub routing: TunRoutingConfig,
     #[serde(default)]
@@ -52,6 +58,8 @@ impl Default for TunConfig {
             gateway: default_tun_gateway(),
             netmask: default_tun_netmask(),
             mtu: default_tun_mtu(),
+            pmtud: default_tun_pmtud(),
+            mtu_overhead: default_tun_mtu_overhead(),
             routing: TunRoutingConfig::default(),
             dns: TunDnsConfig::default(),
         }
@@ -151,7 +159,15 @@ fn default_tun_netmask() -> String {
 }
 
 fn default_tun_mtu() -> u16 {
-    1500
+    crate::warnings::RECOMMENDED_TUN_MTU
+}
+
+fn default_tun_pmtud() -> String {
+    "static".to_string()
+}
+
+fn default_tun_mtu_overhead() -> u16 {
+    crate::pmtud::DEFAULT_OVERLAY_OVERHEAD
 }
 
 impl TunConfig {
@@ -167,6 +183,10 @@ impl TunConfig {
         }
         if self.mtu < 576 {
             bail!("client.tun.mtu must be at least 576");
+        }
+        crate::pmtud::parse_pmtud_mode(&self.pmtud)?;
+        if self.mtu_overhead > 500 {
+            bail!("client.tun.mtu_overhead must be at most 500");
         }
         if self.routing.table == 0 || self.routing.table > 252 {
             bail!("client.tun.routing.table must be in 1..=252");

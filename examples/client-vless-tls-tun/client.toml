@@ -15,7 +15,9 @@ name = "skadi0"
 address = "10.0.0.2"
 gateway = "10.0.0.1"
 netmask = "255.255.255.0"
-mtu = 1400  # рекомендуется для VLESS+TLS (см. docs/CONFIGURATION.md)
+mtu = 1400
+# pmtud = "probe"      # измерить path MTU до прокси при старте (Linux)
+# mtu_overhead = 100   # запас на VLESS+TLS оверхед
 
 [client.tun.routing]
 auto = true

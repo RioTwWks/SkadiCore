@@ -5,6 +5,7 @@ mod routing;
 use crate::config::TunConfig;
 use crate::dns::{DnsHandler, DnsIntercept};
 use crate::outbound::Outbound;
+use crate::pmtud::{parse_pmtud_mode, resolve_effective_mtu};
 use anyhow::{Context, Result};
 use futures::{SinkExt, StreamExt};
 use netstack_smoltcp::{StackBuilder, TcpListener, UdpSocket};
@@ -27,19 +28,25 @@ pub async fn run(
     let proxy_ips = resolve_proxy_ipv4(proxy_host).await?;
     let mut routing_guard = RoutingGuard::apply(tun, &tun.routing, &proxy_ips)?;
 
-    let device = create_device(tun)?;
+    let pmtud_mode = parse_pmtud_mode(&tun.pmtud)?;
+    let effective_mtu =
+        resolve_effective_mtu(tun.mtu, pmtud_mode, tun.mtu_overhead, proxy_host).await;
+
+    let device = create_device(tun, effective_mtu)?;
     info!(
         name = %tun.name,
         address = %tun.address,
         gateway = %tun.gateway,
-        mtu = tun.mtu,
+        configured_mtu = tun.mtu,
+        effective_mtu,
+        pmtud = %tun.pmtud,
         routing_auto = tun.routing.auto,
         dns_hijack = dns_intercept.is_active(),
         dns_mode = %tun.dns.mode,
         "client TUN starting"
     );
 
-    let mtu = tun.mtu as usize;
+    let mtu = effective_mtu as usize;
     let (stack, runner, udp_socket, tcp_listener) = StackBuilder::default()
         .enable_tcp(true)
         .enable_udp(true)
@@ -121,7 +128,7 @@ pub async fn run(
     Ok(())
 }
 
-fn create_device(tun: &TunConfig) -> Result<tun::AsyncDevice> {
+fn create_device(tun: &TunConfig, mtu: u16) -> Result<tun::AsyncDevice> {
     let address: Ipv4Addr = tun.address.parse().context("invalid client.tun.address")?;
     let gateway: Ipv4Addr = tun.gateway.parse().context("invalid client.tun.gateway")?;
     let netmask: Ipv4Addr = tun.netmask.parse().context("invalid client.tun.netmask")?;
@@ -132,7 +139,7 @@ fn create_device(tun: &TunConfig) -> Result<tun::AsyncDevice> {
         .address(address)
         .destination(gateway)
         .netmask(netmask)
-        .mtu(tun.mtu)
+        .mtu(mtu)
         .up();
 
     tun::create_as_async(&config)

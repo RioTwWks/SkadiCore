@@ -476,7 +476,8 @@ REALITY реализован, но нет тестов, которые пров�
 #### 6.3. MTU и фрагментация
 
 - [x] MTU в конфиге TUN + рекомендация `1400` + предупреждение при `mtu >= 1500`
-- [ ] Path MTU Discovery в userspace netstack
+- [x] Path MTU Discovery Phase 1 (default MTU 1400, `pmtud = "probe"` до прокси)
+- [ ] Runtime ICMP PMTUD в userspace netstack (Phase 2)
 
 #### 6.4. Квантовые атаки на REALITY
 
