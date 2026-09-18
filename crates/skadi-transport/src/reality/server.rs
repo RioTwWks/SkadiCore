@@ -4,8 +4,9 @@ use super::auth::verify_client_reality;
 use super::cert::generate_reality_cert;
 use super::hello_parser::{parse_client_hello, ClientHelloInfo};
 use super::prefixed::BufferedPrefixStream;
+use crate::crypto::TlsKexMode;
 use crate::relay::{copy_bidirectional_with_limits, RelayLimits};
-use crate::tls::crypto_provider;
+use crate::tls::crypto_provider_for_kex;
 use anyhow::{bail, Context, Result};
 use rustls::reality::RealityConfig;
 use rustls::ServerConfig;
@@ -53,6 +54,8 @@ pub struct RealityServerConfig {
     pub idle_timeout: Option<Duration>,
     /// Максимальная длительность relay после fallback.
     pub max_session_lifetime: Option<Duration>,
+    /// Режим key exchange для REALITY TLS (после verify).
+    pub kex_mode: TlsKexMode,
 }
 
 /// REALITY inbound transport.
@@ -65,6 +68,7 @@ pub struct RealityTransport {
     impersonate_cert: Option<Vec<u8>>,
     connect_timeout: Duration,
     relay_limits: RelayLimits,
+    kex_mode: TlsKexMode,
 }
 
 impl RealityTransport {
@@ -105,6 +109,7 @@ impl RealityTransport {
                 idle: config.idle_timeout,
                 max_lifetime: config.max_session_lifetime,
             },
+            kex_mode: config.kex_mode,
         })
     }
 
@@ -189,7 +194,7 @@ impl RealityTransport {
         conn_reality_config.private_key = auth_key.to_vec();
         conn_reality_config.verify_client = false;
 
-        let provider = crypto_provider()?;
+        let provider = crypto_provider_for_kex(self.kex_mode)?;
         let mut config = ServerConfig::builder_with_provider(provider)
             .with_safe_default_protocol_versions()
             .context("unsupported TLS protocol versions")?

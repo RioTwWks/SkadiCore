@@ -11,6 +11,9 @@
 
 ### Added
 
+- **PQ-KEX для REALITY** — `transport.reality.kex_mode = "hybrid_pq"`
+  (X25519MLKEM768, RFC 10024) для TLS-сессии после REALITY verify
+
 - **Bearer token masking** — `api.token` как `SecretString`; structured-логи
   (`--log-format=json|pretty`) маскируют `Bearer <token>` → `Bearer [REDACTED]`
 

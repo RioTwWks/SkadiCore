@@ -111,6 +111,7 @@ async fn vless_over_reality_with_xray_client() {
                 short_ids: vec![keys.short_id_hex.clone()],
                 impersonate_cert: None,
                 fetch_impersonate_cert: false,
+                kex_mode: "classic".into(),
             },
             ..Default::default()
         },

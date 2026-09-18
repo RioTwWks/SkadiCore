@@ -5,8 +5,7 @@ use base64::Engine;
 use skadi_protocol::{VlessConfig, VlessUser};
 use skadi_server::config::{Config, ProtocolConfig, RealityConfig, ServerConfig, TransportConfig};
 use skadi_server::run_server;
-use skadi_transport::RealityServerConfig;
-use skadi_transport::RealityTransport;
+use skadi_transport::{RealityServerConfig, RealityTransport, TlsKexMode};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -36,6 +35,7 @@ async fn reality_fallback_to_dest() {
         connect_timeout: Duration::from_secs(10),
         idle_timeout: None,
         max_session_lifetime: None,
+        kex_mode: TlsKexMode::Classic,
     })
     .unwrap();
 
@@ -102,6 +102,7 @@ async fn reality_server_config_via_run_server() {
                 short_ids: vec!["0102030405060708".into()],
                 impersonate_cert: None,
                 fetch_impersonate_cert: false,
+                kex_mode: "classic".into(),
             },
             ..Default::default()
         },

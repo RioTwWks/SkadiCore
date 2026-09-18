@@ -483,7 +483,8 @@ REALITY реализован, но нет тестов, которые пров�
 
 - [x] Документация: REALITY не защищён от store-now-decrypt-later (`docs/RISKS.md` §1.5, `SECURITY.md`)
 - [x] Гибридный KEX X25519MLKEM768 для обычного TLS (`kex_mode = "hybrid_pq"`, RFC 10024)
-- [ ] PQ-KEX для REALITY; расширенная crypto-agility
+- [x] PQ-KEX для REALITY (`transport.reality.kex_mode = "hybrid_pq"`)
+- [ ] Расширенная crypto-agility (доп. KEM / провайдеры)
 
 ---
 
