@@ -9,7 +9,8 @@ use http::{header, Method, Request, Response, StatusCode};
 use http_body_util::{BodyExt, Full};
 use hyper::body::Incoming;
 use hyper::service::service_fn;
-use hyper_util::rt::TokioIo;
+use hyper_util::rt::{TokioExecutor, TokioIo};
+use hyper_util::server::conn::auto;
 use std::convert::Infallible;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -101,12 +102,10 @@ where
     });
 
     let io = TokioIo::new(stream);
-    let conn = hyper::server::conn::http1::Builder::new()
-        .keep_alive(false)
-        .serve_connection(io, service);
-
     tokio::spawn(async move {
-        if let Err(e) = conn.await {
+        let mut builder = auto::Builder::new(TokioExecutor::new());
+        builder.http1().keep_alive(false);
+        if let Err(e) = builder.serve_connection(io, service).await {
             tracing::debug!(error = %e, "xhttp connection closed");
         }
     });

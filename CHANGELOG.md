@@ -11,6 +11,12 @@
 
 ### Added
 
+- **Пример REALITY + XHTTP** — `examples/reality-xhttp-vless/` (server.toml,
+  client-xray.json, README); E2E `reality_xhttp_vless_e2e` с Xray-клиентом
+
+- **XHTTP HTTP/2** — auto HTTP/1.1 + HTTP/2 в `accept_xhttp` (REALITY ALPN h2);
+  совместимость с Xray stream-one поверх REALITY
+
 - **Supply-chain `deny.toml`** — запрет OpenSSL/native-tls стеков; только crates.io;
   yanked/unsound advisories → deny
 

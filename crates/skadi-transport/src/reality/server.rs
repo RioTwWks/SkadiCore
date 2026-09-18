@@ -202,6 +202,8 @@ impl RealityTransport {
             .with_single_cert(vec![cert], key)
             .map_err(|e| anyhow::anyhow!(RealityError::Handshake(e.to_string())))?;
         config.reality_config = Some(Arc::new(conn_reality_config));
+        // REALITY-клиенты (Xray) ожидают ALPN h2 для XHTTP stream-one.
+        config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
 
         let acceptor = TlsAcceptor::from(Arc::new(config));
         let prefixed = BufferedPrefixStream::new(buffer, stream);

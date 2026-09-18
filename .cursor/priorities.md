@@ -18,13 +18,14 @@
 Обратная связь аудита (2026-09-15): приоритеты 1–7 + 6.2–6.4 — ✅.
 DoT/блокировка системного DoH, гибридный PQ-KEX — ✅.
 Runtime ICMP PMTUD (Phase 2) — ✅. Bearer masking — ✅. PQ-KEX для REALITY — ✅.
-`deny.toml` hardening — ✅. Далее: gRPC audit log или `scripts/probe-test.sh`.
+`deny.toml` hardening — ✅. Пример REALITY+XHTTP + E2E — ✅.
+Далее: gRPC audit log или `scripts/probe-test.sh`.
 
 ## Позже
 
 | Задача | Описание |
 |--------|----------|
-| ~~XHTTP~~ | ✅ stream-one + stream-up + packet-up (`[transport.xhttp]`) |
+| ~~XHTTP~~ | ✅ stream-one + stream-up + packet-up; пример REALITY+XHTTP + E2E |
 | ~~Client MVP~~ | ✅ `skadicore client` (SOCKS5 → VLESS+TLS) |
 | ~~TUN~~ | ✅ Linux MVP (`[client.tun]`, routing/DNS, TCP/UDP → VLESS) |
 | `skadi-config` | Выделить конфиг в отдельный крейт |

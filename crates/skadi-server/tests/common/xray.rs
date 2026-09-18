@@ -113,8 +113,14 @@ pub struct XrayClient {
     pub socks_port: u16,
 }
 
+/// Параметры XHTTP outbound для Xray (REALITY + XHTTP).
+pub struct XhttpClientSettings {
+    pub path: String,
+    pub mode: String,
+}
+
 impl XrayClient {
-    /// Запустить xray с SOCKS inbound и VLESS+REALITY outbound.
+    /// Запустить xray с SOCKS inbound и VLESS+REALITY outbound (TCP).
     pub fn start(
         xray_bin: &Path,
         server_addr: &str,
@@ -122,6 +128,47 @@ impl XrayClient {
         user_id: &str,
         keys: &RealityTestKeys,
         server_name: &str,
+    ) -> Result<Self, String> {
+        Self::start_with_network(
+            xray_bin,
+            server_addr,
+            server_port,
+            user_id,
+            keys,
+            server_name,
+            None,
+        )
+    }
+
+    /// Запустить xray с SOCKS inbound и VLESS+REALITY+XHTTP outbound.
+    pub fn start_xhttp(
+        xray_bin: &Path,
+        server_addr: &str,
+        server_port: u16,
+        user_id: &str,
+        keys: &RealityTestKeys,
+        server_name: &str,
+        xhttp: &XhttpClientSettings,
+    ) -> Result<Self, String> {
+        Self::start_with_network(
+            xray_bin,
+            server_addr,
+            server_port,
+            user_id,
+            keys,
+            server_name,
+            Some(xhttp),
+        )
+    }
+
+    fn start_with_network(
+        xray_bin: &Path,
+        server_addr: &str,
+        server_port: u16,
+        user_id: &str,
+        keys: &RealityTestKeys,
+        server_name: &str,
+        xhttp: Option<&XhttpClientSettings>,
     ) -> Result<Self, String> {
         let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
         let socks_port = pick_free_port()?;
@@ -132,6 +179,7 @@ impl XrayClient {
             user_id,
             keys,
             server_name,
+            xhttp,
         );
         let config_path = dir.path().join("client.json");
         fs::write(&config_path, config).map_err(|e| e.to_string())?;
@@ -181,7 +229,24 @@ fn build_xray_config(
     user_id: &str,
     keys: &RealityTestKeys,
     server_name: &str,
+    xhttp: Option<&XhttpClientSettings>,
 ) -> String {
+    let (network, xhttp_block) = match xhttp {
+        None => ("tcp", String::new()),
+        Some(x) => (
+            "xhttp",
+            format!(
+                r#",
+      "xhttpSettings": {{
+        "path": "{path}",
+        "mode": "{mode}"
+      }}"#,
+                path = x.path,
+                mode = x.mode,
+            ),
+        ),
+    };
+
     format!(
         r#"{{
   "log": {{ "loglevel": "warning" }},
@@ -204,7 +269,7 @@ fn build_xray_config(
       }}]
     }},
     "streamSettings": {{
-      "network": "tcp",
+      "network": "{network}",
       "security": "reality",
       "realitySettings": {{
         "show": false,
@@ -213,7 +278,7 @@ fn build_xray_config(
         "password": "{password}",
         "shortId": "{short_id}",
         "spiderX": "/"
-      }}
+      }}{xhttp_block}
     }}
   }}]
 }}"#,
@@ -224,6 +289,8 @@ fn build_xray_config(
         server_name = server_name,
         password = keys.password,
         short_id = keys.short_id_hex,
+        network = network,
+        xhttp_block = xhttp_block,
     )
 }
 
