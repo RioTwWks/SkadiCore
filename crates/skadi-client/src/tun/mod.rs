@@ -3,16 +3,18 @@
 mod routing;
 
 use crate::config::TunConfig;
-use crate::dns::{DnsHandler, DnsIntercept};
+use crate::dns::{is_known_doh_hostname, DnsHandler, DnsIntercept};
 use crate::outbound::Outbound;
 use crate::pmtud::{parse_pmtud_mode, resolve_effective_mtu};
+use crate::tls_peek::{peek_tls_client_hello, tls_client_hello_sni};
 use anyhow::{Context, Result};
 use futures::{SinkExt, StreamExt};
 use netstack_smoltcp::{StackBuilder, TcpListener, UdpSocket};
 use routing::{resolve_proxy_ipv4, RoutingGuard};
 use skadi_core::Endpoint;
 use skadi_transport::{
-    copy_bidirectional_with_limits, read_vless_udp_frame, write_vless_udp_frame, RelayLimits,
+    copy_bidirectional_with_limits, read_vless_udp_frame, write_vless_udp_frame,
+    BufferedPrefixStream, RelayLimits,
 };
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tokio::sync::watch;
@@ -159,11 +161,33 @@ async fn handle_tcp_inbound(
                 debug!(%local, %remote, "blocked system DoT/DoH TCP connection");
                 return;
             }
+
+            let prefix = if dns_intercept.needs_doh_sni_inspection(remote) {
+                match peek_tls_client_hello(&mut stream).await {
+                    Ok(buf) => {
+                        if let Some(sni) = tls_client_hello_sni(&buf) {
+                            if is_known_doh_hostname(&sni) {
+                                debug!(%local, %remote, sni, "blocked system DoH by SNI");
+                                return;
+                            }
+                        }
+                        buf
+                    }
+                    Err(err) => {
+                        debug!(%local, %remote, error = %err, "TLS ClientHello peek failed");
+                        Vec::new()
+                    }
+                }
+            } else {
+                Vec::new()
+            };
+
             debug!(%local, %remote, "TUN TCP connection");
+            let mut relay_stream = BufferedPrefixStream::new(prefix, stream);
             match outbound.open_tcp(&socket_to_endpoint(remote)).await {
                 Ok(mut remote_stream) => {
                     if let Err(err) = copy_bidirectional_with_limits(
-                        &mut stream,
+                        &mut relay_stream,
                         &mut remote_stream,
                         RelayLimits::default(),
                     )

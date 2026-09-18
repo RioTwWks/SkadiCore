@@ -11,6 +11,10 @@
 
 ### Added
 
+- **SNI-based DoH block** — при `block_system_doh` TUN инспектирует TLS
+  ClientHello на :443 и блокирует известные DoH hostnames (dns.google,
+  cloudflare-dns.com, …), не только IP
+
 - **TUN PMTUD Phase 1** — default `client.tun.mtu = 1400`; `pmtud = "probe"`
   измеряет path MTU до прокси (Linux IP_MTU) и вычитает `mtu_overhead`
 

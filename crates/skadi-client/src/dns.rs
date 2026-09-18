@@ -56,7 +56,39 @@ impl DnsIntercept {
         }
         false
     }
+
+    /// Нужно ли читать TLS ClientHello и проверять SNI (DoH на неизвестном IP).
+    pub fn needs_doh_sni_inspection(&self, remote: SocketAddr) -> bool {
+        self.handler.is_some()
+            && self.block_system_doh
+            && remote.port() == 443
+            && !is_known_doh_ip(remote.ip())
+    }
 }
+
+/// Известные DoH hostnames (Cloudflare, Google, Quad9, OpenDNS, AdGuard, NextDNS).
+pub fn is_known_doh_hostname(host: &str) -> bool {
+    let host = host.trim_end_matches('.').to_ascii_lowercase();
+    KNOWN_DOH_HOSTNAMES
+        .iter()
+        .any(|known| host == *known || host.ends_with(&format!(".{}", known)))
+}
+
+const KNOWN_DOH_HOSTNAMES: &[&str] = &[
+    "cloudflare-dns.com",
+    "dns.cloudflare.com",
+    "one.one.one.one",
+    "dns.google",
+    "dns.google.com",
+    "dns.quad9.net",
+    "doh.opendns.com",
+    "doh.familyshield.opendns.com",
+    "dns.adguard.com",
+    "dns.adguard-dns.com",
+    "common.adguard.com",
+    "dns.nextdns.io",
+    "firefox.dns.nextdns.io",
+];
 
 impl DnsHandler {
     pub fn from_config(dns: &TunDnsConfig) -> Result<Self> {
@@ -222,6 +254,32 @@ mod tests {
         let web = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)), 443);
         assert!(intercept.should_block_tcp(doh));
         assert!(!intercept.should_block_tcp(web));
+    }
+
+    #[test]
+    fn matches_known_doh_hostnames() {
+        assert!(is_known_doh_hostname("dns.google"));
+        assert!(is_known_doh_hostname("DNS.GOOGLE"));
+        assert!(is_known_doh_hostname("cloudflare-dns.com"));
+        assert!(is_known_doh_hostname("foo.dns.nextdns.io"));
+        assert!(!is_known_doh_hostname("example.com"));
+        assert!(!is_known_doh_hostname("google.com"));
+    }
+
+    #[test]
+    fn needs_sni_inspection_for_unknown_ip_on_443() {
+        let dns = TunDnsConfig {
+            hijack: true,
+            mode: "udp".to_string(),
+            server: Some("8.8.8.8".to_string()),
+            block_system_dot: false,
+            block_system_doh: true,
+        };
+        let intercept = DnsIntercept::from_config(&dns).unwrap();
+        let unknown = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)), 443);
+        let known = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 443);
+        assert!(intercept.needs_doh_sni_inspection(unknown));
+        assert!(!intercept.needs_doh_sni_inspection(known));
     }
 
     #[test]

@@ -8,6 +8,7 @@ mod outbound;
 mod pmtud;
 mod runner;
 mod socks5;
+mod tls_peek;
 mod warnings;
 
 #[cfg(target_os = "linux")]
