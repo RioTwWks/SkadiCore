@@ -11,6 +11,10 @@
 
 ### Added
 
+- **TUN PMTUD Phase 2** — runtime ICMP для UDP: oversized датаграммы получают
+  ICMP Fragmentation Needed; входящие ICMP понижают effective MTU; ICMP echo
+  (ping) через userspace netstack
+
 - **SNI-based DoH block** — при `block_system_doh` TUN инспектирует TLS
   ClientHello на :443 и блокирует известные DoH hostnames (dns.google,
   cloudflare-dns.com, …), не только IP

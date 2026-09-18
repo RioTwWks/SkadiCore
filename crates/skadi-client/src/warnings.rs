@@ -22,8 +22,8 @@ pub fn warn_tun_mtu_high(mtu: u16) {
         warn!(
             mtu,
             recommended = RECOMMENDED_TUN_MTU,
-            "TUN MTU may cause fragmentation over VLESS+TLS overlay; Path MTU Discovery is not \
-             implemented — consider client.tun.mtu = {}",
+            "TUN MTU may cause fragmentation over VLESS+TLS overlay; runtime PMTUD only covers \
+             UDP — consider client.tun.mtu = {} or pmtud = \"probe\"",
             RECOMMENDED_TUN_MTU
         );
     }

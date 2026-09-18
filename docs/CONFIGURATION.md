@@ -960,13 +960,20 @@ SkadiCore при старте клиента выводит предупрежд
 | `pmtud` | string | `static` (по умолчанию), `probe` или `off` — см. ниже |
 | `mtu_overhead` | u16 | Запас на VLESS+TLS при `pmtud = "probe"` (по умолчанию `100`) |
 
-**PMTUD (Phase 1):** полноценный ICMP-driven PMTUD в userspace netstack не
-реализован. Доступно:
+**PMTUD:**
 
-- **`static`** — использовать `mtu` как есть (по умолчанию `1400`).
-- **`probe`** — при старте измерить path MTU до прокси (Linux `IP_MTU` на UDP
-  connect) и выставить `effective_mtu = min(mtu, path_mtu - mtu_overhead)`.
-- **`off`** — как `static`, без дополнительной логики.
+- **Phase 1** — выбор `effective_mtu` при старте:
+  - **`static`** — использовать `mtu` как есть (по умолчанию `1400`).
+  - **`probe`** — измерить path MTU до прокси (Linux `IP_MTU` на UDP connect)
+    и выставить `effective_mtu = min(mtu, path_mtu - mtu_overhead)`.
+  - **`off`** — как `static`, без дополнительной логики.
+- **Phase 2 (runtime)** — для UDP через TUN:
+  - oversized датаграммы не уходят в VLESS; приложению отправляется ICMP
+    *Fragmentation Needed* с текущим MTU;
+  - входящие ICMP type 3 code 4 понижают runtime MTU;
+  - ICMP echo (ping) включён в userspace netstack (`enable_icmp`).
+  - TCP MSS задаётся smoltcp по MTU интерфейса; динамическое изменение MTU TUN
+    device после старта не поддерживается. IPv6 ICMP PTB — не реализован.
 
 При `mtu >= 1500` и `pmtud != "probe"` клиент предупреждает о риске фрагментации.
 
