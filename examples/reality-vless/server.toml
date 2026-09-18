@@ -15,6 +15,7 @@ private_key = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI="
 short_ids = ["0123456789abcdef"]
 # fetch_impersonate_cert = true   # по умолчанию: leaf cert с dest для rkn-fix
 # impersonate_cert = "/path/to/dest-leaf.der"
+# kex_mode = "hybrid_pq"          # PQ-KEX (требует PQ-совместимый клиент; Xray — classic)
 
 [protocol.socks5]
 enabled = false

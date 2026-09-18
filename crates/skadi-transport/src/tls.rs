@@ -213,10 +213,6 @@ fn normalize_server_name(name: &str) -> Result<String> {
     Ok(trimmed.to_ascii_lowercase())
 }
 
-pub(crate) fn crypto_provider() -> Result<Arc<rustls::crypto::CryptoProvider>> {
-    crypto_provider_for_kex(crate::crypto::TlsKexMode::Classic)
-}
-
 pub(crate) fn crypto_provider_for_kex(
     mode: crate::crypto::TlsKexMode,
 ) -> Result<Arc<rustls::crypto::CryptoProvider>> {

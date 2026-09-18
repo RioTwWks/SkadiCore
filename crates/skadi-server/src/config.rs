@@ -412,7 +412,7 @@ impl Default for TlsConfig {
     }
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 pub struct RealityConfig {
     #[serde(default)]
     pub enabled: bool,
@@ -431,6 +431,24 @@ pub struct RealityConfig {
     /// Получить leaf-сертификат с `dest` при старте (если `impersonate_cert` не задан).
     #[serde(default = "default_fetch_impersonate_cert")]
     pub fetch_impersonate_cert: bool,
+    /// `classic` (по умолчанию) или `hybrid_pq` (X25519MLKEM768, RFC 10024).
+    #[serde(default = "default_tls_kex_mode")]
+    pub kex_mode: String,
+}
+
+impl Default for RealityConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            dest: None,
+            server_names: Vec::new(),
+            private_key: None,
+            short_ids: Vec::new(),
+            impersonate_cert: None,
+            fetch_impersonate_cert: default_fetch_impersonate_cert(),
+            kex_mode: default_tls_kex_mode(),
+        }
+    }
 }
 
 fn default_fetch_impersonate_cert() -> bool {
@@ -909,6 +927,7 @@ impl Config {
 
         // Проверяем, что ключ парсится (значение используется при сборке runtime-конфига).
         let _ = key_bytes;
+        parse_tls_kex_mode(&reality.kex_mode, "transport.reality.kex_mode")?;
         Ok(())
     }
 
@@ -942,6 +961,7 @@ impl Config {
             connect_timeout: self.connect_timeout(),
             idle_timeout: self.idle_timeout(),
             max_session_lifetime: self.max_session_lifetime(),
+            kex_mode: parse_tls_kex_mode(&reality.kex_mode, "transport.reality.kex_mode")?,
         })
     }
 
@@ -1063,6 +1083,47 @@ fn ensure_readable_file(path: &str, field: &str) -> Result<()> {
     }
     std::fs::File::open(&p).with_context(|| format!("{}: cannot read {}", field, path))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod reality_kex_tests {
+    use super::*;
+
+    const REALITY_STUB: &str = r#"
+[server]
+listen = "127.0.0.1:443"
+
+[protocol.vless]
+enabled = true
+
+[[protocol.vless.users]]
+id = "b831381d-6324-4d53-ad4f-8cda48b30811"
+
+[transport.reality]
+enabled = true
+dest = "www.example.com:443"
+server_names = ["www.example.com"]
+private_key = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI="
+short_ids = ["0123456789abcdef"]
+fetch_impersonate_cert = false
+"#;
+
+    #[test]
+    fn reality_hybrid_pq_kex_mode() {
+        let raw = format!("{REALITY_STUB}kex_mode = \"hybrid_pq\"\n");
+        let config: Config = toml::from_str(&raw).unwrap();
+        config.validate().unwrap();
+        let runtime = config.reality_server_config().unwrap();
+        assert_eq!(runtime.kex_mode, TlsKexMode::HybridPq);
+    }
+
+    #[test]
+    fn reality_defaults_to_classic_kex() {
+        let config: Config = toml::from_str(REALITY_STUB).unwrap();
+        config.validate().unwrap();
+        let runtime = config.reality_server_config().unwrap();
+        assert_eq!(runtime.kex_mode, TlsKexMode::Classic);
+    }
 }
 
 #[cfg(test)]

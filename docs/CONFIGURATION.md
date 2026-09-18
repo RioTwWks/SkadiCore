@@ -452,6 +452,23 @@ short_ids = ["0123456789abcdef"]
 | `short_ids` | `string[]` | Short ID в hex (1..8 байт каждый) |
 | `impersonate_cert` | `string?` | Путь к PEM/DER leaf-сертификата `dest` для ImpersonateCert (rkn-fix) |
 | `fetch_impersonate_cert` | `bool` | Получить leaf-сертификат с `dest` при старте (по умолчанию `true`) |
+| `kex_mode` | `string` | `classic` (по умолчанию) или `hybrid_pq` (X25519MLKEM768, RFC 10024) |
+
+### `kex_mode` (REALITY)
+
+| Значение | Описание |
+|----------|----------|
+| `classic` | Классический X25519 (совместимость с Xray / v2rayNG) |
+| `hybrid_pq` | Гибрид X25519 + ML-KEM-768 — защита от store-now-decrypt-later |
+
+При `hybrid_pq` клиент **должен** поддерживать X25519MLKEM768 (стандартные Xray-клиенты
+пока используют только `classic`). REALITY-аутентификация (X25519 short_id) не меняется —
+PQ-KEX применяется только к TLS 1.3 key exchange после успешного verify.
+
+```toml
+[transport.reality]
+kex_mode = "hybrid_pq"
+```
 
 ### REALITY-rkn-fix (анти-DPI)
 
@@ -465,9 +482,9 @@ short_ids = ["0123456789abcdef"]
 
 Если fetch не удался, сервер продолжает работу с randomized per-connection certs.
 
-**Криптографические ограничения:** REALITY использует X25519. Это не защищает
-от store-now-decrypt-later (квантовый перехват в будущем). См. `docs/RISKS.md`
-§1.5 и `SECURITY.md`.
+**Криптографические ограничения:** REALITY-аутентификация использует X25519.
+Для защиты TLS-сессии от store-now-decrypt-later включите `kex_mode = "hybrid_pq"`
+(на сервере и PQ-совместимом клиенте). См. `docs/RISKS.md` §1.5 и `SECURITY.md`.
 
 ### Клиент (Xray / Nekoray / v2rayNG)
 
