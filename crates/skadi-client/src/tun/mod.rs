@@ -5,7 +5,10 @@ mod routing;
 use crate::config::TunConfig;
 use crate::dns::{is_known_doh_hostname, DnsHandler, DnsIntercept};
 use crate::outbound::Outbound;
-use crate::pmtud::{parse_pmtud_mode, resolve_effective_mtu};
+use crate::pmtud::{
+    build_icmp_frag_needed_v4, max_udp_payload_ipv4, parse_icmp_frag_needed_v4, parse_pmtud_mode,
+    resolve_effective_mtu, MtuState,
+};
 use crate::tls_peek::{peek_tls_client_hello, tls_client_hello_sni};
 use anyhow::{Context, Result};
 use futures::{SinkExt, StreamExt};
@@ -48,10 +51,12 @@ pub async fn run(
         "client TUN starting"
     );
 
+    let mtu_state = MtuState::shared(effective_mtu);
     let mtu = effective_mtu as usize;
     let (stack, runner, udp_socket, tcp_listener) = StackBuilder::default()
         .enable_tcp(true)
         .enable_udp(true)
+        .enable_icmp(true)
         .mtu(mtu)
         .build()
         .context("failed to build userspace netstack")?;
@@ -70,24 +75,53 @@ pub async fn run(
     let framed = device.into_framed();
     let (mut tun_sink, mut tun_stream) = framed.split();
     let (mut stack_sink, mut stack_stream) = stack.split();
+    let (stack_inject_tx, mut stack_inject_rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
 
-    let stack_to_tun = tokio::spawn(async move {
-        while let Some(pkt) = stack_stream.next().await {
-            if let Ok(pkt) = pkt {
-                if let Err(err) = tun_sink.send(pkt).await {
-                    warn!(error = %err, "failed to write packet to TUN");
-                    break;
+    let stack_to_tun = tokio::spawn({
+        let mtu_state = mtu_state.clone();
+        async move {
+            while let Some(pkt) = stack_stream.next().await {
+                if let Ok(pkt) = pkt {
+                    if let Some(next_mtu) = parse_icmp_frag_needed_v4(&pkt) {
+                        mtu_state.try_lower(next_mtu);
+                    }
+                    if let Err(err) = tun_sink.send(pkt).await {
+                        warn!(error = %err, "failed to write packet to TUN");
+                        break;
+                    }
                 }
             }
         }
     });
 
     let tun_to_stack = tokio::spawn(async move {
-        while let Some(pkt) = tun_stream.next().await {
-            if let Ok(pkt) = pkt {
-                if let Err(err) = stack_sink.send(pkt).await {
-                    warn!(error = %err, "failed to write packet to netstack");
-                    break;
+        loop {
+            tokio::select! {
+                pkt = tun_stream.next() => {
+                    match pkt {
+                        Some(Ok(pkt)) => {
+                            if let Err(err) = stack_sink.send(pkt).await {
+                                warn!(error = %err, "failed to write packet to netstack");
+                                break;
+                            }
+                        }
+                        Some(Err(err)) => {
+                            warn!(error = %err, "failed to read packet from TUN");
+                            break;
+                        }
+                        None => break,
+                    }
+                }
+                injected = stack_inject_rx.recv() => {
+                    match injected {
+                        Some(pkt) => {
+                            if let Err(err) = stack_sink.send(pkt).await {
+                                warn!(error = %err, "failed to inject packet into netstack");
+                                break;
+                            }
+                        }
+                        None => break,
+                    }
                 }
             }
         }
@@ -104,8 +138,17 @@ pub async fn run(
     let udp_task = tokio::spawn({
         let outbound = outbound.clone();
         let dns_intercept = dns_intercept.clone();
+        let mtu_state = mtu_state.clone();
+        let stack_inject_tx = stack_inject_tx.clone();
         async move {
-            handle_udp_inbound(udp_socket, outbound, dns_intercept).await;
+            handle_udp_inbound(
+                udp_socket,
+                outbound,
+                dns_intercept,
+                mtu_state,
+                stack_inject_tx,
+            )
+            .await;
         }
     });
 
@@ -208,6 +251,8 @@ async fn handle_udp_inbound(
     udp_socket: UdpSocket,
     outbound: Outbound,
     dns_intercept: DnsIntercept,
+    mtu_state: std::sync::Arc<MtuState>,
+    stack_inject_tx: tokio::sync::mpsc::UnboundedSender<Vec<u8>>,
 ) {
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -280,9 +325,19 @@ async fn handle_udp_inbound(
                 map.insert(key, tx.clone());
                 let outbound = outbound.clone();
                 let reply_tx = reply_tx.clone();
+                let mtu_state = mtu_state.clone();
+                let stack_inject_tx = stack_inject_tx.clone();
                 tokio::spawn(async move {
-                    if let Err(err) =
-                        relay_udp_flow(outbound, tunnel_remote, local, rx, reply_tx).await
+                    if let Err(err) = relay_udp_flow(
+                        outbound,
+                        tunnel_remote,
+                        local,
+                        rx,
+                        reply_tx,
+                        mtu_state,
+                        stack_inject_tx,
+                    )
+                    .await
                     {
                         debug!(%local, %tunnel_remote, error = %err, "TUN UDP flow ended");
                     }
@@ -305,6 +360,8 @@ async fn relay_udp_flow(
     local: SocketAddr,
     mut inbound: tokio::sync::mpsc::UnboundedReceiver<Vec<u8>>,
     reply_tx: tokio::sync::mpsc::UnboundedSender<(Vec<u8>, SocketAddr, SocketAddr)>,
+    mtu_state: std::sync::Arc<MtuState>,
+    stack_inject_tx: tokio::sync::mpsc::UnboundedSender<Vec<u8>>,
 ) -> Result<()> {
     let mut stream = outbound
         .open_udp(&socket_to_endpoint(remote))
@@ -315,7 +372,41 @@ async fn relay_udp_flow(
         tokio::select! {
             payload = inbound.recv() => {
                 match payload {
-                    Some(data) => write_vless_udp_frame(&mut stream, &data).await?,
+                    Some(data) => {
+                        let max_payload = max_udp_payload_ipv4(mtu_state.get());
+                        if data.len() > max_payload {
+                            if let (IpAddr::V4(src), IpAddr::V4(dst)) = (local.ip(), remote.ip()) {
+                                let icmp = build_icmp_frag_needed_v4(
+                                    src,
+                                    dst,
+                                    local.port(),
+                                    remote.port(),
+                                    mtu_state.get(),
+                                );
+                                if stack_inject_tx.send(icmp).is_err() {
+                                    break;
+                                }
+                                debug!(
+                                    %local,
+                                    %remote,
+                                    payload_len = data.len(),
+                                    max_payload,
+                                    mtu = mtu_state.get(),
+                                    "dropped oversized UDP datagram; sent ICMP Fragmentation Needed"
+                                );
+                            } else {
+                                debug!(
+                                    %local,
+                                    %remote,
+                                    payload_len = data.len(),
+                                    max_payload,
+                                    "dropped oversized UDP datagram (IPv6 ICMP PTB not implemented)"
+                                );
+                            }
+                            continue;
+                        }
+                        write_vless_udp_frame(&mut stream, &data).await?
+                    }
                     None => break,
                 }
             }
