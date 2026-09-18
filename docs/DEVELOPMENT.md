@@ -433,6 +433,11 @@ cargo deny check
 
 Конфигурация: `deny.toml` в корне репозитория. Запускается в CI (job `cargo deny`).
 
+Политика supply-chain:
+- **advisories** — yanked crates и unsound advisories → ошибка; unmaintained — для direct deps workspace
+- **bans** — запрещены `openssl`, `openssl-sys`, `native-tls`, `tokio-native-tls`, `hyper-tls`
+- **sources** — только `crates.io`; git-источники запрещены (vendored `rustls` — path dep, не git)
+
 ### Покрытие тестами (tarpaulin)
 
 ```bash

@@ -378,7 +378,7 @@ gRPC API слушает на `127.0.0.1` с Bearer-токеном. Но что �
 - `[sources]` — разрешить только `crates.io` и конкретные git-репозитории.
 - `[advisories]` — уровень `deny` для всех уязвимостей.
 
-- [ ] Расширить `deny.toml`: `[bans]`, `[sources]`, `[advisories]` (сверить с текущим)
+- [x] Расширить `deny.toml`: `[bans]`, `[sources]`, `[advisories]` (сверить с текущим)
 
 ---
 

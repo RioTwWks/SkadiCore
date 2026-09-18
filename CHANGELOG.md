@@ -11,6 +11,9 @@
 
 ### Added
 
+- **Supply-chain `deny.toml`** — запрет OpenSSL/native-tls стеков; только crates.io;
+  yanked/unsound advisories → deny
+
 - **PQ-KEX для REALITY** — `transport.reality.kex_mode = "hybrid_pq"`
   (X25519MLKEM768, RFC 10024) для TLS-сессии после REALITY verify
 
