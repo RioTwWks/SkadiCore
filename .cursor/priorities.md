@@ -17,7 +17,8 @@
 
 Обратная связь аудита (2026-09-15): приоритеты 1–7 + 6.2–6.4 — ✅.
 DoT/блокировка системного DoH, гибридный PQ-KEX — ✅.
-Runtime ICMP PMTUD (Phase 2) — ✅. Bearer masking — ✅. PQ-KEX для REALITY — ✅. Далее: `deny.toml`.
+Runtime ICMP PMTUD (Phase 2) — ✅. Bearer masking — ✅. PQ-KEX для REALITY — ✅.
+`deny.toml` hardening — ✅. Далее: gRPC audit log или `scripts/probe-test.sh`.
 
 ## Позже
 

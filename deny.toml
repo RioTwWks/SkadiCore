@@ -1,4 +1,5 @@
 # cargo-deny — https://embarkstudios.github.io/cargo-deny/
+# Supply-chain policy: advisories, banned TLS stacks, trusted sources.
 
 [graph]
 all-features = false
@@ -7,9 +8,9 @@ no-default-features = false
 [advisories]
 version = 2
 db-urls = ["https://github.com/rustsec/advisory-db"]
-yanked = "warn"
+yanked = "deny"
 unmaintained = "workspace"
-unsound = "workspace"
+unsound = "all"
 ignore = [
     # Transitive via rustls dev-deps in tests; skadi crates use rustls-pki-types::PemObject.
     { id = "RUSTSEC-2025-0134", reason = "rustls-pemfile only via rustls test dependency" },
@@ -38,8 +39,16 @@ allow = [
 [bans]
 multiple-versions = "warn"
 wildcards = "allow"
+# SkadiCore uses rustls + ring; OpenSSL / native-tls stacks are forbidden.
+deny = [
+    { name = "openssl" },
+    { name = "openssl-sys" },
+    { name = "native-tls" },
+    { name = "tokio-native-tls" },
+    { name = "hyper-tls" },
+]
 
 [sources]
 unknown-registry = "deny"
-unknown-git = "warn"
+unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
