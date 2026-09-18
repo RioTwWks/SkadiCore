@@ -11,6 +11,9 @@
 
 ### Added
 
+- **Bearer token masking** — `api.token` как `SecretString`; structured-логи
+  (`--log-format=json|pretty`) маскируют `Bearer <token>` → `Bearer [REDACTED]`
+
 - **TUN PMTUD Phase 2** — runtime ICMP для UDP: oversized датаграммы получают
   ICMP Fragmentation Needed; входящие ICMP понижают effective MTU; ICMP echo
   (ping) через userspace netstack

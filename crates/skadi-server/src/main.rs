@@ -67,15 +67,13 @@ async fn main() -> Result<()> {
 }
 
 fn init_tracing(cli: &Cli) -> Result<()> {
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| cli.log_level.clone().into());
+    use skadi_server::observability::tracing_init::{self, LogFormat as TracingLogFormat};
 
-    let builder = tracing_subscriber::fmt().with_env_filter(filter);
-    match cli.log_format {
-        LogFormat::Json => builder.json().init(),
-        LogFormat::Pretty => builder.init(),
-    }
-    Ok(())
+    let format = match cli.log_format {
+        LogFormat::Json => TracingLogFormat::Json,
+        LogFormat::Pretty => TracingLogFormat::Pretty,
+    };
+    tracing_init::init_tracing(&cli.log_level, format)
 }
 
 async fn run_client(cli: Cli) -> Result<()> {
