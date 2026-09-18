@@ -22,8 +22,8 @@ use skadi_protocol::{
 };
 use skadi_transport::{
     accept_xhttp, copy_bidirectional_with_limits, relay_vless_mux_with_limits,
-    relay_vless_udp_with_limits, OutboundTcpTransport, RealityError, RealityTransport, RelayLimits,
-    TlsTransport, UdpTransport, XhttpAcceptResult, XhttpConfig, XhttpSessionManager,
+    relay_vless_udp_with_limits, AwgManager, OutboundTcpTransport, RealityError, RealityTransport,
+    RelayLimits, TlsTransport, UdpTransport, XhttpAcceptResult, XhttpConfig, XhttpSessionManager,
     IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG,
 };
 use std::net::SocketAddr;
@@ -82,6 +82,7 @@ pub async fn run_server_with_store(
         addrs = %config.server.listen,
         tls = config.tls_enabled(),
         reality = config.reality_enabled(),
+        awg = config.awg_enabled(),
         api = config.api.enabled,
         metrics = config.metrics.enabled,
         idle_timeout_secs = ?config.server.timeouts.idle_timeout_secs,
@@ -164,8 +165,32 @@ pub async fn run_server_with_store(
         None
     };
 
+    let awg_handle = if config.awg_enabled() {
+        let awg_config = config.awg_server_config()?;
+        let awg_shutdown = shutdown_rx.clone();
+        Some(tokio::spawn(async move {
+            match AwgManager::start(&awg_config).await {
+                Ok(manager) => {
+                    if let Err(e) = manager.run_until_shutdown(awg_shutdown).await {
+                        error!(error = %e, "AmneziaWG stopped with error");
+                    }
+                }
+                Err(e) => error!(error = %e, "failed to start AmneziaWG"),
+            }
+        }))
+    } else {
+        None
+    };
+
+    let proxy_enabled = enabled_protocols.socks5 || enabled_protocols.vless;
     let mut accept_handles = Vec::with_capacity(listeners.len());
+    if !proxy_enabled {
+        info!("proxy protocols disabled; TCP accept loop skipped (AWG-only mode)");
+    }
     for listener in listeners {
+        if !proxy_enabled {
+            break;
+        }
         let shutdown = shutdown_rx.clone();
         let outbound_tcp = outbound_tcp.clone();
         let outbound_udp = outbound_udp.clone();
@@ -201,6 +226,10 @@ pub async fn run_server_with_store(
     }
 
     if let Some(handle) = metrics_handle {
+        let _ = handle.await;
+    }
+
+    if let Some(handle) = awg_handle {
         let _ = handle.await;
     }
 

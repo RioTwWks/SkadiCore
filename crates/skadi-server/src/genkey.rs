@@ -47,3 +47,32 @@ pub fn generate_reality_keys() -> Result<()> {
 
     Ok(())
 }
+
+/// Сгенерировать Curve25519 keypair для AmneziaWG / WireGuard.
+pub fn generate_awg_keys() -> Result<()> {
+    let (private_key, public_key) = skadi_transport::generate_keypair();
+
+    println!("AmneziaWG keypair generated:");
+    println!("  private_key = \"{}\"", private_key);
+    println!("  public_key  = \"{}\"", public_key);
+    println!();
+    println!("Example [transport.awg] section:");
+    println!("[transport.awg]");
+    println!("enabled = true");
+    println!("listen = \"0.0.0.0:51820\"");
+    println!("private_key = \"{}\"", private_key);
+    println!("address = \"10.8.0.1/24\"");
+    println!();
+    println!("[[transport.awg.peers]]");
+    println!("public_key = \"<client-public-key>\"");
+    println!("allowed_ips = [\"10.8.0.2/32\"]");
+    println!();
+    println!("Client peer section (mirror server keys):");
+    println!("  PrivateKey = <client-private-key>");
+    println!("  PublicKey  = \"{}\"  # server", public_key);
+    println!("  Endpoint   = <server-host>:51820");
+    println!();
+    println!("Requires: amneziawg-go + awg (amneziawg-tools). Set AWG_GO_BINARY / AWG_TOOLS_BINARY if not in PATH.");
+
+    Ok(())
+}

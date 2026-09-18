@@ -34,7 +34,7 @@ enum Command {
     Client,
     /// Проверить конфиг без запуска.
     CheckConfig,
-    /// Сгенерировать ключи REALITY.
+    /// Сгенерировать ключи (REALITY или AmneziaWG).
     Genkey {
         #[arg(value_enum, default_value = "reality")]
         kind: GenkeyKind,
@@ -44,6 +44,7 @@ enum Command {
 #[derive(clap::ValueEnum, Clone, Debug)]
 enum GenkeyKind {
     Reality,
+    Awg,
 }
 
 #[tokio::main]
@@ -54,6 +55,7 @@ async fn main() -> Result<()> {
         Some(Command::CheckConfig) => skadi_server::check_config(&cli.config),
         Some(Command::Genkey { kind }) => match kind {
             GenkeyKind::Reality => skadi_server::genkey::generate_reality_keys(),
+            GenkeyKind::Awg => skadi_server::genkey::generate_awg_keys(),
         },
         Some(Command::Client) => {
             init_tracing(&cli)?;
@@ -111,6 +113,7 @@ async fn run_server(cli: Cli) -> Result<()> {
         listen = %config.server.listen,
         tls = config.tls_enabled(),
         reality = config.reality_enabled(),
+        awg = config.awg_enabled(),
         api = config.api.enabled,
         metrics = config.metrics.enabled,
         "SkadiCore starting"

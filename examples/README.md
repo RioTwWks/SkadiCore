@@ -6,6 +6,7 @@
 |---------|----------|-----------|
 | [reality-vless/](reality-vless/) | VLESS + REALITY (рекомендуется) | REALITY |
 | [reality-xhttp-vless/](reality-xhttp-vless/) | VLESS + REALITY + XHTTP | REALITY + XHTTP |
+| [awg-vpn/](awg-vpn/) | AmneziaWG VPN (UDP) | AmneziaWG |
 | [vless-tls/](vless-tls/) | VLESS поверх TLS | TLS 1.3 |
 | [socks5-tls/](socks5-tls/) | SOCKS5 user-pass поверх TLS | TLS 1.3 |
 

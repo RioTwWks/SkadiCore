@@ -1,0 +1,39 @@
+# SkadiCore: AmneziaWG VPN (UDP, обфусцированный WireGuard)
+# Запуск: cargo run --bin skadicore -- --config examples/awg-vpn/server.toml
+#
+# Требует: amneziawg-go + awg (amneziawg-tools), root/CAP_NET_ADMIN.
+# Ключи: cargo run --bin skadicore -- genkey awg
+
+[server]
+listen = "127.0.0.1:18080"
+
+[protocol.socks5]
+enabled = false
+
+[protocol.vless]
+enabled = false
+
+[transport.awg]
+enabled = true
+listen = "0.0.0.0:51820"
+interface = "skadiwg0"
+private_key = "wSf6Og3dFsu4+nhBpvSwjXiByo7Q8e8KKis/SDDvlEw="
+address = "10.8.0.1/24"
+mtu = 1420
+
+# AWG 2.0 obfuscation — должны совпадать на клиенте
+jc = 8
+jmin = 64
+jmax = 1024
+s1 = 32
+s2 = 32
+s3 = 16
+s4 = 16
+h1 = "1-10000000"
+h2 = "10000001-20000000"
+h3 = "20000001-30000000"
+h4 = "30000001-40000000"
+
+[[transport.awg.peers]]
+public_key = "kHkjzj1KeQjR/82vXYRdQPA113MAzNRkDsedH5kZLi4="
+allowed_ips = ["10.8.0.2/32"]

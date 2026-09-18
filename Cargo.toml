@@ -59,6 +59,10 @@ criterion = { version = "0.5", features = ["html_reports"] }
 # Property-based тесты
 proptest = "1"
 
+# WireGuard / AmneziaWG config
+wireguard-conf = { version = "2", features = ["amneziawg"] }
+ipnet = "2"
+
 # Внутренние крейты
 skadi-core = { path = "crates/skadi-core" }
 skadi-transport = { path = "crates/skadi-transport" }
