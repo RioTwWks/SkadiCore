@@ -1,7 +1,8 @@
 //! Запуск `amneziawg-go` и применение конфигурации через `awg setconf`.
 
-use super::config::AwgServerConfig;
-use super::render::render_server_conf;
+use super::config::{AwgClientConfig, AwgServerConfig};
+use super::nat::{apply_nat, AwgNatConfig};
+use super::render::{render_client_conf, render_server_conf, AwgClientExport};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
@@ -36,7 +37,10 @@ pub struct AwgManager {
 
 impl AwgManager {
     /// Поднять AWG-интерфейс и применить конфиг.
-    pub async fn start(config: &AwgServerConfig) -> Result<Self, AwgError> {
+    pub async fn start(
+        config: &AwgServerConfig,
+        nat: Option<&AwgNatConfig>,
+    ) -> Result<Self, AwgError> {
         let go_bin = find_awg_go_binary()?;
         let tools_bin = find_awg_tools_binary()?;
 
@@ -81,6 +85,10 @@ impl AwgManager {
                 output.status,
                 String::from_utf8_lossy(&output.stderr)
             )));
+        }
+
+        if let Some(nat_cfg) = nat {
+            apply_nat(nat_cfg)?;
         }
 
         info!(
@@ -136,6 +144,124 @@ impl AwgManager {
 }
 
 impl Drop for AwgManager {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
+/// Клиентский AWG: поднимает `amneziawg-go` и применяет client `.conf`.
+pub struct AwgClientManager {
+    child: Child,
+    interface_name: String,
+    conf_path: PathBuf,
+}
+
+impl AwgClientManager {
+    pub async fn start(config: &AwgClientConfig) -> Result<Self, AwgError> {
+        let go_bin = find_awg_go_binary()?;
+        let tools_bin = find_awg_tools_binary()?;
+
+        let export = AwgClientExport {
+            private_key: config.private_key.clone(),
+            address: config.address.clone(),
+            dns: config.dns.clone(),
+            allowed_ips: config.allowed_ips.clone(),
+            persistent_keepalive: config.persistent_keepalive,
+        };
+        let conf = render_client_conf(
+            &config.server_public_key,
+            &config.endpoint,
+            &export,
+            &config.obfuscation,
+            config.mtu,
+        )
+        .map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+
+        let conf_dir = std::env::temp_dir().join("skadicore-awg-client");
+        std::fs::create_dir_all(&conf_dir).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+        let conf_path = conf_dir.join(format!("{}.conf", config.interface_name));
+        std::fs::write(&conf_path, &conf).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+
+        info!(
+            interface = %config.interface_name,
+            endpoint = %config.endpoint,
+            "starting amneziawg-go client"
+        );
+
+        let mut child = Command::new(&go_bin)
+            .args(["-f", &config.interface_name])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| AwgError::SpawnFailed(e.to_string()))?;
+
+        let socket = PathBuf::from(config.uapi_socket_path());
+        wait_for_socket(&socket, &mut child)?;
+
+        let output = Command::new(&tools_bin)
+            .args([
+                "setconf",
+                &config.interface_name,
+                conf_path.to_str().unwrap(),
+            ])
+            .output()
+            .map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+
+        if !output.status.success() {
+            let _ = child.kill();
+            return Err(AwgError::SetconfFailed(format!(
+                "exit {:?}: {}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr)
+            )));
+        }
+
+        info!(interface = %config.interface_name, "AmneziaWG client configured");
+        Ok(Self {
+            child,
+            interface_name: config.interface_name.clone(),
+            conf_path,
+        })
+    }
+
+    pub async fn run_until_shutdown(
+        mut self,
+        mut shutdown: watch::Receiver<bool>,
+    ) -> Result<(), AwgError> {
+        loop {
+            if *shutdown.borrow() {
+                break;
+            }
+            if self
+                .child
+                .try_wait()
+                .map_err(|e| AwgError::SpawnFailed(e.to_string()))?
+                .is_some()
+            {
+                return Err(AwgError::EarlyExit);
+            }
+            tokio::select! {
+                _ = shutdown.changed() => {
+                    if *shutdown.borrow() {
+                        break;
+                    }
+                }
+                _ = sleep(Duration::from_millis(500)) => {}
+            }
+        }
+        self.stop();
+        Ok(())
+    }
+
+    pub fn stop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        let _ = std::fs::remove_file(&self.conf_path);
+        info!(interface = %self.interface_name, "AmneziaWG client stopped");
+    }
+}
+
+impl Drop for AwgClientManager {
     fn drop(&mut self) {
         self.stop();
     }

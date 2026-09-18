@@ -1,8 +1,9 @@
-//! Транспортный слой: TCP, TLS, REALITY, XHTTP, AmneziaWG.
+//! Транспортный слой: TCP, TLS, REALITY, XHTTP, AmneziaWG, Hysteria2, TUIC.
 
 pub mod awg;
 pub mod crypto;
 mod hybrid_kx;
+pub mod hysteria2;
 pub mod mux;
 pub mod outbound;
 mod outbound_policy;
@@ -11,15 +12,21 @@ pub mod relay;
 pub mod tcp;
 pub mod tls;
 pub mod tls_client;
+pub mod tuic;
 pub mod udp;
 pub mod xhttp;
 mod xudp;
 
 pub use awg::{
-    generate_keypair, render_server_conf, AwgError, AwgManager, AwgObfuscationConfig,
-    AwgPeerConfig, AwgServerConfig,
+    apply_nat, generate_keypair, public_key_from_private, render_client_conf, render_server_conf,
+    AwgClientConfig, AwgClientExport, AwgClientManager, AwgError, AwgManager, AwgNatConfig,
+    AwgObfuscationConfig, AwgPeerConfig, AwgServerConfig,
 };
 pub use crypto::TlsKexMode;
+pub use hysteria2::{
+    render_server_yaml as render_hysteria2_yaml, Hysteria2Error, Hysteria2Manager,
+    Hysteria2ServerConfig,
+};
 pub use mux::relay_vless_mux_with_limits;
 pub use outbound::{OutboundTcpTransport, TcpUpstream};
 pub use reality::{
@@ -33,6 +40,7 @@ pub use relay::{
 pub use tcp::TcpTransport;
 pub use tls::{TlsCertPaths, TlsError, TlsServerConfig, TlsSniCert, TlsTransport};
 pub use tls_client::{TlsClientConfig, TlsOutboundTransport};
+pub use tuic::{render_server_toml as render_tuic_toml, TuicError, TuicManager, TuicServerConfig};
 pub use udp::{
     read_vless_udp_frame, relay_vless_udp_with_limits, write_vless_udp_frame, UdpTransport,
 };

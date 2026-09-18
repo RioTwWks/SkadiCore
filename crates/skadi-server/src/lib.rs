@@ -22,9 +22,9 @@ use skadi_protocol::{
 };
 use skadi_transport::{
     accept_xhttp, copy_bidirectional_with_limits, relay_vless_mux_with_limits,
-    relay_vless_udp_with_limits, AwgManager, OutboundTcpTransport, RealityError, RealityTransport,
-    RelayLimits, TlsTransport, UdpTransport, XhttpAcceptResult, XhttpConfig, XhttpSessionManager,
-    IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG,
+    relay_vless_udp_with_limits, AwgManager, Hysteria2Manager, OutboundTcpTransport, RealityError,
+    RealityTransport, RelayLimits, TlsTransport, TuicManager, UdpTransport, XhttpAcceptResult,
+    XhttpConfig, XhttpSessionManager, IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG,
 };
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -83,6 +83,8 @@ pub async fn run_server_with_store(
         tls = config.tls_enabled(),
         reality = config.reality_enabled(),
         awg = config.awg_enabled(),
+        hysteria2 = config.hysteria2_enabled(),
+        tuic = config.tuic_enabled(),
         api = config.api.enabled,
         metrics = config.metrics.enabled,
         idle_timeout_secs = ?config.server.timeouts.idle_timeout_secs,
@@ -167,9 +169,10 @@ pub async fn run_server_with_store(
 
     let awg_handle = if config.awg_enabled() {
         let awg_config = config.awg_server_config()?;
+        let awg_nat = config.awg_nat_config();
         let awg_shutdown = shutdown_rx.clone();
         Some(tokio::spawn(async move {
-            match AwgManager::start(&awg_config).await {
+            match AwgManager::start(&awg_config, Some(&awg_nat)).await {
                 Ok(manager) => {
                     if let Err(e) = manager.run_until_shutdown(awg_shutdown).await {
                         error!(error = %e, "AmneziaWG stopped with error");
@@ -182,10 +185,44 @@ pub async fn run_server_with_store(
         None
     };
 
+    let hysteria2_handle = if config.hysteria2_enabled() {
+        let hy2_config = config.hysteria2_server_config()?;
+        let hy2_shutdown = shutdown_rx.clone();
+        Some(tokio::spawn(async move {
+            match Hysteria2Manager::start(&hy2_config).await {
+                Ok(manager) => {
+                    if let Err(e) = manager.run_until_shutdown(hy2_shutdown).await {
+                        error!(error = %e, "Hysteria2 stopped with error");
+                    }
+                }
+                Err(e) => error!(error = %e, "failed to start Hysteria2"),
+            }
+        }))
+    } else {
+        None
+    };
+
+    let tuic_handle = if config.tuic_enabled() {
+        let tuic_config = config.tuic_server_config()?;
+        let tuic_shutdown = shutdown_rx.clone();
+        Some(tokio::spawn(async move {
+            match TuicManager::start(&tuic_config).await {
+                Ok(manager) => {
+                    if let Err(e) = manager.run_until_shutdown(tuic_shutdown).await {
+                        error!(error = %e, "TUIC stopped with error");
+                    }
+                }
+                Err(e) => error!(error = %e, "failed to start TUIC"),
+            }
+        }))
+    } else {
+        None
+    };
+
     let proxy_enabled = enabled_protocols.socks5 || enabled_protocols.vless;
     let mut accept_handles = Vec::with_capacity(listeners.len());
     if !proxy_enabled {
-        info!("proxy protocols disabled; TCP accept loop skipped (AWG-only mode)");
+        info!("proxy protocols disabled; TCP accept loop skipped (UDP transport-only mode)");
     }
     for listener in listeners {
         if !proxy_enabled {
@@ -230,6 +267,14 @@ pub async fn run_server_with_store(
     }
 
     if let Some(handle) = awg_handle {
+        let _ = handle.await;
+    }
+
+    if let Some(handle) = hysteria2_handle {
+        let _ = handle.await;
+    }
+
+    if let Some(handle) = tuic_handle {
         let _ = handle.await;
     }
 

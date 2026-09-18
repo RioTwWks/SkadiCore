@@ -2,7 +2,8 @@
 
 use crate::config::ClientConfig;
 use crate::outbound::Outbound;
-use anyhow::Result;
+use anyhow::{Context, Result};
+use skadi_transport::AwgClientManager;
 use tokio::sync::watch;
 use tracing::info;
 
@@ -10,11 +11,19 @@ use tracing::info;
 use crate::tun;
 
 pub async fn run(config: ClientConfig, mut shutdown: watch::Receiver<bool>) -> Result<()> {
+    if config.awg_enabled() {
+        return run_awg_client(config, shutdown).await;
+    }
+
     let outbound = Outbound::from_config(&config)?;
 
+    let remote = config
+        .remote
+        .as_ref()
+        .context("remote section not configured")?;
     info!(
-        remote = %config.remote.server,
-        tls = config.remote.tls.enabled,
+        remote = %remote.server,
+        tls = remote.tls.enabled,
         socks5 = config.socks5_enabled(),
         tun = config.tun_enabled(),
         "SkadiCore client starting"
@@ -37,7 +46,12 @@ pub async fn run(config: ClientConfig, mut shutdown: watch::Receiver<bool>) -> R
         {
             let outbound = outbound.clone();
             let tun = config.client.tun.clone();
-            let proxy_server = config.remote.server.clone();
+            let proxy_server = config
+                .remote
+                .as_ref()
+                .context("remote section not configured")?
+                .server
+                .clone();
             let shutdown_rx = shutdown.clone();
             tasks.push(tokio::spawn(async move {
                 tun::run(&tun, &proxy_server, outbound, shutdown_rx).await
@@ -72,5 +86,26 @@ pub async fn run(config: ClientConfig, mut shutdown: watch::Receiver<bool>) -> R
     }
 
     info!("SkadiCore client stopped");
+    Ok(())
+}
+
+async fn run_awg_client(config: ClientConfig, shutdown: watch::Receiver<bool>) -> Result<()> {
+    let awg_config = config.awg_runtime_config()?;
+    info!(
+        interface = %awg_config.interface_name,
+        endpoint = %awg_config.endpoint,
+        "SkadiCore AWG client starting"
+    );
+
+    let manager = AwgClientManager::start(&awg_config)
+        .await
+        .map_err(|e| anyhow::anyhow!("failed to start AWG client: {}", e))?;
+
+    manager
+        .run_until_shutdown(shutdown)
+        .await
+        .map_err(|e| anyhow::anyhow!("AWG client stopped with error: {}", e))?;
+
+    info!("SkadiCore AWG client stopped");
     Ok(())
 }

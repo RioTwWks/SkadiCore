@@ -1,0 +1,24 @@
+# SkadiCore AWG client mode
+# Запуск: sudo cargo run --bin skadicore -- client --config examples/awg-vpn/client.toml
+#
+# Требует: amneziawg-go + awg, root/CAP_NET_ADMIN
+
+[awg]
+interface = "skadiawg0"
+private_key = "<client-private-key>"
+address = "10.8.0.2/24"
+server_public_key = "BKVtmgSy1V3vWdvrZ8NWdxgPACG6OBVH3pH8ptdNZFA="
+endpoint = "127.0.0.1:51820"
+dns = "1.1.1.1"
+mtu = 1420
+jc = 8
+jmin = 64
+jmax = 1024
+s1 = 32
+s2 = 32
+s3 = 16
+s4 = 16
+h1 = "1-10000000"
+h2 = "10000001-20000000"
+h3 = "20000001-30000000"
+h4 = "30000001-40000000"

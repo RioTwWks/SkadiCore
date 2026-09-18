@@ -1,0 +1,23 @@
+# SkadiCore: TUIC (QUIC) через внешний `tuic-server` binary
+# Запуск: cargo run --bin skadicore -- --config examples/tuic/server.toml
+#
+# Требует: tuic-server (TUIC_SERVER_BINARY или PATH)
+
+[server]
+listen = "127.0.0.1:18080"
+
+[protocol.socks5]
+enabled = false
+
+[protocol.vless]
+enabled = false
+
+[transport.tuic]
+enabled = true
+listen = "0.0.0.0:8443"
+uuid = "00000000-0000-0000-0000-000000000001"
+password = "change-me-tuic"
+certificate = "examples/tuic/cert.pem"
+private_key = "examples/tuic/key.pem"
+congestion_control = "bbr"
+alpn = ["h3"]

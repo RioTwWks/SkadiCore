@@ -4,9 +4,10 @@ use serde::Deserialize;
 use skadi_core::SecretString;
 use skadi_protocol::{Socks5Config, VlessConfig};
 use skadi_transport::{
-    AwgObfuscationConfig, AwgPeerConfig, AwgServerConfig, OutboundTcpTransport, PaddingRange,
+    public_key_from_private, AwgClientExport, AwgNatConfig, AwgObfuscationConfig, AwgPeerConfig,
+    AwgServerConfig, Hysteria2ServerConfig, OutboundTcpTransport, PaddingRange,
     RealityServerConfig, TlsCertPaths, TlsClientConfig, TlsKexMode, TlsServerConfig, TlsSniCert,
-    XhttpConfig, XhttpMode,
+    TuicServerConfig, XhttpConfig, XhttpMode,
 };
 use std::collections::HashSet;
 use std::net::{IpAddr, SocketAddr};
@@ -343,6 +344,10 @@ pub struct TransportConfig {
     pub xhttp: XhttpFileConfig,
     #[serde(default)]
     pub awg: AwgFileConfig,
+    #[serde(default)]
+    pub hysteria2: Hysteria2FileConfig,
+    #[serde(default)]
+    pub tuic: TuicFileConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -417,6 +422,21 @@ pub struct AwgFileConfig {
     pub h4: String,
     #[serde(default)]
     pub peers: Vec<AwgPeerFileConfig>,
+    #[serde(default)]
+    pub nat: AwgNatFileConfig,
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct AwgNatFileConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    pub egress_interface: Option<String>,
+    #[serde(default = "default_awg_nat_subnet")]
+    pub subnet: String,
+}
+
+fn default_awg_nat_subnet() -> String {
+    "10.8.0.0/24".to_string()
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -506,6 +526,79 @@ impl Default for AwgFileConfig {
             h3: default_awg_h3(),
             h4: default_awg_h4(),
             peers: Vec::new(),
+            nat: AwgNatFileConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Hysteria2FileConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_hysteria2_listen")]
+    pub listen: String,
+    pub password: Option<String>,
+    pub cert: Option<String>,
+    pub key: Option<String>,
+    pub masquerade_url: Option<String>,
+}
+
+fn default_hysteria2_listen() -> String {
+    ":443".to_string()
+}
+
+impl Default for Hysteria2FileConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            listen: default_hysteria2_listen(),
+            password: None,
+            cert: None,
+            key: None,
+            masquerade_url: None,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct TuicFileConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_tuic_listen")]
+    pub listen: String,
+    pub uuid: Option<String>,
+    pub password: Option<String>,
+    pub certificate: Option<String>,
+    pub private_key: Option<String>,
+    #[serde(default = "default_tuic_cc")]
+    pub congestion_control: String,
+    #[serde(default = "default_tuic_alpn")]
+    pub alpn: Vec<String>,
+}
+
+fn default_tuic_listen() -> String {
+    "0.0.0.0:8443".to_string()
+}
+
+fn default_tuic_cc() -> String {
+    "bbr".to_string()
+}
+
+fn default_tuic_alpn() -> Vec<String> {
+    vec!["h3".to_string()]
+}
+
+impl Default for TuicFileConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            listen: default_tuic_listen(),
+            uuid: None,
+            password: None,
+            certificate: None,
+            private_key: None,
+            congestion_control: default_tuic_cc(),
+            alpn: default_tuic_alpn(),
         }
     }
 }
@@ -653,8 +746,15 @@ impl Config {
         let socks_on = self.protocol.socks5.enabled;
         let vless_on = self.protocol.vless.enabled;
 
-        if !socks_on && !vless_on && !self.transport.awg.enabled {
-            bail!("at least one of protocol (socks5/vless) or transport.awg must be enabled");
+        if !socks_on
+            && !vless_on
+            && !self.transport.awg.enabled
+            && !self.transport.hysteria2.enabled
+            && !self.transport.tuic.enabled
+        {
+            bail!(
+                "at least one of protocol (socks5/vless) or transport (awg/hysteria2/tuic) must be enabled"
+            );
         }
 
         if socks_on
@@ -680,6 +780,8 @@ impl Config {
 
         self.validate_xhttp()?;
         self.validate_awg()?;
+        self.validate_hysteria2()?;
+        self.validate_tuic()?;
         self.validate_outbound_tls()?;
 
         if self.transport.tls.enabled {
@@ -1063,6 +1165,165 @@ impl Config {
         Ok(())
     }
 
+    pub fn awg_nat_config(&self) -> AwgNatConfig {
+        let awg = &self.transport.awg;
+        AwgNatConfig {
+            enabled: awg.nat.enabled,
+            egress_interface: awg.nat.egress_interface.clone(),
+            subnet: awg.nat.subnet.clone(),
+        }
+    }
+
+    /// Экспорт клиентского AWG `.conf` для peer по индексу.
+    pub fn export_awg_client_conf(
+        &self,
+        peer_index: usize,
+        client_private_key: &str,
+        endpoint: &str,
+    ) -> Result<String> {
+        let server = self.awg_server_config()?;
+        let peer = server
+            .peers
+            .get(peer_index)
+            .with_context(|| format!("peer index {} out of range", peer_index))?;
+        let server_public =
+            public_key_from_private(&server.private_key).map_err(|e| anyhow::anyhow!(e))?;
+        let client_address = peer
+            .allowed_ips
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "10.8.0.2/32".to_string());
+        let export = AwgClientExport {
+            private_key: client_private_key.to_string(),
+            address: client_address,
+            dns: Some("1.1.1.1".to_string()),
+            allowed_ips: vec!["0.0.0.0/0".into(), "::/0".into()],
+            persistent_keepalive: peer.persistent_keepalive.or(Some(25)),
+        };
+        skadi_transport::render_client_conf(
+            &server_public,
+            endpoint,
+            &export,
+            &server.obfuscation,
+            server.mtu,
+        )
+        .map_err(|e| anyhow::anyhow!("{}", e))
+    }
+
+    pub fn hysteria2_enabled(&self) -> bool {
+        self.transport.hysteria2.enabled
+    }
+
+    pub fn hysteria2_server_config(&self) -> Result<Hysteria2ServerConfig> {
+        let hy2 = &self.transport.hysteria2;
+        let listen: SocketAddr = hy2
+            .listen
+            .parse()
+            .or_else(|_| format!("0.0.0.0{}", hy2.listen).parse())
+            .with_context(|| format!("invalid transport.hysteria2.listen: {}", hy2.listen))?;
+        let password = hy2
+            .password
+            .clone()
+            .filter(|p| !p.trim().is_empty())
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "transport.hysteria2.password is required when hysteria2 is enabled"
+                )
+            })?;
+        let cert = hy2
+            .cert
+            .clone()
+            .filter(|c| !c.trim().is_empty())
+            .ok_or_else(|| {
+                anyhow::anyhow!("transport.hysteria2.cert is required when hysteria2 is enabled")
+            })?;
+        let key = hy2
+            .key
+            .clone()
+            .filter(|k| !k.trim().is_empty())
+            .ok_or_else(|| {
+                anyhow::anyhow!("transport.hysteria2.key is required when hysteria2 is enabled")
+            })?;
+        Ok(Hysteria2ServerConfig {
+            listen,
+            password,
+            cert_path: cert,
+            key_path: key,
+            masquerade_url: hy2.masquerade_url.clone(),
+        })
+    }
+
+    fn validate_hysteria2(&self) -> Result<()> {
+        if !self.transport.hysteria2.enabled {
+            return Ok(());
+        }
+        let runtime = self.hysteria2_server_config()?;
+        skadi_transport::render_hysteria2_yaml(&runtime)
+            .map_err(|e| anyhow::anyhow!("transport.hysteria2: {}", e))?;
+        Ok(())
+    }
+
+    pub fn tuic_enabled(&self) -> bool {
+        self.transport.tuic.enabled
+    }
+
+    pub fn tuic_server_config(&self) -> Result<TuicServerConfig> {
+        let tuic = &self.transport.tuic;
+        let listen: SocketAddr = tuic
+            .listen
+            .parse()
+            .with_context(|| format!("invalid transport.tuic.listen: {}", tuic.listen))?;
+        let uuid = tuic
+            .uuid
+            .clone()
+            .filter(|u| !u.trim().is_empty())
+            .ok_or_else(|| {
+                anyhow::anyhow!("transport.tuic.uuid is required when tuic is enabled")
+            })?;
+        skadi_protocol::vless::Uuid::parse(&uuid)
+            .with_context(|| format!("invalid transport.tuic.uuid: {}", uuid))?;
+        let password = tuic
+            .password
+            .clone()
+            .filter(|p| !p.trim().is_empty())
+            .ok_or_else(|| {
+                anyhow::anyhow!("transport.tuic.password is required when tuic is enabled")
+            })?;
+        let cert = tuic
+            .certificate
+            .clone()
+            .filter(|c| !c.trim().is_empty())
+            .ok_or_else(|| {
+                anyhow::anyhow!("transport.tuic.certificate is required when tuic is enabled")
+            })?;
+        let key = tuic
+            .private_key
+            .clone()
+            .filter(|k| !k.trim().is_empty())
+            .ok_or_else(|| {
+                anyhow::anyhow!("transport.tuic.private_key is required when tuic is enabled")
+            })?;
+        Ok(TuicServerConfig {
+            listen,
+            uuid,
+            password,
+            cert_path: cert,
+            key_path: key,
+            congestion_control: tuic.congestion_control.clone(),
+            alpn: tuic.alpn.clone(),
+        })
+    }
+
+    fn validate_tuic(&self) -> Result<()> {
+        if !self.transport.tuic.enabled {
+            return Ok(());
+        }
+        let runtime = self.tuic_server_config()?;
+        skadi_transport::render_tuic_toml(&runtime)
+            .map_err(|e| anyhow::anyhow!("transport.tuic: {}", e))?;
+        Ok(())
+    }
+
     /// Собрать runtime-конфиг TLS для `TlsTransport`.
     pub fn tls_server_config(&self) -> Result<TlsServerConfig> {
         let tls = &self.transport.tls;
@@ -1230,11 +1491,28 @@ impl Config {
             "  awg:     {}",
             if self.transport.awg.enabled {
                 format!(
-                    "enabled (listen={}, iface={}, {} peers)",
+                    "enabled (listen={}, iface={}, {} peers, nat={})",
                     self.transport.awg.listen,
                     self.transport.awg.interface,
-                    self.transport.awg.peers.len()
+                    self.transport.awg.peers.len(),
+                    on_off(self.transport.awg.nat.enabled)
                 )
+            } else {
+                "disabled".to_string()
+            }
+        );
+        println!(
+            "  hysteria2: {}",
+            if self.transport.hysteria2.enabled {
+                format!("enabled (listen={})", self.transport.hysteria2.listen)
+            } else {
+                "disabled".to_string()
+            }
+        );
+        println!(
+            "  tuic:    {}",
+            if self.transport.tuic.enabled {
+                format!("enabled (listen={})", self.transport.tuic.listen)
             } else {
                 "disabled".to_string()
             }

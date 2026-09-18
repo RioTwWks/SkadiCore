@@ -46,3 +46,24 @@ impl AwgServerConfig {
         format!("/var/run/amneziawg/{}.sock", self.interface_name)
     }
 }
+
+/// Клиентская конфигурация AWG (skadicore client).
+#[derive(Debug, Clone)]
+pub struct AwgClientConfig {
+    pub interface_name: String,
+    pub private_key: String,
+    pub address: String,
+    pub server_public_key: String,
+    pub endpoint: String,
+    pub mtu: Option<u16>,
+    pub dns: Option<String>,
+    pub allowed_ips: Vec<String>,
+    pub persistent_keepalive: Option<u16>,
+    pub obfuscation: AwgObfuscationConfig,
+}
+
+impl AwgClientConfig {
+    pub fn uapi_socket_path(&self) -> String {
+        format!("/var/run/amneziawg/{}.sock", self.interface_name)
+    }
+}

@@ -1,10 +1,88 @@
 //! Рендер WireGuard/AmneziaWG `.conf` через `wireguard-conf`.
 
-use super::config::{AwgPeerConfig, AwgServerConfig};
+use super::config::{AwgObfuscationConfig, AwgPeerConfig, AwgServerConfig};
 use anyhow::{bail, Context, Result};
 use ipnet::IpNet;
 use wireguard_conf::prelude::*;
 use wireguard_conf::{AmneziaWG, AmneziaWG2, HRange};
+
+/// Параметры клиентского `.conf` для экспорта.
+#[derive(Debug, Clone)]
+pub struct AwgClientExport {
+    pub private_key: String,
+    pub address: String,
+    pub dns: Option<String>,
+    /// Маршруты через туннель (по умолчанию full-tunnel).
+    pub allowed_ips: Vec<String>,
+    pub persistent_keepalive: Option<u16>,
+}
+
+impl Default for AwgClientExport {
+    fn default() -> Self {
+        Self {
+            private_key: String::new(),
+            address: String::new(),
+            dns: Some("1.1.1.1".into()),
+            allowed_ips: vec!["0.0.0.0/0".into(), "::/0".into()],
+            persistent_keepalive: Some(25),
+        }
+    }
+}
+
+/// Собрать клиентский `.conf` для peer (AmneziaVPN / awg-quick).
+pub fn render_client_conf(
+    server_public_key: &str,
+    endpoint: &str,
+    client: &AwgClientExport,
+    obfuscation: &AwgObfuscationConfig,
+    mtu: Option<u16>,
+) -> Result<String> {
+    let private_key = PrivateKey::try_from(client.private_key.as_str())
+        .map_err(|e| anyhow::anyhow!("invalid client private_key: {}", e))?;
+    let address = parse_ipnet(&client.address, "client address")?;
+    let awg = build_amnezia_settings(obfuscation)?;
+
+    let allowed_ips = client
+        .allowed_ips
+        .iter()
+        .map(|ip| parse_ipnet(ip, "allowed_ips"))
+        .collect::<Result<Vec<_>>>()?;
+
+    if endpoint.trim().is_empty() {
+        bail!("AWG endpoint must not be empty");
+    }
+
+    let server_public_key = PublicKey::try_from(server_public_key)
+        .map_err(|e| anyhow::anyhow!("invalid server public_key: {}", e))?;
+
+    let mut peer_builder = Peer::builder();
+    let mut peer = peer_builder
+        .public_key(server_public_key)
+        .endpoint(endpoint.trim())
+        .allowed_ips(allowed_ips);
+
+    if let Some(keepalive) = client.persistent_keepalive {
+        peer = peer.persistent_keepalive(keepalive);
+    }
+
+    let mut iface_builder = Interface::builder();
+    let mut builder = iface_builder
+        .private_key(private_key)
+        .address([address])
+        .amnezia_settings(awg)
+        .peers([peer.build()]);
+
+    if let Some(mtu) = mtu {
+        builder = builder.mtu(mtu as usize);
+    }
+    if let Some(dns) = &client.dns {
+        if !dns.trim().is_empty() {
+            builder = builder.dns(vec![dns.trim().to_string()]);
+        }
+    }
+
+    Ok(builder.build().to_string())
+}
 
 /// Собрать `.conf` для `awg setconf` / экспорта клиенту.
 pub fn render_server_conf(config: &AwgServerConfig) -> Result<String> {

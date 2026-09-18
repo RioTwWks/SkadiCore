@@ -34,6 +34,11 @@ h2 = "10000001-20000000"
 h3 = "20000001-30000000"
 h4 = "30000001-40000000"
 
+[transport.awg.nat]
+enabled = false
+subnet = "10.8.0.0/24"
+# egress_interface = "eth0"
+
 [[transport.awg.peers]]
 public_key = "kHkjzj1KeQjR/82vXYRdQPA113MAzNRkDsedH5kZLi4="
 allowed_ips = ["10.8.0.2/32"]
