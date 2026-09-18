@@ -104,15 +104,23 @@ fn parse_h_range(value: &str, field: &str) -> Result<HRange> {
     }
 
     if let Some((lo, hi)) = trimmed.split_once('-') {
-        let min = lo.trim().parse::<u32>().with_context(|| format!("invalid {}", field))?;
-        let max = hi.trim().parse::<u32>().with_context(|| format!("invalid {}", field))?;
+        let min = lo
+            .trim()
+            .parse::<u32>()
+            .with_context(|| format!("invalid {}", field))?;
+        let max = hi
+            .trim()
+            .parse::<u32>()
+            .with_context(|| format!("invalid {}", field))?;
         if min > max {
             bail!("AWG {}: min ({}) must be <= max ({})", field, min, max);
         }
         return Ok(HRange::new(min, max));
     }
 
-    let single = trimmed.parse::<u32>().with_context(|| format!("invalid {}", field))?;
+    let single = trimmed
+        .parse::<u32>()
+        .with_context(|| format!("invalid {}", field))?;
     Ok(HRange::new(single, single))
 }
 

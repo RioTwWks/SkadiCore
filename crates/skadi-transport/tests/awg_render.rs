@@ -1,8 +1,6 @@
 //! Unit-тесты рендера AmneziaWG конфигурации.
 
-use skadi_transport::{
-    AwgObfuscationConfig, AwgPeerConfig, AwgServerConfig, render_server_conf,
-};
+use skadi_transport::{render_server_conf, AwgObfuscationConfig, AwgPeerConfig, AwgServerConfig};
 
 #[test]
 fn render_awg_server_conf_contains_obfuscation() {

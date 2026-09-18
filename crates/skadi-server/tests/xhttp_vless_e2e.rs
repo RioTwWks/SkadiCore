@@ -93,6 +93,7 @@ async fn spawn_xhttp_vless_server(
                 no_sse_header: false,
                 x_padding_bytes: None,
             },
+            ..Default::default()
         },
         api: Default::default(),
         metrics: Default::default(),

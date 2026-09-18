@@ -40,7 +40,8 @@ impl AwgManager {
         let go_bin = find_awg_go_binary()?;
         let tools_bin = find_awg_tools_binary()?;
 
-        let conf = render_server_conf(config).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+        let conf =
+            render_server_conf(config).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
 
         let conf_dir = std::env::temp_dir().join("skadicore-awg");
         std::fs::create_dir_all(&conf_dir).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
@@ -65,7 +66,11 @@ impl AwgManager {
         wait_for_socket(&socket, &mut child)?;
 
         let output = Command::new(&tools_bin)
-            .args(["setconf", &config.interface_name, conf_path.to_str().unwrap()])
+            .args([
+                "setconf",
+                &config.interface_name,
+                conf_path.to_str().unwrap(),
+            ])
             .output()
             .map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
 
@@ -142,7 +147,10 @@ fn find_awg_go_binary() -> Result<PathBuf, AwgError> {
         if p.is_file() {
             return Ok(p);
         }
-        return Err(AwgError::BinaryNotFound(format!("AWG_GO_BINARY={} not found", path)));
+        return Err(AwgError::BinaryNotFound(format!(
+            "AWG_GO_BINARY={} not found",
+            path
+        )));
     }
     which("amneziawg-go").ok_or_else(|| {
         AwgError::BinaryNotFound(
@@ -158,7 +166,10 @@ fn find_awg_tools_binary() -> Result<PathBuf, AwgError> {
         if p.is_file() {
             return Ok(p);
         }
-        return Err(AwgError::ToolsNotFound(format!("AWG_TOOLS_BINARY={} not found", path)));
+        return Err(AwgError::ToolsNotFound(format!(
+            "AWG_TOOLS_BINARY={} not found",
+            path
+        )));
     }
     which("awg").or_else(|| which("wg")).ok_or_else(|| {
         AwgError::ToolsNotFound(

@@ -998,7 +998,9 @@ impl Config {
             .private_key
             .clone()
             .filter(|k| !k.trim().is_empty())
-            .ok_or_else(|| anyhow::anyhow!("transport.awg.private_key is required when awg is enabled"))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!("transport.awg.private_key is required when awg is enabled")
+            })?;
 
         if awg.interface.trim().is_empty() {
             bail!("transport.awg.interface must not be empty");

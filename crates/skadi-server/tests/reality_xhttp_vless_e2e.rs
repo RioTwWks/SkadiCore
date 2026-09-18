@@ -111,6 +111,7 @@ async fn vless_over_reality_xhttp_with_xray_client() {
                 no_sse_header: false,
                 x_padding_bytes: None,
             },
+            ..Default::default()
         },
         api: Default::default(),
         metrics: Default::default(),
