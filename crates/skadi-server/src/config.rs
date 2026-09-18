@@ -4,8 +4,9 @@ use serde::Deserialize;
 use skadi_core::SecretString;
 use skadi_protocol::{Socks5Config, VlessConfig};
 use skadi_transport::{
-    OutboundTcpTransport, PaddingRange, RealityServerConfig, TlsCertPaths, TlsClientConfig,
-    TlsKexMode, TlsServerConfig, TlsSniCert, XhttpConfig, XhttpMode,
+    AwgObfuscationConfig, AwgPeerConfig, AwgServerConfig, OutboundTcpTransport, PaddingRange,
+    RealityServerConfig, TlsCertPaths, TlsClientConfig, TlsKexMode, TlsServerConfig, TlsSniCert,
+    XhttpConfig, XhttpMode,
 };
 use std::collections::HashSet;
 use std::net::{IpAddr, SocketAddr};
@@ -340,6 +341,8 @@ pub struct TransportConfig {
     pub reality: RealityConfig,
     #[serde(default)]
     pub xhttp: XhttpFileConfig,
+    #[serde(default)]
+    pub awg: AwgFileConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -374,6 +377,135 @@ impl Default for XhttpFileConfig {
             mode: default_xhttp_mode(),
             no_sse_header: false,
             x_padding_bytes: None,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct AwgFileConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_awg_listen")]
+    pub listen: String,
+    #[serde(default = "default_awg_interface")]
+    pub interface: String,
+    pub private_key: Option<String>,
+    #[serde(default = "default_awg_address")]
+    pub address: String,
+    pub mtu: Option<u16>,
+    #[serde(default = "default_awg_jc")]
+    pub jc: u8,
+    #[serde(default = "default_awg_jmin")]
+    pub jmin: u16,
+    #[serde(default = "default_awg_jmax")]
+    pub jmax: u16,
+    #[serde(default = "default_awg_s1")]
+    pub s1: u8,
+    #[serde(default = "default_awg_s2")]
+    pub s2: u8,
+    #[serde(default = "default_awg_s3")]
+    pub s3: u8,
+    #[serde(default = "default_awg_s4")]
+    pub s4: u8,
+    #[serde(default = "default_awg_h1")]
+    pub h1: String,
+    #[serde(default = "default_awg_h2")]
+    pub h2: String,
+    #[serde(default = "default_awg_h3")]
+    pub h3: String,
+    #[serde(default = "default_awg_h4")]
+    pub h4: String,
+    #[serde(default)]
+    pub peers: Vec<AwgPeerFileConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct AwgPeerFileConfig {
+    pub public_key: String,
+    #[serde(default)]
+    pub allowed_ips: Vec<String>,
+    pub preshared_key: Option<String>,
+    pub endpoint: Option<String>,
+    pub persistent_keepalive: Option<u16>,
+}
+
+fn default_awg_listen() -> String {
+    "0.0.0.0:51820".to_string()
+}
+
+fn default_awg_interface() -> String {
+    "skadiwg0".to_string()
+}
+
+fn default_awg_address() -> String {
+    "10.8.0.1/24".to_string()
+}
+
+fn default_awg_jc() -> u8 {
+    8
+}
+
+fn default_awg_jmin() -> u16 {
+    64
+}
+
+fn default_awg_jmax() -> u16 {
+    1024
+}
+
+fn default_awg_s1() -> u8 {
+    32
+}
+
+fn default_awg_s2() -> u8 {
+    32
+}
+
+fn default_awg_s3() -> u8 {
+    16
+}
+
+fn default_awg_s4() -> u8 {
+    16
+}
+
+fn default_awg_h1() -> String {
+    "1-10000000".to_string()
+}
+
+fn default_awg_h2() -> String {
+    "10000001-20000000".to_string()
+}
+
+fn default_awg_h3() -> String {
+    "20000001-30000000".to_string()
+}
+
+fn default_awg_h4() -> String {
+    "30000001-40000000".to_string()
+}
+
+impl Default for AwgFileConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            listen: default_awg_listen(),
+            interface: default_awg_interface(),
+            private_key: None,
+            address: default_awg_address(),
+            mtu: Some(1420),
+            jc: default_awg_jc(),
+            jmin: default_awg_jmin(),
+            jmax: default_awg_jmax(),
+            s1: default_awg_s1(),
+            s2: default_awg_s2(),
+            s3: default_awg_s3(),
+            s4: default_awg_s4(),
+            h1: default_awg_h1(),
+            h2: default_awg_h2(),
+            h3: default_awg_h3(),
+            h4: default_awg_h4(),
+            peers: Vec::new(),
         }
     }
 }
@@ -521,8 +653,8 @@ impl Config {
         let socks_on = self.protocol.socks5.enabled;
         let vless_on = self.protocol.vless.enabled;
 
-        if !socks_on && !vless_on {
-            bail!("at least one protocol must be enabled (socks5 or vless)");
+        if !socks_on && !vless_on && !self.transport.awg.enabled {
+            bail!("at least one of protocol (socks5/vless) or transport.awg must be enabled");
         }
 
         if socks_on
@@ -547,6 +679,7 @@ impl Config {
         }
 
         self.validate_xhttp()?;
+        self.validate_awg()?;
         self.validate_outbound_tls()?;
 
         if self.transport.tls.enabled {
@@ -849,6 +982,85 @@ impl Config {
         Ok(())
     }
 
+    pub fn awg_enabled(&self) -> bool {
+        self.transport.awg.enabled
+    }
+
+    /// Runtime-конфиг AmneziaWG.
+    pub fn awg_server_config(&self) -> Result<AwgServerConfig> {
+        let awg = &self.transport.awg;
+        let listen: SocketAddr = awg
+            .listen
+            .parse()
+            .with_context(|| format!("invalid transport.awg.listen: {}", awg.listen))?;
+
+        let private_key = awg
+            .private_key
+            .clone()
+            .filter(|k| !k.trim().is_empty())
+            .ok_or_else(|| anyhow::anyhow!("transport.awg.private_key is required when awg is enabled"))?;
+
+        if awg.interface.trim().is_empty() {
+            bail!("transport.awg.interface must not be empty");
+        }
+
+        if awg.peers.is_empty() {
+            bail!("transport.awg.peers must contain at least one peer when awg is enabled");
+        }
+
+        let peers = awg
+            .peers
+            .iter()
+            .map(|peer| {
+                if peer.public_key.trim().is_empty() {
+                    bail!("transport.awg.peers[].public_key must not be empty");
+                }
+                if peer.allowed_ips.is_empty() {
+                    bail!("transport.awg.peers[].allowed_ips must not be empty");
+                }
+                Ok(AwgPeerConfig {
+                    public_key: peer.public_key.clone(),
+                    allowed_ips: peer.allowed_ips.clone(),
+                    preshared_key: peer.preshared_key.clone(),
+                    endpoint: peer.endpoint.clone(),
+                    persistent_keepalive: peer.persistent_keepalive,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(AwgServerConfig {
+            listen,
+            interface_name: awg.interface.clone(),
+            private_key,
+            address: awg.address.clone(),
+            mtu: awg.mtu,
+            obfuscation: AwgObfuscationConfig {
+                jc: awg.jc,
+                jmin: awg.jmin,
+                jmax: awg.jmax,
+                s1: awg.s1,
+                s2: awg.s2,
+                s3: awg.s3,
+                s4: awg.s4,
+                h1: awg.h1.clone(),
+                h2: awg.h2.clone(),
+                h3: awg.h3.clone(),
+                h4: awg.h4.clone(),
+            },
+            peers,
+        })
+    }
+
+    fn validate_awg(&self) -> Result<()> {
+        if !self.transport.awg.enabled {
+            return Ok(());
+        }
+        let runtime = self.awg_server_config()?;
+        skadi_transport::render_server_conf(&runtime)
+            .map_err(|e| anyhow::anyhow!("transport.awg: {}", e))?;
+        Ok(())
+    }
+
     /// Собрать runtime-конфиг TLS для `TlsTransport`.
     pub fn tls_server_config(&self) -> Result<TlsServerConfig> {
         let tls = &self.transport.tls;
@@ -1007,6 +1219,19 @@ impl Config {
                 format!(
                     "enabled (path={}, mode={})",
                     self.transport.xhttp.path, self.transport.xhttp.mode
+                )
+            } else {
+                "disabled".to_string()
+            }
+        );
+        println!(
+            "  awg:     {}",
+            if self.transport.awg.enabled {
+                format!(
+                    "enabled (listen={}, iface={}, {} peers)",
+                    self.transport.awg.listen,
+                    self.transport.awg.interface,
+                    self.transport.awg.peers.len()
                 )
             } else {
                 "disabled".to_string()

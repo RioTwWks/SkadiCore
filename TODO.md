@@ -511,7 +511,7 @@ REALITY реализован, но нет тестов, которые пров�
 **AmneziaWG** — обфусцированный WireGuard, стабильно проходит ТСПУ (2026).
 
 - [x] XHTTP-транспорт (+ REALITY, `password` в realitySettings; пример + E2E)
-- [ ] AmneziaWG как альтернативный транспорт
+- [x] AmneziaWG как альтернативный транспорт (MVP: `[transport.awg]` + amneziawg-go backend)
 
 #### 🛡️ REALITY-rkn-fix
 
@@ -551,5 +551,5 @@ X25519 + ML-KEM-768 (гибрид, напр. Qeli / Chrome). Долгосроч�
 
 1. ~~**XHTTP-транспорт**~~ — ✅
 2. ~~**REALITY-rkn-fix**~~ — ✅
-3. **AmneziaWG**
+3. ~~**AmneziaWG**~~ — ✅ MVP
 4. **Hysteria2 / TUIC**

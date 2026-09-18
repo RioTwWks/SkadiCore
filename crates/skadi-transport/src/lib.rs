@@ -1,5 +1,6 @@
-//! Транспортный слой: TCP, TLS, REALITY, XHTTP.
+//! Транспортный слой: TCP, TLS, REALITY, XHTTP, AmneziaWG.
 
+pub mod awg;
 pub mod crypto;
 mod hybrid_kx;
 pub mod mux;
@@ -14,6 +15,10 @@ pub mod udp;
 pub mod xhttp;
 mod xudp;
 
+pub use awg::{
+    generate_keypair, render_server_conf, AwgError, AwgManager, AwgObfuscationConfig,
+    AwgPeerConfig, AwgServerConfig,
+};
 pub use crypto::TlsKexMode;
 pub use mux::relay_vless_mux_with_limits;
 pub use outbound::{OutboundTcpTransport, TcpUpstream};

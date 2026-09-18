@@ -64,6 +64,13 @@ fn check_config_lib_helper() {
 }
 
 #[test]
+fn check_config_awg_example() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/awg-vpn/server.toml");
+    skadi_server::check_config(&path).expect("awg-vpn example config");
+}
+
+#[test]
 fn check_config_reality_xhttp_example() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/reality-xhttp-vless/server.toml");

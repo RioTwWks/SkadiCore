@@ -419,6 +419,64 @@ Packet-up: каждый POST содержит полный payload с monotonic 
 
 ---
 
+## Секция `[transport.awg]`
+
+**AmneziaWG** — обфусцированный WireGuard (UDP VPN). Отдельный ingress от
+VLESS/SOCKS5: SkadiCore запускает `amneziawg-go` и применяет конфиг через
+`awg setconf`. Требуются root/CAP_NET_ADMIN и внешние бинарники
+(`amneziawg-go`, `awg` из amneziawg-tools).
+
+```bash
+skadicore genkey awg
+```
+
+```toml
+[transport.awg]
+enabled = true
+listen = "0.0.0.0:51820"
+interface = "skadiwg0"
+private_key = "BASE64_WG_PRIVATE_KEY"
+address = "10.8.0.1/24"
+mtu = 1420
+
+# AWG 2.0 obfuscation (должны совпадать с клиентом)
+jc = 8
+jmin = 64
+jmax = 1024
+s1 = 32
+s2 = 32
+s3 = 16
+s4 = 16
+h1 = "1-10000000"
+h2 = "10000001-20000000"
+h3 = "20000001-30000000"
+h4 = "30000001-40000000"
+
+[[transport.awg.peers]]
+public_key = "BASE64_WG_PUBLIC_KEY"
+allowed_ips = ["10.8.0.2/32"]
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `enabled` | `bool` | Включить AmneziaWG VPN |
+| `listen` | `string` | UDP listen (`host:port`) |
+| `interface` | `string` | Имя TUN-интерфейса (`skadiwg0`) |
+| `private_key` | `string` | Серверный WireGuard private key (base64) |
+| `address` | `string` | CIDR интерфейса сервера |
+| `mtu` | `u16?` | MTU TUN (по умолчанию 1420) |
+| `jc`, `jmin`, `jmax` | int | Junk packets перед handshake |
+| `s1`…`s4` | int | Padding handshake/transport сообщений |
+| `h1`…`h4` | string | Magic header ranges (`min-max` или одно значение) |
+| `peers[].public_key` | `string` | Public key клиента |
+| `peers[].allowed_ips` | `string[]` | Разрешённые IP клиента |
+
+Переменные окружения: `AWG_GO_BINARY`, `AWG_TOOLS_BINARY`.
+
+Пример: `examples/awg-vpn/`.
+
+---
+
 ## Секция `[transport.reality]`
 
 REALITY — TLS-маскировка с fallback на реальный сайт при невалидном

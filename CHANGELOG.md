@@ -11,6 +11,9 @@
 
 ### Added
 
+- **AmneziaWG MVP** — `[transport.awg]` (UDP VPN, AWG 2.0 obfuscation), backend
+  `amneziawg-go` + `awg setconf`; `genkey awg`; пример `examples/awg-vpn/`
+
 - **Пример REALITY + XHTTP** — `examples/reality-xhttp-vless/` (server.toml,
   client-xray.json, README); E2E `reality_xhttp_vless_e2e` с Xray-клиентом
 
