@@ -22,8 +22,8 @@ hex.workspace = true
 rcgen.workspace = true
 ring.workspace = true
 rustls-native-certs = "0.8"
-hyper = { version = "1", features = ["server", "http1"] }
-hyper-util = { version = "0.1", features = ["tokio"] }
+hyper = { version = "1", features = ["server", "http1", "http2"] }
+hyper-util = { version = "0.1", features = ["tokio", "server-auto"] }
 http = "1"
 http-body = "1"
 http-body-util = "0.1"

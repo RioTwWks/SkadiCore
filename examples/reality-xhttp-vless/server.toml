@@ -1,0 +1,30 @@
+# SkadiCore: VLESS + REALITY + XHTTP (stream-one)
+# Запуск: cargo run --bin skadicore -- --config examples/reality-xhttp-vless/server.toml
+#
+# Ключи: cargo run --bin skadicore -- genkey reality
+
+[server]
+listen = "0.0.0.0:443"
+
+[transport.reality]
+enabled = true
+dest = "www.microsoft.com:443"
+server_names = ["www.microsoft.com"]
+private_key = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI="
+short_ids = ["0123456789abcdef"]
+fetch_impersonate_cert = false
+
+[transport.xhttp]
+enabled = true
+path = "/xhttp"
+mode = "stream-one"
+
+[protocol.socks5]
+enabled = false
+
+[protocol.vless]
+enabled = true
+
+[[protocol.vless.users]]
+id = "b831381d-6324-4d53-ad4f-8cda48b30811"
+email = "demo@example.com"

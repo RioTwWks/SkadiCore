@@ -62,3 +62,10 @@ fn check_config_lib_helper() {
     fs::write(&path, VALID_MINIMAL).unwrap();
     skadi_server::check_config(&path).expect("valid config");
 }
+
+#[test]
+fn check_config_reality_xhttp_example() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/reality-xhttp-vless/server.toml");
+    skadi_server::check_config(&path).expect("reality-xhttp example config");
+}
