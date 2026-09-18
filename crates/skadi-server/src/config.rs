@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
 use serde::de::{self, Deserializer};
 use serde::Deserialize;
+use skadi_core::SecretString;
 use skadi_protocol::{Socks5Config, VlessConfig};
 use skadi_transport::{
     OutboundTcpTransport, PaddingRange, RealityServerConfig, TlsCertPaths, TlsClientConfig,
@@ -53,7 +54,7 @@ pub struct ApiConfig {
     pub enabled: bool,
     #[serde(default = "default_api_listen")]
     pub listen: String,
-    pub token: Option<String>,
+    pub token: Option<SecretString>,
     #[serde(default)]
     pub tls: ApiTlsConfig,
     /// Макс. RPC в секунду (глобально). Не задано или `0` — без лимита.
@@ -585,9 +586,9 @@ impl Config {
         let token = self
             .api
             .token
-            .as_deref()
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("api.token is required when api.enabled = true"))?;
-        if token.trim().is_empty() {
+        if token.is_blank() {
             bail!("api.token must not be empty");
         }
 
@@ -1062,6 +1063,25 @@ fn ensure_readable_file(path: &str, field: &str) -> Result<()> {
     }
     std::fs::File::open(&p).with_context(|| format!("{}: cannot read {}", field, path))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod secret_tests {
+    use super::{ApiConfig, SecretString};
+
+    #[test]
+    fn api_config_debug_masks_token() {
+        let api = ApiConfig {
+            enabled: true,
+            listen: "127.0.0.1:10085".to_string(),
+            token: Some(SecretString::new("super-secret-grpc-token")),
+            tls: Default::default(),
+            rate_limit_per_sec: None,
+        };
+        let debug = format!("{api:?}");
+        assert!(!debug.contains("super-secret-grpc-token"));
+        assert!(debug.contains("[REDACTED]"));
+    }
 }
 
 #[cfg(test)]

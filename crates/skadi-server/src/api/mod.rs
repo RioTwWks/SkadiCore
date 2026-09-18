@@ -26,10 +26,12 @@ pub async fn run_api_server(
         .parse()
         .with_context(|| format!("invalid api.listen: {}", config.listen))?;
 
-    let token = config
+    let token_value = config
         .token
-        .clone()
-        .expect("api.token validated at config load");
+        .as_ref()
+        .expect("api.token validated at config load")
+        .expose()
+        .to_owned();
     let rate_limiter = ApiRateLimiter::new(config.rate_limit_per_sec);
     let service = SkadiApiService::new(store);
     #[allow(clippy::result_large_err)]
@@ -37,7 +39,7 @@ pub async fn run_api_server(
         if let Some(limiter) = &rate_limiter {
             limiter.check()?;
         }
-        check_auth(&token, req)
+        check_auth(&token_value, req)
     });
 
     if config.tls.enabled {

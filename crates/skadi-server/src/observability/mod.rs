@@ -2,6 +2,7 @@
 
 mod http;
 mod metrics;
+pub mod tracing_init;
 
 pub use http::run_metrics_server;
 pub use metrics::{

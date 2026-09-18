@@ -692,6 +692,10 @@ key = "certs/api-key.pem"
 
 Аутентификация: заголовок `authorization: Bearer <token>`.
 
+`api.token` хранится как секрет: не попадает в `Debug`/`Display` конфига и
+маскируется в structured-логах (`Bearer [REDACTED]`). Метрики Prometheus
+не содержат токен.
+
 Пример с [grpcurl](https://github.com/fullstorydev/grpcurl):
 
 ```bash

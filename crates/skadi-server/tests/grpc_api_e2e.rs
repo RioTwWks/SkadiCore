@@ -7,6 +7,7 @@ use skadi_api::{
     AddVlessUserRequest, GetStatsRequest, ListVlessUsersRequest, RemoveVlessUserRequest,
     VlessUser as ProtoVlessUser,
 };
+use skadi_core::SecretString;
 use skadi_protocol::vless::{build_tcp_request, Uuid, VLESS_VERSION};
 use skadi_protocol::{VlessConfig, VlessUser};
 use skadi_server::config::{
@@ -133,7 +134,7 @@ async fn grpc_add_remove_vless_user_hot_reload() {
         api: ApiConfig {
             enabled: true,
             listen: format!("127.0.0.1:{}", api_port),
-            token: Some(API_TOKEN.to_string()),
+            token: Some(SecretString::new(API_TOKEN)),
             tls: ApiTlsConfig::default(),
             rate_limit_per_sec: None,
         },
@@ -233,7 +234,7 @@ async fn grpc_rejects_missing_token() {
         api: ApiConfig {
             enabled: true,
             listen: format!("127.0.0.1:{}", api_port),
-            token: Some(API_TOKEN.to_string()),
+            token: Some(SecretString::new(API_TOKEN)),
             tls: ApiTlsConfig::default(),
             rate_limit_per_sec: None,
         },
@@ -295,7 +296,7 @@ async fn grpc_api_over_tls() {
         api: ApiConfig {
             enabled: true,
             listen: format!("127.0.0.1:{}", api_port),
-            token: Some(API_TOKEN.to_string()),
+            token: Some(SecretString::new(API_TOKEN)),
             tls: ApiTlsConfig {
                 enabled: true,
                 cert: Some(cert_path.to_string_lossy().into_owned()),
@@ -357,7 +358,7 @@ async fn grpc_api_rate_limit() {
         api: ApiConfig {
             enabled: true,
             listen: format!("127.0.0.1:{}", api_port),
-            token: Some(API_TOKEN.to_string()),
+            token: Some(SecretString::new(API_TOKEN)),
             tls: ApiTlsConfig::default(),
             rate_limit_per_sec: Some(2),
         },
