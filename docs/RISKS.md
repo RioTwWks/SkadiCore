@@ -352,9 +352,9 @@ if config.authenticate(&uuid).is_none() {
 - TUN: `client.tun.dns.hijack = true` — перехват UDP/53.
 - TUN DoH/DoT: `mode = "doh"` (RFC 8484) или `mode = "dot"` (RFC 7858) через VLESS TCP+TLS
   (например `https://cloudflare-dns.com/dns-query`).
-- Системный DoT (TCP/853) и DoH к известным резолверам (TCP/443) блокируются
-  при `dns.hijack = true` (`block_system_dot`, `block_system_doh`). DoH по
-  неизвестным IP/SNI по-прежнему не перехватывается.
+- Системный DoT (TCP/853) и DoH (TCP/443 по известным IP и SNI) блокируются
+  при `dns.hijack = true` (`block_system_dot`, `block_system_doh`). DoH через
+  ECH или без SNI по-прежнему не перехватывается.
 
 **Практика:**
 ```bash
