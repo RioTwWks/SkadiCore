@@ -1,0 +1,20 @@
+# Локальный SOCKS5 → VLESS+REALITY (нативный outbound в разработке).
+# Пока для проверки конфига и будущего `skadicore client`.
+# Рабочий клиент: examples/reality-vless/client-xray.json + Xray-core.
+
+[client]
+listen = "127.0.0.1:10808"
+
+[remote]
+server = "127.0.0.1:443"
+uuid = "b831381d-6324-4d53-ad4f-8cda48b30811"
+
+[remote.tls]
+enabled = false
+
+[remote.reality]
+enabled = true
+# Xray password = URL-safe base64 публичного X25519 ключа сервера
+password = "REPLACE_WITH_XRAY_PASSWORD"
+short_id = "0123456789abcdef"
+server_name = "reality.test"

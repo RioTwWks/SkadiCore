@@ -20,7 +20,8 @@ DoT/блокировка системного DoH, гибридный PQ-KEX —
 Runtime ICMP PMTUD (Phase 2) — ✅. Bearer masking — ✅. PQ-KEX для REALITY — ✅.
 `deny.toml` hardening — ✅. Пример REALITY+XHTTP + E2E — ✅. AmneziaWG MVP — ✅.
 REALITY `RealityServerCertVerifier` — ✅. CHANGELOG Keep a Changelog — ✅.
-Далее: `CONTRIBUTING.md`, нативный REALITY-клиент (rustls verifier), CI smoke-transports.
+Далее: нативный REALITY-клиент (rustls ClientHello + `RealityServerCertVerifier` на data plane).
+`CONTRIBUTING.md`, CI smoke-transports, схема `[remote.reality]` — ✅.
 
 ## Позже
 
