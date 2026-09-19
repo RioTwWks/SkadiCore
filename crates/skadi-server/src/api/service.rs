@@ -19,10 +19,7 @@ pub struct SkadiApiService {
 
 impl SkadiApiService {
     pub fn new(store: Arc<UserStore>, audit_log: bool) -> Self {
-        Self {
-            store,
-            audit_log,
-        }
+        Self { store, audit_log }
     }
 
     fn audit(&self, peer: Option<&str>, method: &str, detail: &str, ok: bool) {
@@ -79,7 +76,12 @@ impl SkadiApi for SkadiApiService {
             }
             Err(e) => {
                 let msg = e.to_string();
-                self.audit(peer.as_deref(), "AddVlessUser", &format!("{} err={}", detail, msg), false);
+                self.audit(
+                    peer.as_deref(),
+                    "AddVlessUser",
+                    &format!("{} err={}", detail, msg),
+                    false,
+                );
                 Ok(Response::new(err_response(msg)))
             }
         }
@@ -166,7 +168,12 @@ impl SkadiApi for SkadiApiService {
             }
             Err(e) => {
                 let msg = e.to_string();
-                self.audit(peer.as_deref(), "AddSocks5User", &format!("{} err={}", detail, msg), false);
+                self.audit(
+                    peer.as_deref(),
+                    "AddSocks5User",
+                    &format!("{} err={}", detail, msg),
+                    false,
+                );
                 Ok(Response::new(err_response(msg)))
             }
         }
@@ -180,7 +187,12 @@ impl SkadiApi for SkadiApiService {
         let username = request.into_inner().username;
         if username.is_empty() {
             let resp = err_response("username is required");
-            self.audit(peer.as_deref(), "RemoveSocks5User", "username is required", false);
+            self.audit(
+                peer.as_deref(),
+                "RemoveSocks5User",
+                "username is required",
+                false,
+            );
             return Ok(Response::new(resp));
         }
 

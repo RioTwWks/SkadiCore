@@ -111,11 +111,7 @@ fn build_server_tls_config(tls: &crate::config::ApiTlsConfig) -> Result<ServerTl
 }
 
 #[allow(clippy::result_large_err)]
-fn check_auth(
-    token: &str,
-    req: Request<()>,
-    audit_log: bool,
-) -> Result<Request<()>, Status> {
+fn check_auth(token: &str, req: Request<()>, audit_log: bool) -> Result<Request<()>, Status> {
     let peer = audit::peer_addr(&req);
     let auth_header = req
         .metadata()

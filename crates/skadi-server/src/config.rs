@@ -1550,7 +1550,11 @@ impl Config {
                     Some(n) => format!(", rate_limit={}/s", n),
                     None => String::new(),
                 };
-                let audit = if self.api.audit_log { ", audit_log" } else { "" };
+                let audit = if self.api.audit_log {
+                    ", audit_log"
+                } else {
+                    ""
+                };
                 format!("enabled ({}{}{}{})", self.api.listen, tls, rate, audit)
             } else {
                 "disabled".to_string()
