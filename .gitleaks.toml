@@ -16,5 +16,8 @@ regexes = [
   '''test-only-not-a-secret''',
   '''change-me''',
   '''<client-private-key>''',
+  '''<client-public-key>''',
+  '''<server-private-key>''',
+  '''<server-public-key>''',
   '''<generate-with''',
 ]

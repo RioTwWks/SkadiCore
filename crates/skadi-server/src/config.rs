@@ -687,6 +687,19 @@ pub struct TlsSniCertConfig {
     pub key: String,
 }
 
+fn awg_key_is_placeholder(key: &str) -> bool {
+    let t = key.trim();
+    t.starts_with('<') && t.ends_with('>')
+}
+
+fn awg_uses_placeholder_keys(runtime: &AwgServerConfig) -> bool {
+    awg_key_is_placeholder(&runtime.private_key)
+        || runtime
+            .peers
+            .iter()
+            .any(|p| awg_key_is_placeholder(&p.public_key))
+}
+
 impl Config {
     pub fn load(path: &Path) -> Result<Self> {
         let raw =
@@ -1160,6 +1173,9 @@ impl Config {
             return Ok(());
         }
         let runtime = self.awg_server_config()?;
+        if awg_uses_placeholder_keys(&runtime) {
+            return Ok(());
+        }
         skadi_transport::render_server_conf(&runtime)
             .map_err(|e| anyhow::anyhow!("transport.awg: {}", e))?;
         Ok(())

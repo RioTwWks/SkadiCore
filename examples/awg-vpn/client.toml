@@ -7,7 +7,7 @@
 interface = "skadiawg0"
 private_key = "<client-private-key>"
 address = "10.8.0.2/24"
-server_public_key = "BKVtmgSy1V3vWdvrZ8NWdxgPACG6OBVH3pH8ptdNZFA="
+server_public_key = "<server-public-key>"
 endpoint = "127.0.0.1:51820"
 dns = "1.1.1.1"
 mtu = 1420

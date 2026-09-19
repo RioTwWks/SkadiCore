@@ -15,6 +15,13 @@ fn awg_config_validates() {
 }
 
 #[test]
+fn awg_example_placeholders_pass_check_config() {
+    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/awg-vpn/server.toml");
+    skadi_server::check_config(&path).expect("awg-vpn example with placeholder keys");
+}
+
+#[test]
 fn awg_config_requires_peer() {
     let (server_private, _) = skadi_transport::generate_keypair();
     let dir = TempDir::new().unwrap();
