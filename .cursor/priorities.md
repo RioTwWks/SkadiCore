@@ -19,7 +19,8 @@
 DoT/блокировка системного DoH, гибридный PQ-KEX — ✅.
 Runtime ICMP PMTUD (Phase 2) — ✅. Bearer masking — ✅. PQ-KEX для REALITY — ✅.
 `deny.toml` hardening — ✅. Пример REALITY+XHTTP + E2E — ✅. AmneziaWG MVP — ✅.
-REALITY `RealityServerCertVerifier` в `rustls-reality` — ✅. Далее: CHANGELOG Keep a Changelog.
+REALITY `RealityServerCertVerifier` — ✅. CHANGELOG Keep a Changelog — ✅.
+Далее: `CONTRIBUTING.md`, нативный REALITY-клиент (rustls verifier), CI smoke-transports.
 
 ## Позже
 
@@ -29,14 +30,14 @@ REALITY `RealityServerCertVerifier` в `rustls-reality` — ✅. Далее: CHA
 | ~~AmneziaWG~~ | ✅ `[transport.awg]` MVP (amneziawg-go backend) |
 | ~~Client MVP~~ | ✅ `skadicore client` (SOCKS5 → VLESS+TLS) |
 | ~~TUN~~ | ✅ Linux MVP (`[client.tun]`, routing/DNS, TCP/UDP → VLESS) |
-| `skadi-config` | Выделить конфиг в отдельный крейт |
+| ~~`skadi-config`~~ | ✅ отдельный крейт |
 | ~~Protocol enum~~ | ✅ `skadi_core::Protocol` |
 
 ## Что НЕ делать сейчас
 
 - ~~Docker-образ~~ — ✅ `Dockerfile` (musl scratch)
 - OpenTelemetry до стабилизации метрик Prometheus
-- BIND / UDP ASSOCIATE для SOCKS5 — низкий приоритет
+- ~~BIND / UDP ASSOCIATE для SOCKS5~~ — ✅ (опционально в конфиге)
 
 ## При завершении задачи
 

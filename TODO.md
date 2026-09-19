@@ -424,7 +424,7 @@ REALITY реализован, но нет тестов, которые пров�
 
 **Чего не хватает:** переформатирования `CHANGELOG.md` под [Keep a Changelog](https://keepachangelog.com/).
 
-- [ ] `CHANGELOG.md` → формат Keep a Changelog (`[Unreleased]` / `[X.Y.Z]`)
+- [x] `CHANGELOG.md` → формат Keep a Changelog (`[Unreleased]` / `[X.Y.Z]`)
 
 #### 4.2. `CONTRIBUTING.md` отсутствует
 
