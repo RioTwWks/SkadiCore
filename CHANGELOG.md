@@ -16,6 +16,9 @@
 - **gRPC audit log** — `api.audit_log` (default `true`), target `skadi.grpc.audit`
 - **`scripts/probe-test.sh`** — TLS summary, опциональный JA3, сравнение таймингов dest vs Skadi
 - **`scripts/smoke-transports.sh`** — `check-config` для AWG / Hysteria2 / TUIC
+- **`CONTRIBUTING.md`** — как вносить изменения, проверки CI, документация
+- **REALITY client (частично)** — `RealityClientAuth` (HKDF + session_id seal), схема `[remote.reality]` в `skadi-client`, пример `examples/client-reality-vless/`
+- **CI** — optional job `smoke-transports` (`scripts/smoke-transports.sh`)
 
 ### Changed
 

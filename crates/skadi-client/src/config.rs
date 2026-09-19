@@ -292,6 +292,21 @@ pub struct RemoteConfig {
     pub uuid: String,
     #[serde(default)]
     pub tls: RemoteTlsConfig,
+    #[serde(default)]
+    pub reality: RemoteRealityConfig,
+}
+
+/// REALITY outbound (Xray: `password`, `shortId`, `serverName`).
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct RemoteRealityConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    /// Публичный X25519 ключ сервера (Xray `password`, URL-safe base64).
+    pub password: Option<String>,
+    /// Short ID, hex (1..8 байт).
+    pub short_id: Option<String>,
+    /// SNI / `serverName` для ClientHello (маскировка).
+    pub server_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -335,9 +350,15 @@ impl ClientConfig {
         if let Some(remote) = &self.remote {
             parse_server_endpoint(&remote.server)?;
             Uuid::parse(&remote.uuid).map_err(|e| anyhow::anyhow!("remote.uuid: {}", e))?;
+            if remote.tls.enabled && remote.reality.enabled {
+                bail!("remote.tls and remote.reality cannot both be enabled");
+            }
             if remote.tls.enabled {
                 TlsKexMode::parse(&remote.tls.kex_mode)
                     .with_context(|| "invalid remote.tls.kex_mode")?;
+            }
+            if remote.reality.enabled {
+                parse_reality_client(&remote.reality)?;
             }
         }
         if let Some(awg) = &self.awg {
@@ -433,11 +454,18 @@ impl ClientConfig {
         Ok(*Uuid::parse(&remote.uuid)?.as_bytes())
     }
 
+    pub fn reality_enabled(&self) -> bool {
+        self.remote.as_ref().is_some_and(|r| r.reality.enabled)
+    }
+
     pub fn tls_client_config(&self) -> Result<TlsClientConfig> {
         let remote = self
             .remote
             .as_ref()
             .context("remote section not configured")?;
+        if remote.reality.enabled {
+            bail!("REALITY outbound TLS is not yet available in skadi-client; use Xray/v2rayNG or remote.tls");
+        }
         Ok(TlsClientConfig {
             ca_file: remote.tls.ca_file.clone(),
             client_cert: None,
@@ -450,6 +478,37 @@ impl ClientConfig {
     pub fn connect_timeout(&self) -> Duration {
         Duration::from_secs(10)
     }
+}
+
+fn parse_reality_client(cfg: &RemoteRealityConfig) -> Result<()> {
+    use base64::Engine;
+    let password = cfg
+        .password
+        .as_deref()
+        .context("remote.reality.password is required")?;
+    let short_id = cfg
+        .short_id
+        .as_deref()
+        .context("remote.reality.short_id is required")?;
+    let server_name = cfg
+        .server_name
+        .as_deref()
+        .context("remote.reality.server_name is required")?;
+    if server_name.is_empty() {
+        bail!("remote.reality.server_name must not be empty");
+    }
+    let pk = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(password)
+        .or_else(|_| base64::engine::general_purpose::STANDARD.decode(password))
+        .with_context(|| "remote.reality.password: invalid base64 public key")?;
+    if pk.len() != 32 {
+        bail!("remote.reality.password must decode to 32 bytes");
+    }
+    let sid = hex::decode(short_id).context("remote.reality.short_id: invalid hex")?;
+    if sid.is_empty() || sid.len() > 8 {
+        bail!("remote.reality.short_id must be 1..8 bytes when decoded");
+    }
+    Ok(())
 }
 
 fn parse_socket_addr(value: &str, field: &str) -> Result<SocketAddr> {

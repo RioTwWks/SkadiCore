@@ -256,6 +256,8 @@ VLESS рекомендуется поверх `[transport.tls]`. Без TLS — 
 
 ## Разработка
 
+См. [CONTRIBUTING.md](CONTRIBUTING.md) и [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
 ### Тесты
 
 ```bash
