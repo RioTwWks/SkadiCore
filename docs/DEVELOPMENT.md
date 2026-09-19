@@ -255,6 +255,20 @@ cargo test -p skadi-server   # все три
 
 ### Ручная проверка (smoke test)
 
+Транспорты AWG / Hysteria2 / TUIC (примеры + опциональные бинарники):
+
+```bash
+./scripts/smoke-transports.sh
+SMOKE_START=1 ./scripts/smoke-transports.sh
+```
+
+REALITY active probe (тайминги TLS handshake vs `dest`, опционально JA3):
+
+```bash
+./scripts/probe-test.sh --dest www.example.com:443 --sni www.example.com
+./scripts/probe-test.sh --dest www.example.com:443 --sni www.example.com --skadi 127.0.0.1:443
+```
+
 SOCKS5 без TLS:
 
 ```bash

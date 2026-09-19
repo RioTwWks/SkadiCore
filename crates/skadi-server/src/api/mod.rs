@@ -1,5 +1,6 @@
 //! gRPC management API.
 
+mod audit;
 mod rate_limit;
 mod service;
 
@@ -33,13 +34,20 @@ pub async fn run_api_server(
         .expose()
         .to_owned();
     let rate_limiter = ApiRateLimiter::new(config.rate_limit_per_sec);
-    let service = SkadiApiService::new(store);
+    let audit_log = config.audit_log;
+    let service = SkadiApiService::new(store, audit_log);
     #[allow(clippy::result_large_err)]
     let grpc = SkadiApiServer::with_interceptor(service, move |req| {
+        let peer = audit::peer_addr(&req);
         if let Some(limiter) = &rate_limiter {
-            limiter.check()?;
+            if let Err(status) = limiter.check() {
+                if audit_log {
+                    audit::audit_rate_limited(peer.as_deref());
+                }
+                return Err(status);
+            }
         }
-        check_auth(&token_value, req)
+        check_auth(&token_value, req, audit_log)
     });
 
     if config.tls.enabled {
@@ -103,15 +111,28 @@ fn build_server_tls_config(tls: &crate::config::ApiTlsConfig) -> Result<ServerTl
 }
 
 #[allow(clippy::result_large_err)]
-fn check_auth(token: &str, req: Request<()>) -> Result<Request<()>, Status> {
+fn check_auth(
+    token: &str,
+    req: Request<()>,
+    audit_log: bool,
+) -> Result<Request<()>, Status> {
+    let peer = audit::peer_addr(&req);
     let auth_header = req
         .metadata()
         .get("authorization")
         .and_then(|v| v.to_str().ok())
-        .ok_or_else(|| Status::unauthenticated("missing authorization header"))?;
+        .ok_or_else(|| {
+            if audit_log {
+                audit::audit_auth_failure(peer.as_deref(), "missing authorization header");
+            }
+            Status::unauthenticated("missing authorization header")
+        })?;
 
     let expected = format!("Bearer {}", token);
     if auth_header != expected {
+        if audit_log {
+            audit::audit_auth_failure(peer.as_deref(), "invalid token");
+        }
         return Err(Status::unauthenticated("invalid token"));
     }
     Ok(req)

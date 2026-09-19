@@ -62,6 +62,9 @@ pub struct ApiConfig {
     /// Макс. RPC в секунду (глобально). Не задано или `0` — без лимита.
     #[serde(default)]
     pub rate_limit_per_sec: Option<u32>,
+    /// Structured audit log (`target: skadi.grpc.audit`) для RPC и ошибок auth.
+    #[serde(default = "default_api_audit_log")]
+    pub audit_log: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -76,6 +79,10 @@ fn default_api_listen() -> String {
     "127.0.0.1:10085".to_string()
 }
 
+fn default_api_audit_log() -> bool {
+    true
+}
+
 impl Default for ApiConfig {
     fn default() -> Self {
         Self {
@@ -84,6 +91,7 @@ impl Default for ApiConfig {
             token: None,
             tls: ApiTlsConfig::default(),
             rate_limit_per_sec: None,
+            audit_log: default_api_audit_log(),
         }
     }
 }
@@ -1542,7 +1550,8 @@ impl Config {
                     Some(n) => format!(", rate_limit={}/s", n),
                     None => String::new(),
                 };
-                format!("enabled ({}{}{})", self.api.listen, tls, rate)
+                let audit = if self.api.audit_log { ", audit_log" } else { "" };
+                format!("enabled ({}{}{}{})", self.api.listen, tls, rate, audit)
             } else {
                 "disabled".to_string()
             }
@@ -1659,6 +1668,7 @@ mod secret_tests {
             token: Some(SecretString::new("super-secret-grpc-token")),
             tls: Default::default(),
             rate_limit_per_sec: None,
+            audit_log: true,
         };
         let debug = format!("{api:?}");
         assert!(!debug.contains("super-secret-grpc-token"));

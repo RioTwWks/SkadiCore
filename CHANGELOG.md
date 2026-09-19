@@ -16,6 +16,10 @@
 
 ### Added
 
+- **gRPC audit log** — `api.audit_log` (default `true`), события в `skadi.grpc.audit`
+- **`scripts/probe-test.sh`** — TLS summary, опциональный JA3, сравнение таймингов dest vs Skadi
+- **`scripts/smoke-transports.sh`** — `check-config` для AWG/Hysteria2/TUIC + опциональные бинарники
+
 - **Hysteria2 MVP** — `[transport.hysteria2]` (QUIC/UDP), backend `hysteria`
   binary; YAML render; пример `examples/hysteria2/`
 
