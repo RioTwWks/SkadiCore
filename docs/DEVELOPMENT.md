@@ -174,50 +174,7 @@ CI job `cross-platform` собирает Windows GNU (Ubuntu + mingw) и оба 
 
 ### GitHub Releases
 
-Пошаговый чеклист: [`docs/RELEASING.md`](RELEASING.md).
-
-Релизные статические бинарники публикуются workflow `.github/workflows/release.yml`
-при push тега `v*` (версия в теге должна совпадать с `Cargo.toml`).
-
-```bash
-# 1. Обновить version в Cargo.toml и CHANGELOG.md
-# 2. Закоммитить, создать тег и запушить
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-Артефакты релиза:
-
-- `skadicore-<version>-x86_64-unknown-linux-musl.tar.gz`
-- `skadicore-<version>-aarch64-unknown-linux-musl.tar.gz`
-- `skadicore-<version>-x86_64-pc-windows-gnu.zip`
-- `skadicore-<version>-aarch64-apple-darwin.tar.gz`
-- `skadicore-<version>-x86_64-apple-darwin.tar.gz`
-- `SHA256SUMS`
-- `*.minisig` — подписи minisign (если в репозитории задан секрет `MINISIGN_SECRET_KEY`)
-
-Локальная упаковка после сборки:
-
-```bash
-./scripts/build-musl.sh
-./scripts/package-release.sh 0.1.0 x86_64-unknown-linux-musl
-```
-
-Подпись релиза (опционально, требуется [minisign](https://github.com/jedisct1/minisign)):
-
-```bash
-# Сгенерировать ключи (один раз): minisign -G -p minisign.pub -s minisign.key
-export MINISIGN_SECRET_KEY="$(cat minisign.key)"
-./scripts/sign-release.sh
-```
-
-Проверка подписи на стороне пользователя:
-
-```bash
-./scripts/verify-release.sh minisign.pub dist
-```
-
-Ручной запуск workflow: Actions → Release → Run workflow (указать существующий тег).
+Полное руководство (теги, CI, minisign, проверка скачанных файлов): **[`docs/RELEASING.md`](RELEASING.md)**.
 
 ---
 
