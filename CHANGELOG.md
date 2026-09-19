@@ -22,6 +22,8 @@
 
 ### Fixed
 
+- Release workflow: путь к бинарнику minisign в официальном tarball (`minisign-linux/x86_64/`)
+
 ## [0.1.0] - 2026-09-19
 
 Первый публичный релиз: сервер `skadicore`, VLESS/SOCKS5, TLS/REALITY (inbound и нативный клиент), TUN, observability, CI и GitHub Releases.
