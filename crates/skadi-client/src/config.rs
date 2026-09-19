@@ -4,7 +4,9 @@ use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use skadi_core::Endpoint;
 use skadi_protocol::vless::Uuid;
-use skadi_transport::{AwgClientConfig, AwgObfuscationConfig, TlsClientConfig, TlsKexMode};
+use skadi_transport::{
+    AwgClientConfig, AwgObfuscationConfig, RealityTlsClientConfig, TlsClientConfig, TlsKexMode,
+};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 use std::time::Duration;
@@ -464,7 +466,7 @@ impl ClientConfig {
             .as_ref()
             .context("remote section not configured")?;
         if remote.reality.enabled {
-            bail!("REALITY outbound TLS is not yet available in skadi-client; use Xray/v2rayNG or remote.tls");
+            bail!("remote.tls is disabled when remote.reality is enabled");
         }
         Ok(TlsClientConfig {
             ca_file: remote.tls.ca_file.clone(),
@@ -473,6 +475,63 @@ impl ClientConfig {
             kex_mode: TlsKexMode::parse(&remote.tls.kex_mode)
                 .with_context(|| "invalid remote.tls.kex_mode")?,
         })
+    }
+
+    pub fn reality_tls_client_config(&self) -> Result<RealityTlsClientConfig> {
+        use base64::Engine;
+        let remote = self
+            .remote
+            .as_ref()
+            .context("remote section not configured")?;
+        let reality = &remote.reality;
+        if !reality.enabled {
+            bail!("remote.reality is not enabled");
+        }
+        let password = reality
+            .password
+            .as_deref()
+            .context("remote.reality.password is required")?;
+        let short_id = reality
+            .short_id
+            .as_deref()
+            .context("remote.reality.short_id is required")?;
+        let server_name = reality
+            .server_name
+            .as_deref()
+            .context("remote.reality.server_name is required")?;
+        let pk = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(password)
+            .or_else(|_| base64::engine::general_purpose::STANDARD.decode(password))
+            .context("remote.reality.password: invalid base64 public key")?;
+        if pk.len() != 32 {
+            bail!("remote.reality.password must decode to 32 bytes");
+        }
+        let sid = hex::decode(short_id).context("remote.reality.short_id: invalid hex")?;
+        if sid.is_empty() || sid.len() > 8 {
+            bail!("remote.reality.short_id must be 1..8 bytes when decoded");
+        }
+        let mut server_public_key = [0u8; 32];
+        server_public_key.copy_from_slice(&pk);
+        Ok(RealityTlsClientConfig {
+            server_public_key,
+            short_id: sid,
+            server_name: server_name.to_string(),
+            kex_mode: TlsKexMode::Classic,
+        })
+    }
+
+    pub fn reality_sni_endpoint(&self) -> Result<Endpoint> {
+        let remote = self
+            .remote
+            .as_ref()
+            .context("remote section not configured")?;
+        let name = remote
+            .reality
+            .server_name
+            .as_deref()
+            .context("remote.reality.server_name is required")?;
+        let (_, port) = split_host_port(&remote.server)?;
+        Ok(Endpoint::Domain(name.to_string(), port))
     }
 
     pub fn connect_timeout(&self) -> Duration {

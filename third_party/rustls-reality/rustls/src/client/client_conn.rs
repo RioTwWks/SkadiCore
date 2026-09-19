@@ -197,6 +197,9 @@ pub struct ClientConfig {
     ///
     /// The default is false.
     pub enable_early_data: bool,
+
+    /// REALITY client: seal ClientHello session_id and defer cert verify.
+    pub reality_client: Option<alloc::sync::Arc<crate::reality::RealityClientSettings>>,
 }
 
 /// What mechanisms to support for resuming a TLS 1.2 session.
@@ -229,6 +232,7 @@ impl Clone for ClientConfig {
             key_log: Arc::clone(&self.key_log),
             enable_secret_extraction: self.enable_secret_extraction,
             enable_early_data: self.enable_early_data,
+            reality_client: self.reality_client.clone(),
         }
     }
 }

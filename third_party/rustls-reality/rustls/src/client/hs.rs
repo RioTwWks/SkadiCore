@@ -105,8 +105,13 @@ pub(super) fn start_handshake(
     }
 
     let mut resuming = find_session(&server_name, &config, cx);
+    if config.reality_client.is_some() {
+        resuming = None;
+    }
 
-    let key_share = if config.supports_version(ProtocolVersion::TLSv1_3) {
+    let key_share = if let Some(ref rc) = config.reality_client {
+        Some(rc.start_key_share()?)
+    } else if config.supports_version(ProtocolVersion::TLSv1_3) {
         Some(tls13::initial_key_share(&config, &server_name)?)
     } else {
         None
@@ -135,6 +140,7 @@ pub(super) fn start_handshake(
     // https://tools.ietf.org/html/draft-ietf-quic-tls-34#section-8.4
     let session_id = match session_id {
         Some(session_id) => session_id,
+        None if config.reality_client.is_some() => SessionId::zeros_32(),
         None if cx.common.is_quic() => SessionId::empty(),
         None if !config.supports_version(ProtocolVersion::TLSv1_3) => SessionId::empty(),
         None => SessionId::random(config.provider.secure_random)?,
@@ -300,6 +306,12 @@ fn emit_client_hello_for_retry(
             extensions: exts,
         }),
     };
+
+    if let Some(ref rc) = config.reality_client {
+        if let Err(e) = crate::reality::client::apply_client_hello(&mut chp, &input.random.0, rc) {
+            panic!("REALITY client hello seal failed: {:?}", e);
+        }
+    }
 
     let early_key_schedule = if let Some(resuming) = tls13_session {
         let schedule = tls13::fill_in_psk_binder(&resuming, &transcript_buffer, &mut chp);

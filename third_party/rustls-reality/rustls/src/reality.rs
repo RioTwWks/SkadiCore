@@ -74,6 +74,8 @@ pub fn verify_client(session_id: &[u8], _client_random: &[u8; 32], config: &Real
     config.private_key.len() == 32 && session_id.len() == 32
 }
 
+pub(crate) mod client;
 mod verifier;
 
+pub use client::{DeferredRealityServerCertVerifier, RealityAuthKeySlot, RealityClientSettings};
 pub use verifier::{verify_server_cert_hmac, RealityServerCertVerifier, AUTH_HMAC_TAIL_LEN};

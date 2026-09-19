@@ -11,6 +11,7 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 
+use crate::reality_tls_client::{RealityTlsClientConfig, RealityTlsOutboundTransport};
 use crate::tcp::TcpTransport;
 use crate::tls_client::{TlsClientConfig, TlsOutboundTransport};
 
@@ -74,6 +75,7 @@ impl AsyncWrite for TcpUpstream {
 pub enum OutboundTcpTransport {
     Plain(TcpTransport),
     Tls(TlsOutboundTransport),
+    Reality(RealityTlsOutboundTransport),
 }
 
 impl OutboundTcpTransport {
@@ -101,10 +103,27 @@ impl OutboundTcpTransport {
         )?))
     }
 
+    pub fn reality(connect_timeout: Duration, config: &RealityTlsClientConfig) -> Result<Self> {
+        Self::reality_with_policy(connect_timeout, config, true)
+    }
+
+    pub fn reality_with_policy(
+        connect_timeout: Duration,
+        config: &RealityTlsClientConfig,
+        allow_private: bool,
+    ) -> Result<Self> {
+        Ok(Self::Reality(RealityTlsOutboundTransport::with_policy(
+            connect_timeout,
+            config,
+            allow_private,
+        )?))
+    }
+
     pub async fn connect(&self, endpoint: &Endpoint) -> Result<TcpUpstream> {
         match self {
             Self::Plain(tcp) => Ok(TcpUpstream::Plain(tcp.connect(endpoint).await?)),
             Self::Tls(tls) => Ok(TcpUpstream::Tls(tls.connect(endpoint).await?)),
+            Self::Reality(tls) => Ok(TcpUpstream::Tls(tls.connect(endpoint).await?)),
         }
     }
 }

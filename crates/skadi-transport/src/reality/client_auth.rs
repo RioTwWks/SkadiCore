@@ -57,11 +57,13 @@ impl RealityClientAuth {
         plaintext[4..8].copy_from_slice(&ts.to_be_bytes());
         plaintext[8..8 + self.short_id.len()].copy_from_slice(&self.short_id);
 
-        let mut session_plain = [0u8; 32];
-        session_plain[..16].copy_from_slice(&plaintext);
-        let mut hello_aad = hello_aad.to_vec();
-        if let Some(offset) = session_id_offset_in_hello_aad(&hello_aad) {
-            hello_aad[offset..offset + 32].copy_from_slice(&session_plain);
+        let mut aad = hello_aad.to_vec();
+        if let Some(offset) = session_id_offset_in_hello_aad(&aad) {
+            for i in 0..32 {
+                if offset + i < aad.len() {
+                    aad[offset + i] = 0;
+                }
+            }
         }
 
         use aes_gcm::aead::Payload;
@@ -70,7 +72,7 @@ impl RealityClientAuth {
                 nonce,
                 Payload {
                     msg: &plaintext,
-                    aad: &hello_aad,
+                    aad: &aad,
                 },
             )
             .map_err(|_| RealityClientAuthError::Encrypt)?;

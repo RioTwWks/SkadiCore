@@ -8,6 +8,7 @@ pub mod mux;
 pub mod outbound;
 mod outbound_policy;
 pub mod reality;
+pub mod reality_tls_client;
 pub mod relay;
 pub mod tcp;
 pub mod tls;
@@ -33,6 +34,7 @@ pub use reality::{
     fetch_impersonate_cert_from_dest, load_impersonate_cert_file, parse_client_hello,
     BufferedPrefixStream, RealityError, RealityServerConfig, RealityTransport,
 };
+pub use reality_tls_client::{RealityTlsClientConfig, RealityTlsOutboundTransport};
 pub use relay::{
     copy_bidirectional_with_idle_timeout, copy_bidirectional_with_limits, RelayLimits,
     IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG,

@@ -176,6 +176,17 @@ impl SessionId {
         }
     }
 
+    pub(crate) fn zeros_32() -> Self {
+        Self {
+            data: [0u8; 32],
+            len: 32,
+        }
+    }
+
+    pub(crate) fn from_bytes_32(data: [u8; 32]) -> Self {
+        Self { data, len: 32 }
+    }
+
     #[cfg(feature = "tls12")]
     pub(crate) fn is_empty(&self) -> bool {
         self.len == 0
