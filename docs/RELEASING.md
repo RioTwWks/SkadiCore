@@ -177,7 +177,15 @@ brew install minisign
    - Имя: **`MINISIGN_SECRET_KEY`**
    - Значение: **полное содержимое файла** `minisign.key` (текст, как в файле на диске).
 
-   CI при релизе кладёт это во временный файл и вызывает `scripts/sign-release.sh`, который для каждого архива создаёт `имя.tar.gz.minisig`.
+   **Для CI ключ без пароля на файле** (рекомендуется): при генерации используйте `-W`, иначе minisign в Actions не сможет расшифровать ключ без TTY:
+
+   ```bash
+   minisign -G -W -f -p minisign.pub -s minisign.key
+   ```
+
+   Если секретный ключ **с паролем**, добавьте второй секрет **`MINISIGN_KEY_PASSPHRASE`** с этим паролем (workflow передаёт его в minisign через stdin).
+
+   CI при релизе кладёт ключ во временный файл и вызывает `scripts/sign-release.sh`, который для каждого архива создаёт `имя.tar.gz.minisig`. Скрипт подписи берётся с ветки по умолчанию (`main`), чтобы повторный запуск Release для старого тега не требовал пересоздания тега.
 
 3. **`minisign.key` локально** — в безопасном месте (менеджер паролей, зашифрованный бэкап). Если ключ утерян, старые подписи проверяются старым `.pub`, новые релизы подписываются **новой** парой (и нужен новый `.pub` в репо).
 
@@ -258,6 +266,7 @@ export MINISIGN_SECRET_KEY="$(cat minisign.key)"
 | Release упал на «Tag version != Cargo.toml» | Версия в теге и в `Cargo.toml` должны совпадать |
 | aarch64 musl: `can't find crate for core` | В workflow должен быть шаг `rustup target add` (см. `release.yml`) |
 | Нет `.minisig` на Release | Секрет `MINISIGN_SECRET_KEY` не задан или пустой |
+| `Password: get_password()` / exit 2 при подписи | Ключ с паролем: задайте `MINISIGN_KEY_PASSPHRASE` или пересоздайте ключ с `-W` и обновите `MINISIGN_SECRET_KEY` |
 | `verify-release.sh`: No .minisig files | Для этого релиза подпись не делалась — достаточно `SHA256SUMS` |
 | `minisign -V` failed | Скачан не тот архив, битый файл или не тот `.pub` |
 

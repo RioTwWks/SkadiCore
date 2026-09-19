@@ -26,7 +26,22 @@ if [ "${#ARCHIVES[@]}" -eq 0 ]; then
   exit 1
 fi
 
+sign_archive() {
+  local archive="$1"
+  local sig="${archive}.minisig"
+  if [ -n "${MINISIGN_KEY_PASSPHRASE:-}" ]; then
+    printf '%s\n' "$MINISIGN_KEY_PASSPHRASE" | minisign -S -s "$KEY_FILE" -m "$archive" -x "$sig"
+  else
+    if ! minisign -S -s "$KEY_FILE" -m "$archive" -x "$sig"; then
+      echo "minisign signing failed." >&2
+      echo "If the secret key is password-protected, set MINISIGN_KEY_PASSPHRASE (GitHub Actions secret)." >&2
+      echo "For CI you can also regenerate without a password: minisign -G -W -p minisign.pub -s minisign.key" >&2
+      exit 1
+    fi
+  fi
+}
+
 for archive in "${ARCHIVES[@]}"; do
-  minisign -S -s "$KEY_FILE" -m "$archive" -x "${archive}.minisig"
+  sign_archive "$archive"
   echo "Signed: $archive"
 done

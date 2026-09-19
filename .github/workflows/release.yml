@@ -157,9 +157,15 @@ jobs:
           )
           ls -la dist/
 
+      - name: Sync signing script from default branch
+        run: |
+          git fetch origin "${{ github.event.repository.default_branch }}" --depth=1
+          git checkout "origin/${{ github.event.repository.default_branch }}" -- scripts/sign-release.sh
+
       - name: Sign release artifacts
         env:
           MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+          MINISIGN_KEY_PASSPHRASE: ${{ secrets.MINISIGN_KEY_PASSPHRASE }}
         run: |
           if [ -n "${MINISIGN_SECRET_KEY}" ]; then
             curl -fsSL https://github.com/jedisct1/minisign/releases/download/0.11/minisign-0.11-linux.tar.gz \
