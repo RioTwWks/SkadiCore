@@ -613,6 +613,18 @@ username = "bob"
 password = "another-secret"
 ```
 
+### `bind` / `udp_associate`
+
+**Тип**: `bool`  
+**По умолчанию**: `false`
+
+Дополнительные команды RFC 1928 (по умолчанию отключены):
+
+- `bind = true` — **BIND**: сервер слушает ephemeral TCP-порт, после входящего connect релеит трафик на клиентское SOCKS-соединение (FTP data channel).
+- `udp_associate = true` — **UDP ASSOCIATE**: UDP relay при удерживаемом TCP control; подходит для DNS/QUIC через SOCKS5h-клиенты.
+
+Без этих флагов клиент получит reply `0x07` (command not supported).
+
 **Ограничения**:
 
 - `username` и `password` — валидный UTF-8, непустые.

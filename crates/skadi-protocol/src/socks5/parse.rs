@@ -7,7 +7,8 @@
 //! Вызывающий код сам решает, достаточно ли данных, и читает ещё.
 
 use crate::socks5::{
-    ATYP_DOMAIN, ATYP_IPV4, ATYP_IPV6, AUTH_VERSION, CMD_CONNECT, MAX_METHODS, SOCKS5_VERSION,
+    Socks5Request, ATYP_DOMAIN, ATYP_IPV4, ATYP_IPV6, AUTH_VERSION, CMD_BIND, CMD_CONNECT,
+    CMD_UDP_ASSOCIATE, MAX_METHODS, SOCKS5_VERSION,
 };
 use skadi_core::Endpoint;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -144,7 +145,7 @@ pub fn parse_auth(input: &[u8]) -> Result<((String, String), usize), ParseError>
 // ─── Request ──────────────────────────────────────────────────────────
 
 /// Разбор запроса: `[ver, cmd, rsv, atyp, addr..., port]`.
-pub fn parse_request(input: &[u8]) -> Result<(Endpoint, usize), ParseError> {
+pub fn parse_request(input: &[u8]) -> Result<(Socks5Request, usize), ParseError> {
     if input.len() < 4 {
         return Err(ParseError::Incomplete {
             need: 4,
@@ -163,26 +164,42 @@ pub fn parse_request(input: &[u8]) -> Result<(Endpoint, usize), ParseError> {
     if rsv != 0 {
         return Err(ParseError::NonZeroRsv(rsv));
     }
-    if cmd != CMD_CONNECT {
+    if cmd != CMD_CONNECT && cmd != CMD_BIND && cmd != CMD_UDP_ASSOCIATE {
         return Err(ParseError::UnsupportedCommand(cmd));
     }
 
+    let (target, consumed) = parse_target(input, atyp, 4)?;
+    Ok((
+        Socks5Request {
+            command: cmd,
+            target,
+        },
+        consumed,
+    ))
+}
+
+fn parse_target(input: &[u8], atyp: u8, offset: usize) -> Result<(Endpoint, usize), ParseError> {
     match atyp {
         ATYP_IPV4 => {
-            let total = 4 + 4 + 2;
+            let total = offset + 4 + 2;
             if input.len() < total {
                 return Err(ParseError::Incomplete {
                     need: total,
                     have: input.len(),
                 });
             }
-            let ip = Ipv4Addr::new(input[4], input[5], input[6], input[7]);
-            let port = u16::from_be_bytes([input[8], input[9]]);
+            let ip = Ipv4Addr::new(
+                input[offset],
+                input[offset + 1],
+                input[offset + 2],
+                input[offset + 3],
+            );
+            let port = u16::from_be_bytes([input[offset + 4], input[offset + 5]]);
             Ok((Endpoint::Ip(SocketAddr::new(IpAddr::V4(ip), port)), total))
         }
 
         ATYP_IPV6 => {
-            let total = 4 + 16 + 2;
+            let total = offset + 16 + 2;
             if input.len() < total {
                 return Err(ParseError::Incomplete {
                     need: total,
@@ -190,25 +207,25 @@ pub fn parse_request(input: &[u8]) -> Result<(Endpoint, usize), ParseError> {
                 });
             }
             let mut octets = [0u8; 16];
-            octets.copy_from_slice(&input[4..20]);
+            octets.copy_from_slice(&input[offset..offset + 16]);
             let ip = Ipv6Addr::from(octets);
-            let port = u16::from_be_bytes([input[20], input[21]]);
+            let port = u16::from_be_bytes([input[offset + 16], input[offset + 17]]);
             Ok((Endpoint::Ip(SocketAddr::new(IpAddr::V6(ip), port)), total))
         }
 
         ATYP_DOMAIN => {
-            if input.len() < 5 {
+            if input.len() < offset + 1 {
                 return Err(ParseError::Incomplete {
-                    need: 5,
+                    need: offset + 1,
                     have: input.len(),
                 });
             }
-            let dlen = input[4] as usize;
+            let dlen = input[offset] as usize;
             if dlen == 0 {
                 return Err(ParseError::EmptyDomain);
             }
 
-            let after_domain = 5 + dlen;
+            let after_domain = offset + 1 + dlen;
             let total = after_domain + 2;
             if input.len() < total {
                 return Err(ParseError::Incomplete {
@@ -217,7 +234,7 @@ pub fn parse_request(input: &[u8]) -> Result<(Endpoint, usize), ParseError> {
                 });
             }
 
-            let domain = std::str::from_utf8(&input[5..after_domain])
+            let domain = std::str::from_utf8(&input[offset + 1..after_domain])
                 .map_err(|_| ParseError::InvalidUtf8("domain"))?
                 .to_string();
 
@@ -227,6 +244,54 @@ pub fn parse_request(input: &[u8]) -> Result<(Endpoint, usize), ParseError> {
 
         other => Err(ParseError::UnsupportedAddressType(other)),
     }
+}
+
+/// Разбор UDP-заголовка SOCKS5 (RFC 1928): RSV + FRAG + ATYP + DST + payload.
+pub fn parse_udp_datagram(input: &[u8]) -> Result<(Endpoint, usize), ParseError> {
+    if input.len() < 4 {
+        return Err(ParseError::Incomplete {
+            need: 4,
+            have: input.len(),
+        });
+    }
+    if input[0] != 0 || input[1] != 0 {
+        return Err(ParseError::NonZeroRsv(input[0]));
+    }
+    if input[2] != 0 {
+        return Err(ParseError::UnsupportedCommand(input[2]));
+    }
+    let (target, header_end) = parse_target(input, input[3], 4)?;
+    Ok((target, header_end))
+}
+
+/// Собрать UDP-заголовок SOCKS5 для ответа клиенту.
+pub fn encode_udp_datagram(target: &Endpoint, payload: &[u8]) -> Vec<u8> {
+    let mut buf = Vec::with_capacity(10 + payload.len());
+    buf.extend_from_slice(&[0, 0, 0]);
+    match target {
+        Endpoint::Ip(addr) => match addr {
+            SocketAddr::V4(v4) => {
+                buf.push(ATYP_IPV4);
+                buf.extend_from_slice(&v4.ip().octets());
+                buf.extend_from_slice(&v4.port().to_be_bytes());
+            }
+            SocketAddr::V6(v6) => {
+                buf.push(ATYP_IPV6);
+                buf.extend_from_slice(&v6.ip().octets());
+                buf.extend_from_slice(&v6.port().to_be_bytes());
+            }
+        },
+        Endpoint::Domain(host, port) => {
+            let host_bytes = host.as_bytes();
+            let dlen = host_bytes.len().min(255);
+            buf.push(ATYP_DOMAIN);
+            buf.push(dlen as u8);
+            buf.extend_from_slice(&host_bytes[..dlen]);
+            buf.extend_from_slice(&port.to_be_bytes());
+        }
+    }
+    buf.extend_from_slice(payload);
+    buf
 }
 
 #[cfg(test)]
@@ -301,9 +366,10 @@ mod tests {
     #[test]
     fn parse_request_ipv4_ok() {
         let input = [0x05, 0x01, 0x00, 0x01, 127, 0, 0, 1, 0x1F, 0x90];
-        let (ep, used) = parse_request(&input).unwrap();
+        let (req, used) = parse_request(&input).unwrap();
         assert_eq!(used, 10);
-        match ep {
+        assert_eq!(req.command, CMD_CONNECT);
+        match req.target {
             Endpoint::Ip(addr) => {
                 assert_eq!(addr.port(), 8080);
                 assert_eq!(addr.ip().to_string(), "127.0.0.1");
@@ -317,9 +383,9 @@ mod tests {
         let mut input = vec![0x05, 0x01, 0x00, 0x03, 11];
         input.extend_from_slice(b"example.com");
         input.extend_from_slice(&443u16.to_be_bytes());
-        let (ep, used) = parse_request(&input).unwrap();
+        let (req, used) = parse_request(&input).unwrap();
         assert_eq!(used, 4 + 1 + 11 + 2);
-        match ep {
+        match req.target {
             Endpoint::Domain(d, p) => {
                 assert_eq!(d, "example.com");
                 assert_eq!(p, 443);
@@ -329,11 +395,18 @@ mod tests {
     }
 
     #[test]
-    fn parse_request_unsupported_command() {
+    fn parse_request_bind_ok() {
         let input = [0x05, 0x02, 0x00, 0x01, 0, 0, 0, 0, 0, 0];
+        let (req, _) = parse_request(&input).unwrap();
+        assert_eq!(req.command, CMD_BIND);
+    }
+
+    #[test]
+    fn parse_request_unsupported_command() {
+        let input = [0x05, 0x04, 0x00, 0x01, 0, 0, 0, 0, 0, 0];
         assert!(matches!(
             parse_request(&input),
-            Err(ParseError::UnsupportedCommand(0x02))
+            Err(ParseError::UnsupportedCommand(0x04))
         ));
     }
 

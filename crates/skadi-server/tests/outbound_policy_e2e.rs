@@ -35,6 +35,8 @@ async fn rejects_loopback_target_by_default() {
                 enabled: false,
                 auth: skadi_protocol::AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: VlessConfig {
                 enabled: true,

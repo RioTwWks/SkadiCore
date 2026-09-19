@@ -70,6 +70,8 @@ async fn spawn_vless_tls_server(
                 enabled: false,
                 auth: skadi_protocol::AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: test_vless_config(),
         },

@@ -7,6 +7,7 @@ mod connection_gate;
 pub mod genkey;
 pub mod observability;
 mod prefixed;
+mod socks5_relay;
 pub mod store;
 
 use auth_rate_limit::{is_auth_failure, AuthRateLimiter};
@@ -17,8 +18,9 @@ use config::{Config, ListenAddrs};
 use prefixed::PrefixedStream;
 use skadi_core::{validate_outbound_literal, EnabledProtocols, Protocol, Session};
 use skadi_protocol::{
-    Socks5Handler, VlessHandler, CMD_MUX, CMD_TCP, CMD_UDP, REP_CONNECTION_REFUSED,
-    REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE, REP_NOT_ALLOWED, REP_SUCCEEDED,
+    Socks5Handler, VlessHandler, CMD_BIND, CMD_MUX, CMD_TCP, CMD_UDP, CMD_UDP_ASSOCIATE,
+    REP_CONNECTION_REFUSED, REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE, REP_NOT_ALLOWED,
+    REP_SUCCEEDED,
 };
 use skadi_transport::{
     accept_xhttp, copy_bidirectional_with_limits, relay_vless_mux_with_limits,
@@ -238,6 +240,7 @@ pub async fn run_server_with_store(
         let connection_gate = connection_gate.clone();
         let auth_rate_limiter = auth_rate_limiter.clone();
         let allow_private_outbound = config.allow_private_outbound();
+        let connect_timeout = config.connect_timeout();
         accept_handles.push(tokio::spawn(accept_loop(
             listener,
             outbound_tcp,
@@ -250,6 +253,7 @@ pub async fn run_server_with_store(
             connection_gate,
             auth_rate_limiter,
             allow_private_outbound,
+            connect_timeout,
             shutdown,
         )));
     }
@@ -338,6 +342,7 @@ async fn accept_loop(
     connection_gate: ConnectionGate,
     auth_rate_limiter: Option<AuthRateLimiter>,
     allow_private_outbound: bool,
+    connect_timeout: Duration,
     mut shutdown_rx: watch::Receiver<bool>,
 ) {
     loop {
@@ -378,6 +383,7 @@ async fn accept_loop(
                         let user_store = Arc::clone(&user_store);
                         let xhttp_inbound = xhttp_inbound.clone();
                         let auth_rate_limiter = auth_rate_limiter.clone();
+                        let connect_timeout = connect_timeout;
                         tokio::spawn(async move {
                             let _permit = permit;
                             let session = Session::new(peer);
@@ -393,6 +399,7 @@ async fn accept_loop(
                                     relay_limits,
                                     auth_rate_limiter,
                                     allow_private_outbound,
+                                    connect_timeout,
                                 )
                                 .await,
                                 InboundTransport::Tls(tls) => match tls.accept(client).await {
@@ -407,6 +414,7 @@ async fn accept_loop(
                                         relay_limits,
                                         auth_rate_limiter,
                                         allow_private_outbound,
+                                        connect_timeout,
                                     )
                                     .await,
                                     Err(e) => {
@@ -427,6 +435,7 @@ async fn accept_loop(
                                             relay_limits,
                                             auth_rate_limiter,
                                             allow_private_outbound,
+                                            connect_timeout,
                                         )
                                         .await,
                                         Err(e) => {
@@ -500,6 +509,7 @@ async fn serve_inbound<S>(
     relay_limits: RelayLimits,
     auth_rate_limiter: Option<AuthRateLimiter>,
     allow_private_outbound: bool,
+    connect_timeout: Duration,
 ) -> Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -520,6 +530,7 @@ where
                     relay_limits,
                     auth_rate_limiter,
                     allow_private_outbound,
+                    connect_timeout,
                 )
                 .await
             }
@@ -537,6 +548,7 @@ where
         relay_limits,
         auth_rate_limiter,
         allow_private_outbound,
+        connect_timeout,
     )
     .await
 }
@@ -569,6 +581,7 @@ async fn handle_connection<S>(
     relay_limits: RelayLimits,
     auth_rate_limiter: Option<AuthRateLimiter>,
     allow_private_outbound: bool,
+    connect_timeout: Duration,
 ) -> Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -601,19 +614,49 @@ where
     };
 
     let (target, vless_command) = match protocol {
-        Protocol::Socks5 => match Socks5Handler::negotiate(&mut stream, &socks_config).await {
-            Ok(endpoint) => (endpoint, CMD_TCP),
-            Err(e) => {
-                if is_auth_failure(&e) {
-                    record_auth_failure(
-                        auth_rate_limiter.as_ref(),
-                        session.peer.ip(),
-                        Protocol::Socks5.metric_label(),
+        Protocol::Socks5 => {
+            let req = match Socks5Handler::negotiate(&mut stream, &socks_config).await {
+                Ok(r) => r,
+                Err(e) => {
+                    if is_auth_failure(&e) {
+                        record_auth_failure(
+                            auth_rate_limiter.as_ref(),
+                            session.peer.ip(),
+                            Protocol::Socks5.metric_label(),
+                        );
+                    }
+                    return Err(e);
+                }
+            };
+            match req.command {
+                CMD_BIND => {
+                    observability::connection_opened("socks5-bind");
+                    let relay =
+                        socks5_relay::handle_socks5_bind(stream, connect_timeout, relay_limits)
+                            .await;
+                    return finish_relay(
+                        session.id,
+                        "socks5-bind",
+                        relay.map(|_| (0, 0)).map_err(|e| std::io::Error::other(e)),
                     );
                 }
-                return Err(e);
+                CMD_UDP_ASSOCIATE => {
+                    observability::connection_opened("socks5-udp");
+                    let relay = socks5_relay::handle_socks5_udp_associate(
+                        stream,
+                        outbound_udp,
+                        relay_limits,
+                    )
+                    .await;
+                    return finish_relay(
+                        session.id,
+                        "socks5-udp",
+                        relay.map(|_| (0, 0)).map_err(|e| std::io::Error::other(e)),
+                    );
+                }
+                _ => (req.target, CMD_TCP),
             }
-        },
+        }
         Protocol::Vless => match VlessHandler::handshake(&mut stream, &vless_config).await {
             Ok(handshake) => (handshake.target, handshake.command),
             Err(e) => {

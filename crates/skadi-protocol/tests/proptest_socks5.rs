@@ -78,7 +78,7 @@ proptest! {
         let ep = Endpoint::Ip(SocketAddr::new(IpAddr::V4(ip), port));
         let buf = encode_connect(&ep);
         let (parsed, consumed) = parse_request(&buf).unwrap();
-        prop_assert_eq!(parsed, ep);
+        prop_assert_eq!(parsed.target, ep);
         prop_assert_eq!(consumed, buf.len());
     }
 
@@ -87,7 +87,7 @@ proptest! {
         let ep = Endpoint::Ip(SocketAddr::new(IpAddr::V6(ip), port));
         let buf = encode_connect(&ep);
         let (parsed, consumed) = parse_request(&buf).unwrap();
-        prop_assert_eq!(parsed, ep);
+        prop_assert_eq!(parsed.target, ep);
         prop_assert_eq!(consumed, buf.len());
     }
 
@@ -96,7 +96,7 @@ proptest! {
         let ep = Endpoint::Domain(domain.clone(), port);
         let buf = encode_connect(&ep);
         let (parsed, consumed) = parse_request(&buf).unwrap();
-        prop_assert_eq!(parsed, ep);
+        prop_assert_eq!(parsed.target, ep);
         prop_assert_eq!(consumed, buf.len());
     }
 

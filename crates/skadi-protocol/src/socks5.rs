@@ -22,6 +22,8 @@ pub const METHOD_NO_AUTH: u8 = 0x00;
 pub const METHOD_USER_PASS: u8 = 0x02;
 pub const METHOD_NO_ACCEPTABLE: u8 = 0xFF;
 pub const CMD_CONNECT: u8 = 0x01;
+pub const CMD_BIND: u8 = 0x02;
+pub const CMD_UDP_ASSOCIATE: u8 = 0x03;
 pub const ATYP_IPV4: u8 = 0x01;
 pub const ATYP_DOMAIN: u8 = 0x03;
 pub const ATYP_IPV6: u8 = 0x04;
@@ -52,6 +54,12 @@ pub struct Socks5Config {
     pub auth: AuthMethod,
     #[serde(default)]
     pub users: Vec<UserCredential>,
+    /// RFC 1928 BIND (входящее TCP-соединение на ephemeral порт).
+    #[serde(default)]
+    pub bind: bool,
+    /// RFC 1928 UDP ASSOCIATE (UDP relay при открытом TCP control).
+    #[serde(default)]
+    pub udp_associate: bool,
 }
 
 impl Default for Socks5Config {
@@ -60,8 +68,17 @@ impl Default for Socks5Config {
             enabled: false,
             auth: AuthMethod::NoAuth,
             users: Vec::new(),
+            bind: false,
+            udp_associate: false,
         }
     }
+}
+
+/// Распознанный SOCKS5-запрос после auth.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Socks5Request {
+    pub command: u8,
+    pub target: Endpoint,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -100,7 +117,7 @@ impl Socks5Handler {
     /// Полный цикл переговоров: greeting → метод → аутентификация → запрос.
     /// Возвращает целевой endpoint. Финальный reply НЕ отправляется —
     /// это делает вызывающий код после установки upstream-соединения.
-    pub async fn negotiate<S>(client: &mut S, config: &Socks5Config) -> Result<Endpoint>
+    pub async fn negotiate<S>(client: &mut S, config: &Socks5Config) -> Result<Socks5Request>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
@@ -111,7 +128,7 @@ impl Socks5Handler {
         }
     }
 
-    async fn negotiate_inner<S>(client: &mut S, config: &Socks5Config) -> Result<Endpoint>
+    async fn negotiate_inner<S>(client: &mut S, config: &Socks5Config) -> Result<Socks5Request>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
@@ -129,7 +146,7 @@ impl Socks5Handler {
             Self::perform_auth(client, config).await?;
         }
 
-        Self::read_request(client).await
+        Self::read_request(client, config).await
     }
 
     /// Отправить финальный reply. Вызывается после попытки подключения
@@ -257,7 +274,7 @@ impl Socks5Handler {
         Ok(())
     }
 
-    async fn read_request<S>(client: &mut S) -> Result<Endpoint>
+    async fn read_request<S>(client: &mut S, config: &Socks5Config) -> Result<Socks5Request>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
@@ -299,8 +316,7 @@ impl Socks5Handler {
             }
         }
 
-        let (endpoint, _) = parse_request(&buf).map_err(|e| {
-            // Для команд и версий отправляем осмысленный reply.
+        let (request, _) = parse_request(&buf).map_err(|e| {
             let code = match e {
                 ParseError::UnsupportedCommand(_) => REP_COMMAND_NOT_SUPPORTED,
                 ParseError::UnsupportedAddressType(_) => REP_ADDRESS_NOT_SUPPORTED,
@@ -309,8 +325,21 @@ impl Socks5Handler {
             anyhow::anyhow!("request parse (reply 0x{:02x}): {}", code, e)
         })?;
 
-        debug!(target = %endpoint, "SOCKS5 CONNECT request");
-        Ok(endpoint)
+        if request.command == CMD_BIND && !config.bind {
+            let _ = Self::send_error(client, REP_COMMAND_NOT_SUPPORTED).await;
+            bail!("SOCKS5 BIND disabled in config");
+        }
+        if request.command == CMD_UDP_ASSOCIATE && !config.udp_associate {
+            let _ = Self::send_error(client, REP_COMMAND_NOT_SUPPORTED).await;
+            bail!("SOCKS5 UDP ASSOCIATE disabled in config");
+        }
+
+        debug!(
+            target = %request.target,
+            command = request.command,
+            "SOCKS5 request"
+        );
+        Ok(request)
     }
 
     async fn write_all<S>(client: &mut S, buf: &[u8]) -> Result<()>

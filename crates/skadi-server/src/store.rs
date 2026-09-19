@@ -9,6 +9,8 @@ struct StoreState {
     vless_enabled: bool,
     socks_enabled: bool,
     socks_auth: AuthMethod,
+    socks_bind: bool,
+    socks_udp_associate: bool,
     vless_users: Vec<VlessUser>,
     socks_users: Vec<UserCredential>,
 }
@@ -26,6 +28,8 @@ impl UserStore {
                 vless_enabled: protocol.vless.enabled,
                 socks_enabled: protocol.socks5.enabled,
                 socks_auth: protocol.socks5.auth,
+                socks_bind: protocol.socks5.bind,
+                socks_udp_associate: protocol.socks5.udp_associate,
                 vless_users: Vec::new(),
                 socks_users: Vec::new(),
             }),
@@ -42,6 +46,8 @@ impl UserStore {
         state.vless_enabled = protocol.vless.enabled;
         state.socks_enabled = protocol.socks5.enabled;
         state.socks_auth = protocol.socks5.auth;
+        state.socks_bind = protocol.socks5.bind;
+        state.socks_udp_associate = protocol.socks5.udp_associate;
         state.vless_users = protocol.vless.users.clone();
         state.socks_users = protocol.socks5.users.clone();
         Ok(())
@@ -69,6 +75,8 @@ impl UserStore {
             enabled: state.socks_enabled,
             auth: state.socks_auth,
             users: state.socks_users.clone(),
+            bind: state.socks_bind,
+            udp_associate: state.socks_udp_associate,
         }
     }
 

@@ -86,6 +86,8 @@ async fn socks5_over_tls_connect_and_relay() {
                 enabled: true,
                 auth: AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: Default::default(),
         },

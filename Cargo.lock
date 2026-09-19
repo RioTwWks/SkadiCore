@@ -2609,6 +2609,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "skadi-config"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "hex",
+ "serde",
+ "skadi-core",
+ "skadi-protocol",
+ "skadi-transport",
+ "toml",
+]
+
+[[package]]
 name = "skadi-core"
 version = "0.1.0"
 dependencies = [
@@ -2651,6 +2665,7 @@ dependencies = [
  "serde",
  "skadi-api",
  "skadi-client",
+ "skadi-config",
  "skadi-core",
  "skadi-protocol",
  "skadi-transport",

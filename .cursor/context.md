@@ -19,11 +19,12 @@ skadicore/
 │   ├── skadi-core/         # Endpoint, Session, UserId, Error
 │   ├── skadi-transport/    # TcpTransport, TlsTransport (+ SNI)
 │   ├── skadi-protocol/     # SOCKS5, VLESS (+ fuzz/, proptest)
+│   ├── skadi-config/       # server TOML Config + validate
 │   └── skadi-server/       # lib + bin skadicore + soak_load, tests/
 └── docs/
 ```
 
-Конфиг и валидация — в `skadi-server/src/config.rs` (отдельного `skadi-config` нет).
+Конфиг сервера — крейт `skadi-config`; `skadi-server::config` реэкспортирует типы.
 
 ## Поток соединения
 

@@ -64,6 +64,8 @@ async fn max_session_lifetime_closes_active_vless_session() {
                 enabled: false,
                 auth: skadi_protocol::AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: VlessConfig {
                 enabled: true,
@@ -142,6 +144,8 @@ async fn rejects_zero_max_session_lifetime_in_config() {
                 enabled: true,
                 auth: skadi_protocol::AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: VlessConfig {
                 enabled: false,

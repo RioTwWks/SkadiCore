@@ -57,6 +57,8 @@ async fn spawn_vless_server(proxy_addr: SocketAddr) -> watch::Sender<bool> {
                 enabled: false,
                 auth: skadi_protocol::AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: test_vless_config(),
         },
