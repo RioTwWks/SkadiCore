@@ -174,6 +174,8 @@ CI job `cross-platform` собирает Windows GNU (Ubuntu + mingw) и оба 
 
 ### GitHub Releases
 
+Пошаговый чеклист: [`docs/RELEASING.md`](RELEASING.md).
+
 Релизные статические бинарники публикуются workflow `.github/workflows/release.yml`
 при push тега `v*` (версия в теге должна совпадать с `Cargo.toml`).
 
