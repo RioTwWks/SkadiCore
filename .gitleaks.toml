@@ -1,0 +1,20 @@
+title = "SkadiCore gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures, examples, and third-party vendored code"
+paths = [
+  '''(?i)crates/.*/tests/''',
+  '''(?i)examples/''',
+  '''(?i)third_party/''',
+  '''(?i)\.cargo/''',
+]
+regexTarget = "match"
+regexes = [
+  '''test-only-not-a-secret''',
+  '''change-me''',
+  '''<client-private-key>''',
+  '''<generate-with''',
+]

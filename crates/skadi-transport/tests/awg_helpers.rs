@@ -23,10 +23,13 @@ fn awg_uapi_socket_paths() {
     let prev = std::env::var("AWG_UAPI_DIR").ok();
     std::env::remove_var("AWG_UAPI_DIR");
 
+    let (server_private, server_public) = generate_keypair();
+    let (client_private, _) = generate_keypair();
+
     let server = AwgServerConfig {
         listen: "0.0.0.0:51820".parse().unwrap(),
         interface_name: "skadiwg0".into(),
-        private_key: "sJkP2oorqrq49P6Ln25MWo3X04PxhB8k+RnJJnZ4gEo=".into(),
+        private_key: server_private,
         address: "10.8.0.1/24".into(),
         mtu: None,
         obfuscation: sample_obfuscation(),
@@ -39,9 +42,9 @@ fn awg_uapi_socket_paths() {
 
     let client = AwgClientConfig {
         interface_name: "skadiawg0".into(),
-        private_key: server.private_key.clone(),
+        private_key: client_private,
         address: "10.8.0.2/24".into(),
-        server_public_key: "kHkjzj1KeQjR/82vXYRdQPA113MAzNRkDsedH5kZLi4=".into(),
+        server_public_key: server_public,
         endpoint: "127.0.0.1:51820".into(),
         mtu: None,
         dns: None,

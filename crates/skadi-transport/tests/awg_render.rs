@@ -1,30 +1,21 @@
 //! Unit-тесты рендера AmneziaWG конфигурации.
 
-use skadi_transport::{render_server_conf, AwgObfuscationConfig, AwgPeerConfig, AwgServerConfig};
+mod common;
+
+use skadi_transport::{render_server_conf, AwgPeerConfig, AwgServerConfig};
 
 #[test]
 fn render_awg_server_conf_contains_obfuscation() {
+    let keys = common::AwgTestKeys::generate();
     let config = AwgServerConfig {
         listen: "0.0.0.0:51820".parse().unwrap(),
         interface_name: "skadiwg0".into(),
-        private_key: "sJkP2oorqrq49P6Ln25MWo3X04PxhB8k+RnJJnZ4gEo=".into(),
+        private_key: keys.server_private,
         address: "10.8.0.1/24".into(),
         mtu: Some(1420),
-        obfuscation: AwgObfuscationConfig {
-            jc: 8,
-            jmin: 64,
-            jmax: 1024,
-            s1: 32,
-            s2: 32,
-            s3: 16,
-            s4: 16,
-            h1: "1-10000000".into(),
-            h2: "10000001-20000000".into(),
-            h3: "20000001-30000000".into(),
-            h4: "30000001-40000000".into(),
-        },
+        obfuscation: common::sample_obfuscation(),
         peers: vec![AwgPeerConfig {
-            public_key: "kHkjzj1KeQjR/82vXYRdQPA113MAzNRkDsedH5kZLi4=".into(),
+            public_key: keys.peer_public,
             allowed_ips: vec!["10.8.0.2/32".into()],
             preshared_key: None,
             endpoint: None,

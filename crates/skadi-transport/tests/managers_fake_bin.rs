@@ -1,8 +1,10 @@
 //! Тесты process manager'ов с поддельными бинарниками (без реального AWG/Hysteria/TUIC).
 
+mod common;
+
 use skadi_transport::{
-    AwgClientConfig, AwgManager, AwgNatConfig, AwgObfuscationConfig, AwgPeerConfig,
-    AwgServerConfig, Hysteria2Manager, Hysteria2ServerConfig, TuicManager, TuicServerConfig,
+    AwgManager, AwgNatConfig, Hysteria2Manager, Hysteria2ServerConfig, TuicManager,
+    TuicServerConfig,
 };
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -56,40 +58,6 @@ fn write_executable(path: &Path, content: &str) -> PathBuf {
     path.to_path_buf()
 }
 
-fn sample_obfuscation() -> AwgObfuscationConfig {
-    AwgObfuscationConfig {
-        jc: 8,
-        jmin: 64,
-        jmax: 1024,
-        s1: 32,
-        s2: 32,
-        s3: 16,
-        s4: 16,
-        h1: "1-10000000".into(),
-        h2: "10000001-20000000".into(),
-        h3: "20000001-30000000".into(),
-        h4: "30000001-40000000".into(),
-    }
-}
-
-fn sample_awg_server_config(iface: &str) -> AwgServerConfig {
-    AwgServerConfig {
-        listen: "127.0.0.1:51820".parse().unwrap(),
-        interface_name: iface.into(),
-        private_key: "sJkP2oorqrq49P6Ln25MWo3X04PxhB8k+RnJJnZ4gEo=".into(),
-        address: "10.8.0.1/24".into(),
-        mtu: Some(1420),
-        obfuscation: sample_obfuscation(),
-        peers: vec![AwgPeerConfig {
-            public_key: "kHkjzj1KeQjR/82vXYRdQPA113MAzNRkDsedH5kZLi4=".into(),
-            allowed_ips: vec!["10.8.0.2/32".into()],
-            preshared_key: None,
-            endpoint: None,
-            persistent_keepalive: Some(25),
-        }],
-    }
-}
-
 fn fake_awg_go() -> &'static str {
     r#"#!/bin/sh
 dir="${AWG_UAPI_DIR:-/var/run/amneziawg}"
@@ -125,8 +93,9 @@ async fn awg_manager_start_and_shutdown() {
     std::fs::create_dir_all(&socket_dir).expect("socket dir");
     let go_bin = write_executable(&dir.path().join("amneziawg-go"), fake_awg_go());
     let tools_bin = write_executable(&dir.path().join("awg"), fake_awg_tools());
+    let keys = common::AwgTestKeys::generate();
     let iface = format!("skadiwg{}", std::process::id());
-    let config = sample_awg_server_config(&iface);
+    let config = common::sample_awg_server_config(&iface, &keys);
     let nat = AwgNatConfig {
         enabled: false,
         egress_interface: None,
@@ -155,19 +124,9 @@ async fn awg_client_manager_start_and_stop() {
     std::fs::create_dir_all(&socket_dir).expect("socket dir");
     let go_bin = write_executable(&dir.path().join("amneziawg-go"), fake_awg_go());
     let tools_bin = write_executable(&dir.path().join("awg"), fake_awg_tools());
+    let keys = common::AwgTestKeys::generate();
     let iface = format!("skadiawg{}", std::process::id());
-    let config = AwgClientConfig {
-        interface_name: iface,
-        private_key: "yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk=".into(),
-        address: "10.8.0.2/24".into(),
-        server_public_key: "BKVtmgSy1V3vWdvrZ8NWdxgPACG6OBVH3pH8ptdNZFA=".into(),
-        endpoint: "127.0.0.1:51820".into(),
-        mtu: Some(1420),
-        dns: Some("1.1.1.1".into()),
-        allowed_ips: vec!["0.0.0.0/0".into()],
-        persistent_keepalive: Some(25),
-        obfuscation: sample_obfuscation(),
-    };
+    let config = common::sample_awg_client_config(&iface, &keys);
 
     let _env = EnvGuard::set(&[
         ("AWG_GO_BINARY", Some(go_bin.to_str().unwrap())),
@@ -187,7 +146,7 @@ async fn hysteria2_manager_lifecycle() {
     let bin = write_executable(&dir.path().join("hysteria"), fake_sleep_binary());
     let config = Hysteria2ServerConfig {
         listen: "127.0.0.1:18443".parse().unwrap(),
-        password: "secret".into(),
+        password: common::TEST_ONLY_PASSWORD.into(),
         cert_path: "/tmp/cert.pem".into(),
         key_path: "/tmp/key.pem".into(),
         masquerade_url: None,
@@ -210,8 +169,8 @@ async fn tuic_manager_lifecycle() {
     let bin = write_executable(&dir.path().join("tuic-server"), fake_sleep_binary());
     let config = TuicServerConfig {
         listen: "127.0.0.1:18444".parse().unwrap(),
-        uuid: "550e8400-e29b-41d4-a716-446655440000".into(),
-        password: "secret".into(),
+        uuid: common::TEST_ONLY_UUID.into(),
+        password: common::TEST_ONLY_PASSWORD.into(),
         cert_path: "/tmp/cert.pem".into(),
         key_path: "/tmp/key.pem".into(),
         congestion_control: "cubic".into(),
@@ -231,7 +190,8 @@ async fn tuic_manager_lifecycle() {
 fn manager_binary_not_found_errors() {
     {
         let _env = EnvGuard::set(&[("AWG_GO_BINARY", Some("/no/such/amneziawg-go"))]);
-        let config = sample_awg_server_config("skadiwgfail");
+        let keys = common::AwgTestKeys::generate();
+        let config = common::sample_awg_server_config("skadiwgfail", &keys);
         let err = match tokio::runtime::Runtime::new()
             .expect("runtime")
             .block_on(AwgManager::start(&config, None))
@@ -246,7 +206,7 @@ fn manager_binary_not_found_errors() {
         let _env = EnvGuard::set(&[("HYSTERIA2_BINARY", Some("/no/such/hysteria"))]);
         let config = Hysteria2ServerConfig {
             listen: "127.0.0.1:1".parse().unwrap(),
-            password: "x".into(),
+            password: common::TEST_ONLY_PASSWORD.into(),
             cert_path: "/tmp/cert.pem".into(),
             key_path: "/tmp/key.pem".into(),
             masquerade_url: None,
@@ -268,7 +228,7 @@ async fn hysteria2_early_exit_is_reported() {
     let bin = write_executable(&dir.path().join("hysteria"), fake_exit_binary());
     let config = Hysteria2ServerConfig {
         listen: "127.0.0.1:18445".parse().unwrap(),
-        password: "secret".into(),
+        password: common::TEST_ONLY_PASSWORD.into(),
         cert_path: "/tmp/cert.pem".into(),
         key_path: "/tmp/key.pem".into(),
         masquerade_url: None,
