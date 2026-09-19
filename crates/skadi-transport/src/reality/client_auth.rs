@@ -41,8 +41,8 @@ impl RealityClientAuth {
             return Err(RealityClientAuthError::InvalidShortId);
         }
 
-        let cipher = Aes256Gcm::new_from_slice(auth_key)
-            .map_err(|_| RealityClientAuthError::Cipher)?;
+        let cipher =
+            Aes256Gcm::new_from_slice(auth_key).map_err(|_| RealityClientAuthError::Cipher)?;
         let nonce = Nonce::from_slice(&client_random[20..32]);
 
         let mut plaintext = [0u8; 16];

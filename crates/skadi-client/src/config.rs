@@ -455,9 +455,7 @@ impl ClientConfig {
     }
 
     pub fn reality_enabled(&self) -> bool {
-        self.remote
-            .as_ref()
-            .is_some_and(|r| r.reality.enabled)
+        self.remote.as_ref().is_some_and(|r| r.reality.enabled)
     }
 
     pub fn tls_client_config(&self) -> Result<TlsClientConfig> {

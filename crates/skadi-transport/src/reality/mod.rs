@@ -1,8 +1,8 @@
 //! REALITY transport (Xray-compatible TLS camouflage).
 
 mod auth;
-mod client_auth;
 mod cert;
+mod client_auth;
 mod hello_parser;
 mod impersonate;
 mod prefixed;
