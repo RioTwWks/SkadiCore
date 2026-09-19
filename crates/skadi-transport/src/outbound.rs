@@ -1,4 +1,4 @@
-//! Исходящий TCP: plain или TLS.
+//! Исходящий TCP: plain, TLS или XHTTP поверх них.
 
 use anyhow::Result;
 use skadi_core::Endpoint;
@@ -14,11 +14,13 @@ use tokio_rustls::client::TlsStream;
 use crate::reality_tls_client::{RealityTlsClientConfig, RealityTlsOutboundTransport};
 use crate::tcp::TcpTransport;
 use crate::tls_client::{TlsClientConfig, TlsOutboundTransport};
+use crate::xhttp::XhttpClientIo;
 
-/// Исходящее TCP-соединение (plain или TLS).
+/// Исходящее TCP-соединение (plain, TLS или XHTTP duplex).
 pub enum TcpUpstream {
     Plain(TcpStream),
     Tls(TlsStream<TcpStream>),
+    Xhttp(XhttpClientIo),
 }
 
 impl TcpUpstream {
@@ -26,6 +28,10 @@ impl TcpUpstream {
         match self {
             Self::Plain(s) => s.local_addr(),
             Self::Tls(s) => s.get_ref().0.local_addr(),
+            Self::Xhttp(_) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "local_addr not available for XHTTP upstream",
+            )),
         }
     }
 }
@@ -39,6 +45,7 @@ impl AsyncRead for TcpUpstream {
         match self.get_mut() {
             TcpUpstream::Plain(s) => Pin::new(s).poll_read(cx, buf),
             TcpUpstream::Tls(s) => Pin::new(s).poll_read(cx, buf),
+            TcpUpstream::Xhttp(s) => Pin::new(s).poll_read(cx, buf),
         }
     }
 }
@@ -52,6 +59,7 @@ impl AsyncWrite for TcpUpstream {
         match self.get_mut() {
             TcpUpstream::Plain(s) => Pin::new(s).poll_write(cx, buf),
             TcpUpstream::Tls(s) => Pin::new(s).poll_write(cx, buf),
+            TcpUpstream::Xhttp(s) => Pin::new(s).poll_write(cx, buf),
         }
     }
 
@@ -59,6 +67,7 @@ impl AsyncWrite for TcpUpstream {
         match self.get_mut() {
             TcpUpstream::Plain(s) => Pin::new(s).poll_flush(cx),
             TcpUpstream::Tls(s) => Pin::new(s).poll_flush(cx),
+            TcpUpstream::Xhttp(s) => Pin::new(s).poll_flush(cx),
         }
     }
 
@@ -66,6 +75,7 @@ impl AsyncWrite for TcpUpstream {
         match self.get_mut() {
             TcpUpstream::Plain(s) => Pin::new(s).poll_shutdown(cx),
             TcpUpstream::Tls(s) => Pin::new(s).poll_shutdown(cx),
+            TcpUpstream::Xhttp(s) => Pin::new(s).poll_shutdown(cx),
         }
     }
 }

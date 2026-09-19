@@ -5,7 +5,8 @@ use serde::Deserialize;
 use skadi_core::Endpoint;
 use skadi_protocol::vless::Uuid;
 use skadi_transport::{
-    AwgClientConfig, AwgObfuscationConfig, RealityTlsClientConfig, TlsClientConfig, TlsKexMode,
+    AwgClientConfig, AwgObfuscationConfig, PaddingRange, RealityTlsClientConfig, TlsClientConfig,
+    TlsKexMode, XhttpClientConfig, XhttpMode,
 };
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
@@ -296,6 +297,31 @@ pub struct RemoteConfig {
     pub tls: RemoteTlsConfig,
     #[serde(default)]
     pub reality: RemoteRealityConfig,
+    #[serde(default)]
+    pub xhttp: RemoteXhttpConfig,
+}
+
+/// XHTTP outbound (поверх plain / TLS / REALITY).
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct RemoteXhttpConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_remote_xhttp_path")]
+    pub path: String,
+    #[serde(default = "default_remote_xhttp_mode")]
+    pub mode: String,
+    /// HTTP `Host` (по умолчанию — `remote.reality.server_name` / `remote.tls.server_name` / hostname из `server`).
+    pub host: Option<String>,
+    /// Диапазон длины `X-Padding` в запросе (по умолчанию 100..=1000).
+    pub x_padding_bytes: Option<[u32; 2]>,
+}
+
+fn default_remote_xhttp_path() -> String {
+    "/xhttp".to_string()
+}
+
+fn default_remote_xhttp_mode() -> String {
+    "stream-one".to_string()
 }
 
 /// REALITY outbound (Xray: `password`, `shortId`, `serverName`).
@@ -364,6 +390,9 @@ impl ClientConfig {
             }
             if remote.reality.enabled {
                 parse_reality_client(&remote.reality)?;
+            }
+            if remote.xhttp.enabled {
+                parse_remote_xhttp(&remote.xhttp)?;
             }
         }
         if let Some(awg) = &self.awg {
@@ -477,6 +506,7 @@ impl ClientConfig {
             client_key: None,
             kex_mode: TlsKexMode::parse(&remote.tls.kex_mode)
                 .with_context(|| "invalid remote.tls.kex_mode")?,
+            alpn_http1_only: remote.xhttp.enabled,
         })
     }
 
@@ -521,6 +551,7 @@ impl ClientConfig {
             server_name: server_name.to_string(),
             kex_mode: TlsKexMode::parse(&reality.kex_mode)
                 .with_context(|| "invalid remote.reality.kex_mode")?,
+            alpn_http1_only: remote.xhttp.enabled,
         })
     }
 
@@ -541,6 +572,61 @@ impl ClientConfig {
     pub fn connect_timeout(&self) -> Duration {
         Duration::from_secs(10)
     }
+
+    pub fn xhttp_enabled(&self) -> bool {
+        self.remote.as_ref().is_some_and(|r| r.xhttp.enabled)
+    }
+
+    /// Runtime-конфиг XHTTP outbound (`None`, если выключен).
+    pub fn xhttp_client_config(&self) -> Result<Option<XhttpClientConfig>> {
+        let remote = match &self.remote {
+            Some(r) if r.xhttp.enabled => r,
+            _ => return Ok(None),
+        };
+        let xhttp = &remote.xhttp;
+        let mode = XhttpMode::parse(&xhttp.mode)
+            .ok_or_else(|| anyhow::anyhow!("remote.xhttp.mode invalid: {}", xhttp.mode))?;
+        let padding = match xhttp.x_padding_bytes {
+            Some([min, max]) => {
+                if min > max {
+                    bail!("remote.xhttp.x_padding_bytes: min ({min}) must be <= max ({max})");
+                }
+                PaddingRange::new(min, max)
+            }
+            None => PaddingRange::default(),
+        };
+        let host = xhttp
+            .host
+            .clone()
+            .or_else(|| remote.reality.server_name.clone())
+            .or_else(|| remote.tls.server_name.clone())
+            .unwrap_or_else(|| {
+                split_host_port(&remote.server)
+                    .map(|(h, _)| h)
+                    .unwrap_or_else(|_| "localhost".to_string())
+            });
+        Ok(Some(XhttpClientConfig {
+            path: xhttp.path.clone(),
+            host,
+            mode,
+            padding,
+        }))
+    }
+}
+
+fn parse_remote_xhttp(cfg: &RemoteXhttpConfig) -> Result<()> {
+    if cfg.path.trim().is_empty() {
+        bail!("remote.xhttp.path must not be empty when xhttp is enabled");
+    }
+    if XhttpMode::parse(&cfg.mode).is_none() {
+        bail!("remote.xhttp.mode must be auto, packet-up, stream-up, or stream-one");
+    }
+    if let Some([min, max]) = cfg.x_padding_bytes {
+        if min > max {
+            bail!("remote.xhttp.x_padding_bytes: min must be <= max");
+        }
+    }
+    Ok(())
 }
 
 fn parse_reality_client(cfg: &RemoteRealityConfig) -> Result<()> {
@@ -754,6 +840,34 @@ kex_mode = "hybrid_pq"
         config.validate().unwrap();
         let rc = config.reality_tls_client_config().unwrap();
         assert_eq!(rc.kex_mode, TlsKexMode::HybridPq);
+    }
+
+    #[test]
+    fn xhttp_client_config_defaults_and_host() {
+        let raw = r#"
+[client]
+listen = "127.0.0.1:1080"
+
+[remote]
+server = "10.0.0.1:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+
+[remote.reality]
+enabled = true
+password = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+short_id = "01"
+server_name = "reality.test"
+
+[remote.xhttp]
+enabled = true
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        config.validate().unwrap();
+        let xhttp = config.xhttp_client_config().unwrap().unwrap();
+        assert_eq!(xhttp.path, "/xhttp");
+        assert_eq!(xhttp.mode, XhttpMode::StreamOne);
+        assert_eq!(xhttp.host, "reality.test");
+        assert!(config.reality_tls_client_config().unwrap().alpn_http1_only);
     }
 
     #[test]

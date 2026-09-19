@@ -82,6 +82,7 @@ async fn native_reality_tls_handshake_only() {
             short_id: hex::decode(&keys.short_id_hex).unwrap(),
             server_name: SERVER_NAME.to_string(),
             kex_mode: TlsKexMode::Classic,
+            alpn_http1_only: false,
         },
     )
     .unwrap();

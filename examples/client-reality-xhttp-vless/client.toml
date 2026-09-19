@@ -1,0 +1,30 @@
+# Локальный SOCKS5 → VLESS + REALITY + XHTTP (нативный клиент, без Xray).
+#
+# Сервер: examples/reality-xhttp-vless/server.toml
+# remote.server              — TCP dial (IP:port прокси)
+# remote.reality.server_name — SNI (должен быть в server_names)
+# remote.xhttp.path/mode     — как [transport.xhttp] на сервере
+
+[client]
+listen = "127.0.0.1:10808"
+
+[remote]
+server = "127.0.0.1:443"
+uuid = "b831381d-6324-4d53-ad4f-8cda48b30811"
+
+[remote.tls]
+enabled = false
+
+[remote.reality]
+enabled = true
+password = "REPLACE_WITH_XRAY_PASSWORD"
+short_id = "0123456789abcdef"
+server_name = "www.microsoft.com"
+kex_mode = "classic"
+
+[remote.xhttp]
+enabled = true
+path = "/xhttp"
+mode = "stream-one"
+# host = "www.microsoft.com"   # опционально; по умолчанию = reality.server_name
+# mode: stream-one | stream-up | packet-up | auto (=stream-one)

@@ -47,6 +47,7 @@ pub use udp::{
     read_vless_udp_frame, relay_vless_udp_with_limits, write_vless_udp_frame, UdpTransport,
 };
 pub use xhttp::{
-    accept_stream_one, accept_xhttp, PaddingRange, XhttpAcceptResult, XhttpConfig, XhttpError,
-    XhttpIo, XhttpMode, XhttpSessionManager,
+    accept_stream_one, accept_xhttp, connect_packet_up, connect_stream_one, connect_stream_up,
+    connect_xhttp, PaddingRange, XhttpAcceptResult, XhttpClientConfig, XhttpClientError,
+    XhttpClientIo, XhttpConfig, XhttpError, XhttpIo, XhttpMode, XhttpSessionManager,
 };

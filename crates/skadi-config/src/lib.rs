@@ -1041,6 +1041,7 @@ impl Config {
             client_key: tls.key.clone(),
             kex_mode: parse_tls_kex_mode(&tls.kex_mode, "outbound.tls.kex_mode")
                 .expect("outbound TLS KEX mode validated in validate()"),
+            alpn_http1_only: false,
         }
     }
 
