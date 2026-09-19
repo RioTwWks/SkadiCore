@@ -25,6 +25,8 @@ pub struct RealityTlsClientConfig {
     pub short_id: Vec<u8>,
     pub server_name: String,
     pub kex_mode: TlsKexMode,
+    /// Только `http/1.1` (для нативного XHTTP; иначе `h2` + `http/1.1`).
+    pub alpn_http1_only: bool,
 }
 
 /// TCP + REALITY TLS.
@@ -70,7 +72,11 @@ impl RealityTlsOutboundTransport {
             .with_no_client_auth();
 
         client_config.reality_client = Some(Arc::new(reality_settings));
-        client_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+        client_config.alpn_protocols = if config.alpn_http1_only {
+            vec![b"http/1.1".to_vec()]
+        } else {
+            vec![b"h2".to_vec(), b"http/1.1".to_vec()]
+        };
         client_config.resumption = rustls::client::Resumption::disabled();
 
         let sni = ServerName::try_from(config.server_name.clone())

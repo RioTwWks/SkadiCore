@@ -9,20 +9,24 @@
 
 ### Added
 
+- **Клиентский XHTTP** (`[remote.xhttp]`): stream-one / stream-up / packet-up поверх plain, TLS или REALITY
+- Пример **`examples/client-reality-xhttp-vless/`** + e2e `client_socks5_vless_reality_xhttp_e2e`
 - **`remote.reality.kex_mode`** на клиенте (`classic` / `hybrid_pq`, паритет с сервером)
 - Пример **`examples/client-reality-vless-tun/`** (TUN + REALITY)
 - **`CODE_OF_CONDUCT.md`** (Contributor Covenant 2.1), шаблоны GitHub PR/issue
 
 ### Changed
 
+- При включённом `[remote.xhttp]` REALITY/TLS outbound использует ALPN только `http/1.1`
 - **`docs/RELEASING.md`** — подробное руководство по релизам и minisign
-- **`docs/CONFIGURATION.md`** — секция `[remote.reality]`, уточнение `server` vs `server_name`
+- **`docs/CONFIGURATION.md`** — секции `[remote.reality]`, `[remote.xhttp]`
 - **`SECURITY.md`** — политика поддержки для релизных тегов
 - README: дорожная карта VLESS/REALITY, статус v0.1.0
 
 ### Fixed
 
 - Release workflow: путь к бинарнику minisign в официальном tarball (`minisign-linux/x86_64/`)
+- Release signing: поддержка `MINISIGN_KEY_PASSPHRASE` и sync `sign-release.sh` с default branch
 
 ## [0.1.0] - 2026-09-19
 

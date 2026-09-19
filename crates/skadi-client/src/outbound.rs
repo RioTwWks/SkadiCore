@@ -1,10 +1,10 @@
-//! Исходящее VLESS+TLS соединение к удалённому прокси.
+//! Исходящее VLESS соединение к удалённому прокси (TLS / REALITY / XHTTP).
 
 use crate::config::ClientConfig;
 use anyhow::{Context, Result};
 use skadi_core::Endpoint;
 use skadi_protocol::vless::VlessClient;
-use skadi_transport::{OutboundTcpTransport, TcpUpstream};
+use skadi_transport::{connect_xhttp, OutboundTcpTransport, TcpUpstream, XhttpClientConfig};
 
 #[derive(Clone)]
 pub struct Outbound {
@@ -12,6 +12,7 @@ pub struct Outbound {
     proxy_tls: Endpoint,
     proxy_tcp: Endpoint,
     uuid: [u8; 16],
+    xhttp: Option<XhttpClientConfig>,
 }
 
 impl Outbound {
@@ -43,6 +44,7 @@ impl Outbound {
             proxy_tls,
             proxy_tcp: config.proxy_endpoint()?,
             uuid: config.uuid_bytes()?,
+            xhttp: config.xhttp_client_config()?,
         })
     }
 
@@ -67,9 +69,32 @@ impl Outbound {
             OutboundTcpTransport::Tls(_) => &self.proxy_tls,
             OutboundTcpTransport::Reality(_) | OutboundTcpTransport::Plain(_) => &self.proxy_tcp,
         };
-        self.transport
-            .connect(endpoint)
-            .await
-            .context("remote proxy connect failed")
+
+        let Some(xhttp) = &self.xhttp else {
+            return self
+                .transport
+                .connect(endpoint)
+                .await
+                .context("remote proxy connect failed");
+        };
+
+        let transport = self.transport.clone();
+        let endpoint = endpoint.clone();
+        let io = connect_xhttp(
+            move || {
+                let transport = transport.clone();
+                let endpoint = endpoint.clone();
+                async move {
+                    transport
+                        .connect(&endpoint)
+                        .await
+                        .map_err(|e| std::io::Error::other(e.to_string()))
+                }
+            },
+            xhttp,
+        )
+        .await
+        .context("XHTTP upgrade failed")?;
+        Ok(TcpUpstream::Xhttp(io))
     }
 }

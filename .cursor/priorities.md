@@ -16,15 +16,15 @@
 
 ## Сейчас (ближайшие задачи)
 
-1. **Транспорт:** клиентский XHTTP (сервер уже есть).
-2. **Релизный цикл:** накопить `[Unreleased]` → **`v0.1.1`** по `docs/RELEASING.md` (kex_mode + TUN REALITY example в очереди на релиз).
-3. **Ops:** `MINISIGN_SECRET_KEY` в GitHub для подписанных артефактов.
+1. **Релизный цикл:** накопить `[Unreleased]` → **`v0.1.1`** по `docs/RELEASING.md`.
+2. **Ops:** убедиться, что minisign secrets (`MINISIGN_SECRET_KEY` / `MINISIGN_KEY_PASSPHRASE`) стабильно подписывают релизы.
 
 ## Позже
 
 | Задача | Описание |
 |--------|----------|
 | ~~XHTTP (server)~~ | ✅ stream-one + stream-up + packet-up |
+| ~~XHTTP (client)~~ | ✅ `[remote.xhttp]` + e2e REALITY |
 | ~~AmneziaWG~~ | ✅ MVP |
 | ~~Client MVP~~ | ✅ SOCKS5 → VLESS+TLS/REALITY |
 | ~~TUN~~ | ✅ Linux MVP |

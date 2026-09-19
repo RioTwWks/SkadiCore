@@ -9,11 +9,12 @@
 ## Стек
 
 ```
-Клиент (Xray) → REALITY TLS → XHTTP upgrade → VLESS → upstream
+Клиент (skadi-client или Xray) → REALITY TLS → XHTTP upgrade → VLESS → upstream
 ```
 
 - `flow` / `xtls-rprx-vision` **не** используйте — SkadiCore не поддерживает.
-- Для REALITY+XHTTP Xray обычно выбирает `stream-one` (один HTTP POST на сессию).
+- Для REALITY+XHTTP обычно выбирают `stream-one` (один HTTP POST на сессию).
+- Нативный клиент: [`../client-reality-xhttp-vless/`](../client-reality-xhttp-vless/).
 
 ## 1. Ключи
 

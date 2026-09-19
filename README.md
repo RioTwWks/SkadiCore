@@ -77,6 +77,7 @@ SkadiCore — это попытка собрать в одном ядре сил
 
 - [x] gRPC API — hot reload пользователей VLESS/SOCKS5 (`[api]`).
 - [x] XHTTP inbound (stream-one, stream-up, packet-up)
+- [x] XHTTP outbound / skadi-client (`[remote.xhttp]`)
 - [x] Клиентский режим MVP (`skadicore client`: SOCKS5 → VLESS+TLS)
 - [x] TUN (Linux MVP, `[client.tun]`)
 - [x] UDP/Mux/XUDP VLESS, TLS outbound — см. `examples/`.

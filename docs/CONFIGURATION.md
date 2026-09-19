@@ -1182,8 +1182,34 @@ block_system_doh = true
 
 - SOCKS5: `examples/client-reality-vless/client.toml`
 - TUN + REALITY: `examples/client-reality-vless-tun/client.toml`
+- SOCKS5 + XHTTP: `examples/client-reality-xhttp-vless/client.toml`
 
 Сервер REALITY: см. [Секция `[transport.reality]`](#секция-transportreality).
+
+### Секция `[remote.xhttp]`
+
+XHTTP (SplitHTTP) поверх plain TCP, `[remote.tls]` или `[remote.reality]`.
+Нативный клиент говорит **HTTP/1.1** (при REALITY/TLS ALPN принудительно
+`http/1.1`, чтобы не выбрать `h2`).
+
+```toml
+[remote.xhttp]
+enabled = true
+path = "/xhttp"
+mode = "stream-one"   # auto | stream-one | stream-up | packet-up
+# host = "www.example.com"
+# x_padding_bytes = [100, 1000]
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `enabled` | bool | XHTTP upgrade после TCP/TLS/REALITY |
+| `path` | string | URL prefix (должен совпадать с `[transport.xhttp].path`) |
+| `mode` | string | `stream-one` (по умолчанию), `stream-up`, `packet-up`, `auto` (=stream-one на клиенте) |
+| `host` | string? | HTTP `Host`; по умолчанию `reality.server_name` / `tls.server_name` / hostname из `server` |
+| `x_padding_bytes` | `[u32; 2]?` | Диапазон длины `X-Padding` в запросе (по умолчанию 100..=1000) |
+
+`flow` / Vision с XHTTP не используйте. Пример: `examples/client-reality-xhttp-vless/`.
 
 ---
 

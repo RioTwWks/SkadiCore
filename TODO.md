@@ -512,6 +512,7 @@ REALITY реализован, но нет тестов, которые пров�
 **AmneziaWG** — обфусцированный WireGuard, стабильно проходит ТСПУ (2026).
 
 - [x] XHTTP-транспорт (+ REALITY, `password` в realitySettings; пример + E2E)
+- [x] XHTTP **клиент** (`[remote.xhttp]`, stream-one/stream-up/packet-up, native e2e)
 - [x] AmneziaWG как альтернативный транспорт (MVP: `[transport.awg]` + amneziawg-go backend)
 
 #### 🛡️ REALITY-rkn-fix

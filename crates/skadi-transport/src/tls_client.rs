@@ -26,6 +26,8 @@ pub struct TlsClientConfig {
     pub client_key: Option<String>,
     /// Режим key exchange: классический или гибридный PQ (X25519MLKEM768).
     pub kex_mode: TlsKexMode,
+    /// Если true — ALPN только `http/1.1` (нативный XHTTP).
+    pub alpn_http1_only: bool,
 }
 
 /// Исходящий транспорт: TCP + TLS handshake с проверкой сертификата.
@@ -55,7 +57,7 @@ impl TlsOutboundTransport {
             .context("unsupported TLS protocol versions")?
             .with_root_certificates(roots);
 
-        let client_config = match (&config.client_cert, &config.client_key) {
+        let mut client_config = match (&config.client_cert, &config.client_key) {
             (Some(cert), Some(key)) => {
                 let chain = load_certs(cert)?;
                 let key = load_private_key(key)?;
@@ -66,6 +68,9 @@ impl TlsOutboundTransport {
             (None, None) => builder.with_no_client_auth(),
             _ => bail!("outbound.tls.cert and outbound.tls.key must both be set"),
         };
+        if config.alpn_http1_only {
+            client_config.alpn_protocols = vec![b"http/1.1".to_vec()];
+        }
 
         Ok(Self {
             tcp: TcpTransport::with_policy(connect_timeout, allow_private),
@@ -196,6 +201,7 @@ mod tests {
                 client_cert: None,
                 client_key: None,
                 kex_mode: TlsKexMode::Classic,
+                alpn_http1_only: false,
             },
         )
         .unwrap();
