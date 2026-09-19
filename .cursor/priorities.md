@@ -11,13 +11,13 @@
 - [x] TLS inbound/outbound, REALITY inbound + **native REALITY client**, gRPC API, metrics
 - [x] Примеры конфигов: REALITY, VLESS TLS, SOCKS5 TLS, `client-reality-vless`
 - [x] CI: fmt, clippy, test, audit, deny, miri, musl, cross-platform, tarpaulin, smoke-transports
-- [x] GitHub Releases workflow + **первый тег `v0.1.0`**
+- [x] GitHub Releases workflow + теги **`v0.1.0`**, **`v0.1.1`**
 - [x] `CONTRIBUTING.md`, CHANGELOG Keep a Changelog, `docs/RELEASING.md`
 
 ## Сейчас (ближайшие задачи)
 
-1. **Релизный цикл:** накопить `[Unreleased]` → **`v0.1.1`** по `docs/RELEASING.md`.
-2. **Ops:** убедиться, что minisign secrets (`MINISIGN_SECRET_KEY` / `MINISIGN_KEY_PASSPHRASE`) стабильно подписывают релизы.
+1. **После merge релизного PR:** `git tag -a v0.1.1 && git push origin v0.1.1` (или Actions → Release → Run workflow).
+2. Накопить следующий `[Unreleased]` → **`v0.1.2`** по мере фич.
 
 ## Позже
 
