@@ -358,7 +358,7 @@
 
 **Чего не хватает:** явного аудита `ServerCertVerifier` в `rustls-reality`. Нужно убедиться, что он проверяет подпись временного ключа, а не просто «доверяет всему».
 
-- [ ] Аудит `ServerCertVerifier` в `rustls-reality`
+- [x] Аудит `ServerCertVerifier` в `rustls-reality` — `RealityServerCertVerifier` (HMAC-SHA512 хвост)
 
 #### 2.5. gRPC API: аутентификация и авторизация
 

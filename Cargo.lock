@@ -2339,6 +2339,7 @@ dependencies = [
  "bencher",
  "env_logger",
  "log",
+ "rcgen",
  "ring",
  "rustls-pemfile",
  "rustls-pki-types",

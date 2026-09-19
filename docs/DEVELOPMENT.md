@@ -320,6 +320,11 @@ curl --socks5-hostname 127.0.0.1:10808 https://example.com
 См. `examples/reality-vless/README.md` для Nekoray и v2rayNG share link.
 Полный список примеров: `examples/README.md` (VLESS TLS, SOCKS5 TLS).
 
+**REALITY TLS client (rustls):** после REALITY auth session `auth_key` проверяйте leaf
+через `rustls::reality::RealityServerCertVerifier` (или `skadi_transport::reality::verify_server_cert_hmac`).
+Не используйте «accept all» verifier на пользовательском трафике; исключение — однократный
+`fetch_impersonate_cert_from_dest` для админского prefetch шаблона с публичного `dest`.
+
 ### Покрытие
 
 ```bash

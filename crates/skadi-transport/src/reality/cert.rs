@@ -231,6 +231,13 @@ mod tests {
     }
 
     #[test]
+    fn rustls_reality_verifier_accepts_generated_cert() {
+        let auth_key = [42u8; 32];
+        let (cert, _) = generate_reality_cert(&auth_key, "client.example.com", None).unwrap();
+        rustls::reality::verify_server_cert_hmac(&auth_key, cert.as_ref()).unwrap();
+    }
+
+    #[test]
     fn impersonate_uses_template_metadata() {
         let template = generate_simple_self_signed(vec!["dest.example.com".to_string()]).unwrap();
         let template_der = template.cert.der().to_vec();
