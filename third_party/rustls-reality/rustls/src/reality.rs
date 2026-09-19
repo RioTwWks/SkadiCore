@@ -73,3 +73,7 @@ pub fn inject_auth(
 pub fn verify_client(session_id: &[u8], _client_random: &[u8; 32], config: &RealityConfig) -> bool {
     config.private_key.len() == 32 && session_id.len() == 32
 }
+
+mod verifier;
+
+pub use verifier::{verify_server_cert_hmac, RealityServerCertVerifier, AUTH_HMAC_TAIL_LEN};

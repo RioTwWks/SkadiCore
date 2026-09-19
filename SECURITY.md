@@ -196,6 +196,11 @@ Prometheus `/metrics` не включает токен.
   leaf-сертификата `dest` (`fetch_impersonate_cert` / `impersonate_cert`).
   По умолчанию KEX — классический X25519 (совместимость с Xray); опционально
   `kex_mode = "hybrid_pq"` (X25519MLKEM768) на TLS-сессии после REALITY verify.
+- **REALITY-клиент (rustls):** для проверки leaf-сертификата прокси используйте
+  `rustls::reality::RealityServerCertVerifier` с session `auth_key` (HMAC-SHA512
+  по Ed25519 SPKI). Не подключайте «доверять всему» verifier на data plane.
+  Однократный съём шаблона с публичного `dest` (`fetch_impersonate_cert_from_dest`)
+  намеренно отключает PKIX — только для админского prefetch, не для пользовательского трафика.
 - Без `hybrid_pq` TLS 1.3 не защищает от **store-now-decrypt-later**.
   Подробнее: `docs/RISKS.md` §1.5.
 

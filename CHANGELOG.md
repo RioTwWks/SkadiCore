@@ -16,6 +16,9 @@
 
 ### Added
 
+- **`rustls::reality::RealityServerCertVerifier`** — проверка REALITY leaf по
+  HMAC-SHA512 хвосту; re-export в `skadi_transport::reality`
+
 - **`skadi-config`** — server TOML config + validation вынесены из `skadi-server`
 - **SOCKS5 BIND / UDP ASSOCIATE** — опционально (`protocol.socks5.bind`, `udp_associate`)
 

@@ -1,4 +1,9 @@
 //! Загрузка и получение шаблона сертификата dest для REALITY ImpersonateCert.
+//!
+//! **Безопасность:** `CaptureVerifier` намеренно не проверяет PKIX/HMAC — он используется
+//! только при однократном подключении к публичному `dest` для снятия leaf-сертификата.
+//! Для REALITY-клиента к прокси нужен [`rustls::reality::RealityServerCertVerifier`]
+//! (проверка HMAC-SHA512 хвоста), а не «доверять всему».
 
 use anyhow::{bail, Context, Result};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
@@ -101,6 +106,7 @@ where
     Ok(())
 }
 
+/// Только для `fetch_impersonate_cert_from_dest` — не использовать на data plane REALITY.
 #[derive(Debug)]
 struct CaptureVerifier {
     captured: Arc<Mutex<Option<Vec<u8>>>>,
