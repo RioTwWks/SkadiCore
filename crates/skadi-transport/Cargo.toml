@@ -39,7 +39,8 @@ ipnet.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
-tokio = { workspace = true, features = ["rt", "macros", "io-util"] }
+tempfile = "3"
+tokio = { workspace = true, features = ["rt", "macros", "io-util", "sync", "time"] }
 
 [[bench]]
 name = "relay"
