@@ -8,6 +8,10 @@ SkadiCore поднимает интерфейс через [`amneziawg-go`](http
 
 Это **отдельный режим** от VLESS/REALITY: полноценный L3 VPN, не stream-прокси.
 
+Файлы в этой папке содержат **плейсхолдеры** (`<server-private-key>` и т.д.).
+Перед запуском подставьте реальные ключи из `genkey awg`. `check-config` для примера
+проверяет структуру TOML и обфускацию, но не валидирует плейсхолдеры как WireGuard-ключи.
+
 ## Зависимости
 
 | Компонент | Назначение |
@@ -22,21 +26,36 @@ SkadiCore поднимает интерфейс через [`amneziawg-go`](http
 
 ## 1. Ключи
 
+Сгенерируйте **две независимые пары** (сервер и клиент):
+
 ```bash
-# Сервер
+# Сервер: сохраните вывод (private + public)
 cargo run --bin skadicore -- genkey awg
 
-# Клиент (отдельная пара)
+# Клиент: вторая пара
 cargo run --bin skadicore -- genkey awg
 ```
 
-| Сервер `server.toml` | Клиент `client.conf` |
-|----------------------|----------------------|
-| `private_key` | `PublicKey` в `[Peer]` |
-| `[[transport.awg.peers]].public_key` | `PrivateKey` в `[Interface]` |
-| `h1`…`h4`, `jc`, `s*` | те же значения в `[Interface]` |
+Публичный ключ сервера из приватного (если `genkey` выводит только private):
+
+```bash
+# В выводе genkey обычно есть оба; иначе используйте awg pubkey < private.key
+```
+
+### Куда что вставить
+
+| Значение | `server.toml` | `client.toml` / `client.conf` |
+|----------|---------------|-------------------------------|
+| Приватный ключ **сервера** | `transport.awg.private_key` | — |
+| Публичный ключ **сервера** | — (вычисляется из private) | `server_public_key` / `[Peer] PublicKey` |
+| Приватный ключ **клиента** | — | `private_key` / `[Interface] PrivateKey` |
+| Публичный ключ **клиента** | `[[transport.awg.peers]].public_key` | — |
+
+Параметры `jc`, `jmin`, `jmax`, `s1`–`s4`, `h1`–`h4` должны **совпадать** на сервере и клиенте.
 
 ## 2. Запуск
+
+После подстановки ключей:
 
 ```bash
 sudo cargo run --bin skadicore -- --config examples/awg-vpn/server.toml
@@ -57,6 +76,8 @@ SkadiCore применит `sysctl net.ipv4.ip_forward=1` и `iptables MASQUERAD
 
 ### Экспорт клиентского конфига
 
+Удобнее, чем править `client.conf` вручную — сервер сам подставит obfuscation и peer:
+
 ```bash
 cargo run --bin skadicore -- export-awg-client \
   --config examples/awg-vpn/server.toml \
@@ -65,6 +86,8 @@ cargo run --bin skadicore -- export-awg-client \
   --endpoint "vpn.example.com:51820" \
   -o client.conf
 ```
+
+(`export-awg-client` требует **реальных** ключей в `server.toml`, не плейсхолдеров.)
 
 ### Клиент SkadiCore
 
@@ -76,9 +99,13 @@ sudo cargo run --bin skadicore -- client --config examples/awg-vpn/client.toml
 
 ## 3. Проверка конфига
 
+Структура примера (с плейсхолдерами):
+
 ```bash
 cargo run --bin skadicore -- check-config --config examples/awg-vpn/server.toml
 ```
+
+Полная проверка WireGuard-ключей — после замены плейсхолдеров на ключи из `genkey awg`.
 
 ## 4. Тесты
 

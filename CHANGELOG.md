@@ -9,6 +9,11 @@
 
 Текущая ветка разработки. Всё, что ниже, ещё не выпущено в релиз.
 
+### Changed
+
+- **Пример AWG** — ключи заменены на плейсхолдеры; `check-config` пропускает
+  криптопроверку для `<...>` в `transport.awg` keys
+
 ### Added
 
 - **Hysteria2 MVP** — `[transport.hysteria2]` (QUIC/UDP), backend `hysteria`
