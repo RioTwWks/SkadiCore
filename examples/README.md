@@ -6,6 +6,7 @@
 |---------|----------|-----------|
 | [reality-vless/](reality-vless/) | VLESS + REALITY (рекомендуется) | REALITY |
 | [client-reality-vless/](client-reality-vless/) | **Клиент** SOCKS5 → VLESS+REALITY (native) | REALITY |
+| [client-reality-vless-tun/](client-reality-vless-tun/) | **Клиент** TUN → VLESS+REALITY (Linux) | REALITY |
 | [reality-xhttp-vless/](reality-xhttp-vless/) | VLESS + REALITY + XHTTP | REALITY + XHTTP |
 | [awg-vpn/](awg-vpn/) | AmneziaWG VPN (UDP) | AmneziaWG |
 | [hysteria2/](hysteria2/) | Hysteria2 QUIC proxy | Hysteria2 |

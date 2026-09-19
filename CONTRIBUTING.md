@@ -2,6 +2,8 @@
 
 Спасибо за интерес к проекту. SkadiCore — AGPL-3.0-or-later; вклад принимается через GitHub pull requests.
 
+Участники соблюдают [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+
 ## Перед началом
 
 1. Прочитайте `README.md`, `docs/DEVELOPMENT.md` и `SECURITY.md`.

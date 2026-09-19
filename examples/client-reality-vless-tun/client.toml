@@ -1,0 +1,40 @@
+# TUN (Linux) → VLESS+REALITY (нативный rustls outbound).
+# Требуются root или CAP_NET_ADMIN для создания интерфейса и routing.auto.
+#
+# skadicore client --config examples/client-reality-vless-tun/client.toml
+
+[client]
+listen = "127.0.0.1:1080"
+
+[client.tun]
+enabled = true
+name = "skadi0"
+address = "10.0.0.2"
+gateway = "10.0.0.1"
+netmask = "255.255.255.0"
+mtu = 1400
+
+[client.tun.routing]
+auto = true
+table = 100
+bypass = []
+
+[client.tun.dns]
+hijack = true
+mode = "udp"
+server = "8.8.8.8"
+
+[remote]
+server = "127.0.0.1:443"
+uuid = "b831381d-6324-4d53-ad4f-8cda48b30811"
+
+[remote.tls]
+enabled = false
+
+[remote.reality]
+enabled = true
+password = "REPLACE_WITH_XRAY_PASSWORD"
+short_id = "0123456789abcdef"
+server_name = "reality.test"
+# Должен совпадать с transport.reality.kex_mode на сервере (classic | hybrid_pq).
+kex_mode = "classic"

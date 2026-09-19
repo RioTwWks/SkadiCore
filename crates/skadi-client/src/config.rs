@@ -309,6 +309,9 @@ pub struct RemoteRealityConfig {
     pub short_id: Option<String>,
     /// SNI / `serverName` для ClientHello (маскировка).
     pub server_name: Option<String>,
+    /// `classic` (по умолчанию) или `hybrid_pq` (как на сервере `transport.reality.kex_mode`).
+    #[serde(default = "default_remote_tls_kex_mode")]
+    pub kex_mode: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -516,7 +519,8 @@ impl ClientConfig {
             server_public_key,
             short_id: sid,
             server_name: server_name.to_string(),
-            kex_mode: TlsKexMode::Classic,
+            kex_mode: TlsKexMode::parse(&reality.kex_mode)
+                .with_context(|| "invalid remote.reality.kex_mode")?,
         })
     }
 
@@ -567,6 +571,7 @@ fn parse_reality_client(cfg: &RemoteRealityConfig) -> Result<()> {
     if sid.is_empty() || sid.len() > 8 {
         bail!("remote.reality.short_id must be 1..8 bytes when decoded");
     }
+    TlsKexMode::parse(&cfg.kex_mode).with_context(|| "invalid remote.reality.kex_mode")?;
     Ok(())
 }
 
@@ -723,6 +728,32 @@ uuid = "00000000-0000-0000-0000-000000000001"
 "#;
         let config: ClientConfig = toml::from_str(raw).unwrap();
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn reality_client_config_validates_kex_mode() {
+        let raw = r#"
+[client]
+listen = "127.0.0.1:1080"
+
+[remote]
+server = "127.0.0.1:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+
+[remote.tls]
+enabled = false
+
+[remote.reality]
+enabled = true
+password = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+short_id = "01"
+server_name = "reality.test"
+kex_mode = "hybrid_pq"
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        config.validate().unwrap();
+        let rc = config.reality_tls_client_config().unwrap();
+        assert_eq!(rc.kex_mode, TlsKexMode::HybridPq);
     }
 
     #[test]

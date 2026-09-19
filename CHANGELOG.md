@@ -9,7 +9,15 @@
 
 ### Added
 
+- **`remote.reality.kex_mode`** на клиенте (`classic` / `hybrid_pq`, паритет с сервером)
+- Пример **`examples/client-reality-vless-tun/`** (TUN + REALITY)
+- **`CODE_OF_CONDUCT.md`** (Contributor Covenant 2.1), шаблоны GitHub PR/issue
+
 ### Changed
+
+- **`docs/CONFIGURATION.md`** — секция `[remote.reality]`, уточнение `server` vs `server_name`
+- **`SECURITY.md`** — политика поддержки для релизных тегов
+- README: дорожная карта VLESS/REALITY, статус v0.1.0
 
 ### Fixed
 

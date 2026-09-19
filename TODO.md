@@ -433,7 +433,7 @@ REALITY реализован, но нет тестов, которые пров�
 
 #### 4.3. `CODE_OF_CONDUCT.md` отсутствует
 
-- [ ] `CODE_OF_CONDUCT.md` (Contributor Covenant)
+- [x] `CODE_OF_CONDUCT.md` (Contributor Covenant)
 
 #### 4.4. Документация для AI-агентов
 

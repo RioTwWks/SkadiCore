@@ -4,7 +4,7 @@
 и sing-box (низкое потребление ресурсов, встроенный TUN, поддержка
 множества протоколов).
 
-**Статус**: ранний MVP. Не использовать в продакшене.
+**Статус**: ранний MVP (релизы на [GitHub Releases](https://github.com/RioTwWks/SkadiCore/releases), сейчас **v0.1.0**). Не использовать в продакшене без собственного аудита.
 
 ---
 
@@ -348,8 +348,8 @@ cargo audit
 | 1. TCP-прокси | 🟢 | Релей, idle/lifetime, max_connections, load e2e |
 | 2. SOCKS5 | ✅ | CONNECT + auth + fuzz + TLS e2e |
 | 3. TLS inbound | ✅ | PEM, SNI, ALPN, TLS 1.3 |
-| 4. VLESS | 🟡 | TCP + server + TLS e2e; UDP/flow — TODO |
-| 5. REALITY | 🟢 | Inbound + fallback + Xray e2e |
+| 4. VLESS | ✅ | TCP/UDP, Mux, XUDP; flow `xtls-rprx-vision` — reject |
+| 5. REALITY | ✅ | Inbound + native client + Xray e2e |
 | 6. gRPC API | 🟢 | Hot reload пользователей |
 | 7. Метрики | 🟢 | Prometheus, `/healthz`, `--log-format` |
 | 8. Конфиг/CLI | 🟢 | check-config, SIGHUP reload |
