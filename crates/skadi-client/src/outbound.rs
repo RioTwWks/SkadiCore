@@ -20,15 +20,27 @@ impl Outbound {
             .remote
             .as_ref()
             .context("remote section not configured")?;
-        let transport = if remote.tls.enabled {
+        let transport = if remote.reality.enabled {
+            OutboundTcpTransport::reality(
+                config.connect_timeout(),
+                &config.reality_tls_client_config()?,
+            )?
+        } else if remote.tls.enabled {
             OutboundTcpTransport::tls(config.connect_timeout(), &config.tls_client_config()?)?
         } else {
             OutboundTcpTransport::plain(config.connect_timeout())
         };
 
+        let proxy_tls = if remote.reality.enabled {
+            // REALITY: TCP dial — `remote.server`; SNI — `remote.reality.server_name` (в транспорте).
+            config.proxy_endpoint()?
+        } else {
+            config.tls_sni_endpoint()?
+        };
+
         Ok(Self {
             transport,
-            proxy_tls: config.tls_sni_endpoint()?,
+            proxy_tls,
             proxy_tcp: config.proxy_endpoint()?,
             uuid: config.uuid_bytes()?,
         })
@@ -53,7 +65,7 @@ impl Outbound {
     async fn connect_proxy(&self) -> Result<TcpUpstream> {
         let endpoint = match &self.transport {
             OutboundTcpTransport::Tls(_) => &self.proxy_tls,
-            OutboundTcpTransport::Plain(_) => &self.proxy_tcp,
+            OutboundTcpTransport::Reality(_) | OutboundTcpTransport::Plain(_) => &self.proxy_tcp,
         };
         self.transport
             .connect(endpoint)
