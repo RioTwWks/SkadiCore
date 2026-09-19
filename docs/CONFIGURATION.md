@@ -1029,7 +1029,7 @@ sudo ss -tlnp | grep :443
 ## Клиентский режим (`skadicore client`)
 
 Отдельный TOML-файл для локального inbound (SOCKS5 и/или TUN), который
-туннелирует трафик через удалённый VLESS+TLS сервер.
+туннелирует трафик через удалённый VLESS+TLS или VLESS+REALITY сервер.
 
 ```bash
 skadicore client --config examples/client-vless-tls/client.toml
@@ -1161,15 +1161,37 @@ block_system_doh = true
 
 Пример: `examples/client-vless-tls/client.toml`.
 
+### Секция `[remote.reality]`
+
+Взаимоисключающа с `[remote.tls]` (`enabled = true` только у одной).
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `enabled` | bool | REALITY outbound (нативный rustls, Xray-совместимый ClientHello) |
+| `password` | string | Публичный X25519 ключ сервера (Xray `password`, URL-safe base64) |
+| `short_id` | string | Short ID в hex (1..8 байт после decode) |
+| `server_name` | string | SNI в TLS ClientHello (`serverName` в Xray) |
+| `kex_mode` | string | `classic` (по умолчанию) или `hybrid_pq` — **должен совпадать** с `transport.reality.kex_mode` на сервере |
+
+| Поле | Куда идёт |
+|------|-----------|
+| `remote.server` | TCP connect (IP или hostname прокси) |
+| `remote.reality.server_name` | Только SNI, **не** адрес для dial |
+
+Примеры:
+
+- SOCKS5: `examples/client-reality-vless/client.toml`
+- TUN + REALITY: `examples/client-reality-vless-tun/client.toml`
+
+Сервер REALITY: см. [Секция `[transport.reality]`](#секция-transportreality).
+
 ---
 
 ## Что дальше
 
-Когда конфиг разрастётся, в этот документ добавятся:
+Возможные дополнения документации:
 
-- Секция `[transport.tls]` — сертификаты, ALPN, cipher suites.
-- Секция `[transport.reality]` — dest, serverNames, privateKey.
-- Секция `[api].tls` — TLS для gRPC (опционально, v2).
+- Секция `[api].tls` — TLS для gRPC (опционально).
 - Расширенные метрики (latency histograms, transport errors).
 - Секция `[log]` — уровень, формат, путь.
 

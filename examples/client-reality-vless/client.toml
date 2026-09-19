@@ -19,3 +19,4 @@ enabled = true
 password = "REPLACE_WITH_XRAY_PASSWORD"
 short_id = "0123456789abcdef"
 server_name = "reality.test"
+kex_mode = "classic"

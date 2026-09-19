@@ -28,6 +28,14 @@ git push origin v0.1.0
 
 Артефакты: `skadicore-<platform>.tar.gz` / `.zip`, `SHA256SUMS`, при наличии секрета `MINISIGN_SECRET_KEY` — подписи `.minisig`.
 
+### Подпись релизов (maintainer)
+
+1. Один раз: `minisign -G -p minisign.pub -s minisign.key` (публичный ключ можно положить в репозиторий).
+2. В GitHub: **Settings → Secrets and variables → Actions** → `MINISIGN_SECRET_KEY` = содержимое `minisign.key` (не коммитить).
+3. Workflow подпишет артефакты и загрузит `*.minisig` на Release.
+
+Пользователи проверяют: `./scripts/verify-release.sh minisign.pub dist`.
+
 Повторная сборка без нового тега (ручной запуск):
 
 - GitHub → Actions → **Release** → **Run workflow** → указать существующий тег, например `v0.1.0`.

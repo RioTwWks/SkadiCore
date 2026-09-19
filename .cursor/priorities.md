@@ -16,9 +16,9 @@
 
 ## Сейчас (ближайшие задачи)
 
-1. **Клиент:** `remote.reality.kex_mode` (`hybrid_pq`), TUN + REALITY (доки/пример).
-2. **Транспорт:** клиентский XHTTP (сервер уже есть).
-3. **Релизный цикл:** после `v0.1.0` — патчи в `[Unreleased]`, теги `v0.1.x` по `docs/RELEASING.md`.
+1. **Транспорт:** клиентский XHTTP (сервер уже есть).
+2. **Релизный цикл:** накопить `[Unreleased]` → **`v0.1.1`** по `docs/RELEASING.md` (kex_mode + TUN REALITY example в очереди на релиз).
+3. **Ops:** `MINISIGN_SECRET_KEY` в GitHub для подписанных артефактов.
 
 ## Позже
 
