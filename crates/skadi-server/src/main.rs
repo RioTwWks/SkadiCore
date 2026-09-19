@@ -39,6 +39,21 @@ enum Command {
         #[arg(value_enum, default_value = "reality")]
         kind: GenkeyKind,
     },
+    /// Экспорт клиентского AWG `.conf` из server.toml.
+    ExportAwgClient {
+        /// Индекс peer в `[[transport.awg.peers]]` (0-based).
+        #[arg(long, default_value = "0")]
+        peer: usize,
+        /// Приватный ключ клиента (WireGuard base64).
+        #[arg(long)]
+        client_key: String,
+        /// Endpoint сервера `host:port`.
+        #[arg(long)]
+        endpoint: String,
+        /// Путь для записи `client.conf`.
+        #[arg(short, long)]
+        output: PathBuf,
+    },
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -57,6 +72,20 @@ async fn main() -> Result<()> {
             GenkeyKind::Reality => skadi_server::genkey::generate_reality_keys(),
             GenkeyKind::Awg => skadi_server::genkey::generate_awg_keys(),
         },
+        Some(Command::ExportAwgClient {
+            peer,
+            client_key,
+            endpoint,
+            output,
+        }) => {
+            let config = Config::load(&cli.config)
+                .with_context(|| format!("failed to load config from {:?}", cli.config))?;
+            let conf = config.export_awg_client_conf(peer, &client_key, &endpoint)?;
+            std::fs::write(&output, conf)
+                .with_context(|| format!("failed to write {:?}", output))?;
+            println!("AWG client config written to {}", output.display());
+            Ok(())
+        }
         Some(Command::Client) => {
             init_tracing(&cli)?;
             run_client(cli).await
@@ -88,8 +117,8 @@ async fn run_client(cli: Cli) -> Result<()> {
     info!(
         socks5 = ?config.client.listen,
         tun = config.client.tun.enabled,
-        remote = %config.remote.server,
-        tls = config.remote.tls.enabled,
+        awg = config.awg_enabled(),
+        remote = ?config.remote.as_ref().map(|r| r.server.as_str()),
         "SkadiCore client starting"
     );
 
@@ -114,6 +143,8 @@ async fn run_server(cli: Cli) -> Result<()> {
         tls = config.tls_enabled(),
         reality = config.reality_enabled(),
         awg = config.awg_enabled(),
+        hysteria2 = config.hysteria2_enabled(),
+        tuic = config.tuic_enabled(),
         api = config.api.enabled,
         metrics = config.metrics.enabled,
         "SkadiCore starting"

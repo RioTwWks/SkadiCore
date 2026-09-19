@@ -1,0 +1,22 @@
+# SkadiCore: Hysteria2 (QUIC/UDP) через внешний `hysteria` binary
+# Запуск: cargo run --bin skadicore -- --config examples/hysteria2/server.toml
+#
+# Требует: hysteria v2 (HYSTERIA2_BINARY или PATH)
+# TLS: сгенерируйте cert/key (см. generate-certs.sh)
+
+[server]
+listen = "127.0.0.1:18080"
+
+[protocol.socks5]
+enabled = false
+
+[protocol.vless]
+enabled = false
+
+[transport.hysteria2]
+enabled = true
+listen = ":443"
+password = "change-me-hy2"
+cert = "examples/hysteria2/cert.pem"
+key = "examples/hysteria2/key.pem"
+masquerade_url = "https://www.bing.com"

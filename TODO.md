@@ -527,8 +527,8 @@ REALITY реализован, но нет тестов, которые пров�
 
 QUIC/UDP — другой профиль трафика, альтернатива при деградации TCP.
 
-- [ ] Hysteria2
-- [ ] TUIC
+- [x] Hysteria2 (MVP: `[transport.hysteria2]` + hysteria binary backend)
+- [x] TUIC (MVP: `[transport.tuic]` + tuic-server binary backend)
 
 #### ⚡ Обход троттлинга и фрагментация (sonicdpi)
 

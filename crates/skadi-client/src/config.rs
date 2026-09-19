@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use skadi_core::Endpoint;
 use skadi_protocol::vless::Uuid;
-use skadi_transport::{TlsClientConfig, TlsKexMode};
+use skadi_transport::{AwgClientConfig, AwgObfuscationConfig, TlsClientConfig, TlsKexMode};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 use std::time::Duration;
@@ -12,7 +12,90 @@ use std::time::Duration;
 #[derive(Debug, Clone, Deserialize)]
 pub struct ClientConfig {
     pub client: ClientListenConfig,
-    pub remote: RemoteConfig,
+    #[serde(default)]
+    pub remote: Option<RemoteConfig>,
+    #[serde(default)]
+    pub awg: Option<AwgClientFileConfig>,
+}
+
+/// Клиентский режим AmneziaWG (`skadicore client` + amneziawg-go).
+#[derive(Debug, Clone, Deserialize)]
+pub struct AwgClientFileConfig {
+    #[serde(default = "default_awg_client_interface")]
+    pub interface: String,
+    pub private_key: String,
+    pub address: String,
+    pub server_public_key: String,
+    pub endpoint: String,
+    pub mtu: Option<u16>,
+    pub dns: Option<String>,
+    #[serde(default = "default_awg_client_allowed_ips")]
+    pub allowed_ips: Vec<String>,
+    pub persistent_keepalive: Option<u16>,
+    #[serde(default = "default_awg_jc")]
+    pub jc: u8,
+    #[serde(default = "default_awg_jmin")]
+    pub jmin: u16,
+    #[serde(default = "default_awg_jmax")]
+    pub jmax: u16,
+    #[serde(default = "default_awg_s1")]
+    pub s1: u8,
+    #[serde(default = "default_awg_s2")]
+    pub s2: u8,
+    #[serde(default = "default_awg_s3")]
+    pub s3: u8,
+    #[serde(default = "default_awg_s4")]
+    pub s4: u8,
+    #[serde(default = "default_awg_h1")]
+    pub h1: String,
+    #[serde(default = "default_awg_h2")]
+    pub h2: String,
+    #[serde(default = "default_awg_h3")]
+    pub h3: String,
+    #[serde(default = "default_awg_h4")]
+    pub h4: String,
+}
+
+fn default_awg_client_interface() -> String {
+    "skadiawg0".to_string()
+}
+
+fn default_awg_client_allowed_ips() -> Vec<String> {
+    vec!["0.0.0.0/0".into(), "::/0".into()]
+}
+
+fn default_awg_jc() -> u8 {
+    8
+}
+fn default_awg_jmin() -> u16 {
+    64
+}
+fn default_awg_jmax() -> u16 {
+    1024
+}
+fn default_awg_s1() -> u8 {
+    32
+}
+fn default_awg_s2() -> u8 {
+    32
+}
+fn default_awg_s3() -> u8 {
+    16
+}
+fn default_awg_s4() -> u8 {
+    16
+}
+fn default_awg_h1() -> String {
+    "1-10000000".into()
+}
+fn default_awg_h2() -> String {
+    "10000001-20000000".into()
+}
+fn default_awg_h3() -> String {
+    "20000001-30000000".into()
+}
+fn default_awg_h4() -> String {
+    "30000001-40000000".into()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -238,20 +321,71 @@ impl ClientConfig {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.client.listen.is_none() && !self.client.tun.enabled {
-            bail!("client: set client.listen (SOCKS5) or client.tun.enabled = true");
+        let has_awg = self.awg.is_some();
+        let has_remote = self.remote.is_some();
+        if has_awg == has_remote {
+            bail!("client config: set exactly one of [remote] (VLESS) or [awg] (AmneziaWG)");
+        }
+        if self.client.listen.is_none() && !self.client.tun.enabled && !has_awg {
+            bail!("client: set client.listen (SOCKS5), client.tun.enabled = true, or [awg] mode");
         }
         if let Some(listen) = &self.client.listen {
             parse_socket_addr(listen, "client.listen")?;
         }
-        parse_server_endpoint(&self.remote.server)?;
-        Uuid::parse(&self.remote.uuid).map_err(|e| anyhow::anyhow!("remote.uuid: {}", e))?;
-        self.client.tun.validate()?;
-        if self.remote.tls.enabled {
-            TlsKexMode::parse(&self.remote.tls.kex_mode)
-                .with_context(|| "invalid remote.tls.kex_mode")?;
+        if let Some(remote) = &self.remote {
+            parse_server_endpoint(&remote.server)?;
+            Uuid::parse(&remote.uuid).map_err(|e| anyhow::anyhow!("remote.uuid: {}", e))?;
+            if remote.tls.enabled {
+                TlsKexMode::parse(&remote.tls.kex_mode)
+                    .with_context(|| "invalid remote.tls.kex_mode")?;
+            }
         }
+        if let Some(awg) = &self.awg {
+            if awg.private_key.trim().is_empty() {
+                bail!("awg.private_key must not be empty");
+            }
+            if awg.server_public_key.trim().is_empty() {
+                bail!("awg.server_public_key must not be empty");
+            }
+            parse_socket_addr(&awg.endpoint, "awg.endpoint")?;
+            if awg.allowed_ips.is_empty() {
+                bail!("awg.allowed_ips must not be empty");
+            }
+        }
+        self.client.tun.validate()?;
         Ok(())
+    }
+
+    pub fn awg_enabled(&self) -> bool {
+        self.awg.is_some()
+    }
+
+    pub fn awg_runtime_config(&self) -> Result<AwgClientConfig> {
+        let awg = self.awg.as_ref().context("awg section not configured")?;
+        Ok(AwgClientConfig {
+            interface_name: awg.interface.clone(),
+            private_key: awg.private_key.clone(),
+            address: awg.address.clone(),
+            server_public_key: awg.server_public_key.clone(),
+            endpoint: awg.endpoint.clone(),
+            mtu: awg.mtu,
+            dns: awg.dns.clone(),
+            allowed_ips: awg.allowed_ips.clone(),
+            persistent_keepalive: awg.persistent_keepalive,
+            obfuscation: AwgObfuscationConfig {
+                jc: awg.jc,
+                jmin: awg.jmin,
+                jmax: awg.jmax,
+                s1: awg.s1,
+                s2: awg.s2,
+                s3: awg.s3,
+                s4: awg.s4,
+                h1: awg.h1.clone(),
+                h2: awg.h2.clone(),
+                h3: awg.h3.clone(),
+                h4: awg.h4.clone(),
+            },
+        })
     }
 
     pub fn socks5_enabled(&self) -> bool {
@@ -272,27 +406,43 @@ impl ClientConfig {
     }
 
     pub fn proxy_endpoint(&self) -> Result<Endpoint> {
-        parse_server_endpoint(&self.remote.server)
+        let remote = self
+            .remote
+            .as_ref()
+            .context("remote section not configured")?;
+        parse_server_endpoint(&remote.server)
     }
 
     pub fn tls_sni_endpoint(&self) -> Result<Endpoint> {
-        if let Some(name) = &self.remote.tls.server_name {
-            let (_, port) = split_host_port(&self.remote.server)?;
+        let remote = self
+            .remote
+            .as_ref()
+            .context("remote section not configured")?;
+        if let Some(name) = &remote.tls.server_name {
+            let (_, port) = split_host_port(&remote.server)?;
             return Ok(Endpoint::Domain(name.clone(), port));
         }
         self.proxy_endpoint()
     }
 
     pub fn uuid_bytes(&self) -> Result<[u8; 16]> {
-        Ok(*Uuid::parse(&self.remote.uuid)?.as_bytes())
+        let remote = self
+            .remote
+            .as_ref()
+            .context("remote section not configured")?;
+        Ok(*Uuid::parse(&remote.uuid)?.as_bytes())
     }
 
     pub fn tls_client_config(&self) -> Result<TlsClientConfig> {
+        let remote = self
+            .remote
+            .as_ref()
+            .context("remote section not configured")?;
         Ok(TlsClientConfig {
-            ca_file: self.remote.tls.ca_file.clone(),
+            ca_file: remote.tls.ca_file.clone(),
             client_cert: None,
             client_key: None,
-            kex_mode: TlsKexMode::parse(&self.remote.tls.kex_mode)
+            kex_mode: TlsKexMode::parse(&remote.tls.kex_mode)
                 .with_context(|| "invalid remote.tls.kex_mode")?,
         })
     }

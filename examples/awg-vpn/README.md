@@ -42,14 +42,37 @@ cargo run --bin skadicore -- genkey awg
 sudo cargo run --bin skadicore -- --config examples/awg-vpn/server.toml
 ```
 
-На сервере включите IP forwarding и NAT (пример для Linux):
+### NAT (автоматически)
 
-```bash
-sudo sysctl -w net.ipv4.ip_forward=1
-sudo iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
+Включите в `server.toml`:
+
+```toml
+[transport.awg.nat]
+enabled = true
+subnet = "10.8.0.0/24"
+egress_interface = "eth0"  # опционально
 ```
 
-Клиент: импортируйте `client.conf` в AmneziaVPN или `awg-quick up client.conf`.
+SkadiCore применит `sysctl net.ipv4.ip_forward=1` и `iptables MASQUERADE`.
+
+### Экспорт клиентского конфига
+
+```bash
+cargo run --bin skadicore -- export-awg-client \
+  --config examples/awg-vpn/server.toml \
+  --peer 0 \
+  --client-key "<client-private-key>" \
+  --endpoint "vpn.example.com:51820" \
+  -o client.conf
+```
+
+### Клиент SkadiCore
+
+```bash
+sudo cargo run --bin skadicore -- client --config examples/awg-vpn/client.toml
+```
+
+Или импортируйте `client.conf` в AmneziaVPN / `awg-quick up client.conf`.
 
 ## 3. Проверка конфига
 

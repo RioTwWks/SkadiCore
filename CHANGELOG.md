@@ -11,6 +11,16 @@
 
 ### Added
 
+- **Hysteria2 MVP** — `[transport.hysteria2]` (QUIC/UDP), backend `hysteria`
+  binary; YAML render; пример `examples/hysteria2/`
+
+- **TUIC MVP** — `[transport.tuic]` (QUIC), backend `tuic-server` binary;
+  TOML render; пример `examples/tuic/`
+
+- **AmneziaWG: client + NAT + export** — `skadicore client` с `[awg]` секцией;
+  `export-awg-client`; `[transport.awg.nat]` (iptables MASQUERADE);
+  `render_client_conf()`; пример `examples/awg-vpn/client.toml`
+
 - **AmneziaWG MVP** — `[transport.awg]` (UDP VPN, AWG 2.0 obfuscation), backend
   `amneziawg-go` + `awg setconf`; `genkey awg`; пример `examples/awg-vpn/`
 
