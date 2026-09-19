@@ -19,7 +19,7 @@ fn public_key_from_private_rejects_invalid() {
 }
 
 #[test]
-fn awg_uapi_socket_paths_default_dir() {
+fn awg_uapi_socket_paths() {
     let prev = std::env::var("AWG_UAPI_DIR").ok();
     std::env::remove_var("AWG_UAPI_DIR");
 
@@ -54,27 +54,20 @@ fn awg_uapi_socket_paths_default_dir() {
         "/var/run/amneziawg/skadiawg0.sock"
     );
 
-    match prev {
-        Some(v) => std::env::set_var("AWG_UAPI_DIR", v),
-        None => std::env::remove_var("AWG_UAPI_DIR"),
-    }
-}
-
-#[test]
-fn awg_uapi_socket_paths_respects_env_override() {
-    let prev = std::env::var("AWG_UAPI_DIR").ok();
     std::env::set_var("AWG_UAPI_DIR", "/tmp/custom-awg");
-
-    let server = AwgServerConfig {
-        listen: "0.0.0.0:51820".parse().unwrap(),
+    let override_server = AwgServerConfig {
+        listen: server.listen,
         interface_name: "skadiwg1".into(),
-        private_key: "sJkP2oorqrq49P6Ln25MWo3X04PxhB8k+RnJJnZ4gEo=".into(),
-        address: "10.8.0.1/24".into(),
+        private_key: server.private_key.clone(),
+        address: server.address.clone(),
         mtu: None,
         obfuscation: sample_obfuscation(),
         peers: vec![],
     };
-    assert_eq!(server.uapi_socket_path(), "/tmp/custom-awg/skadiwg1.sock");
+    assert_eq!(
+        override_server.uapi_socket_path(),
+        "/tmp/custom-awg/skadiwg1.sock"
+    );
 
     match prev {
         Some(v) => std::env::set_var("AWG_UAPI_DIR", v),
