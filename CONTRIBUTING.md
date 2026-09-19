@@ -41,6 +41,7 @@ cargo clippy -p skadi-core -p skadi-transport -p skadi-protocol -p skadi-api -p 
 - `CHANGELOG.md` (секция `[Unreleased]`, формат Keep a Changelog)
 - `TODO.md` и `.cursor/priorities.md` при сдвиге дорожной карты
 - `docs/CONFIGURATION.md` / `docs/DEVELOPMENT.md` при новых опциях конфига или CLI
+- При релизе — `docs/RELEASING.md` и версия в корневом `Cargo.toml`
 
 ## Pull requests
 

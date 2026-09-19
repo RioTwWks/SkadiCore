@@ -428,7 +428,8 @@ REALITY реализован, но нет тестов, которые пров�
 
 #### 4.2. `CONTRIBUTING.md` отсутствует
 
-- [ ] Минимальный `CONTRIBUTING.md` (тесты, протоколы, ревью, коммиты)
+- [x] Минимальный `CONTRIBUTING.md` (тесты, протоколы, ревью, коммиты)
+- [x] `docs/RELEASING.md` — теги `v*` и GitHub Releases (`v0.1.0`)
 
 #### 4.3. `CODE_OF_CONDUCT.md` отсутствует
 
