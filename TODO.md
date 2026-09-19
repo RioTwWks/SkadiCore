@@ -29,7 +29,7 @@
   - [x] `skadi-transport` — TCP, TLS inbound
   - [x] `skadi-protocol` — SOCKS5, VLESS
   - [x] `skadi-server` — бинарник + библиотека `skadi_server`
-  - [ ] `skadi-config` — отдельный крейт (сейчас конфиг в `skadi-server`)
+  - [x] `skadi-config` — отдельный крейт (server TOML + validation)
 - [x] Настроить CI (GitHub Actions):
   - [x] `cargo fmt --check`
   - [x] `cargo clippy -- -D warnings`
@@ -67,8 +67,8 @@
 
 - [x] Парсинг handshake (greeting, auth, request) — чистые функции в `parse.rs`
 - [x] CONNECT (IPv4, IPv6, домен)
-- [ ] BIND (опционально)
-- [ ] UDP ASSOCIATE (опционально)
+- [x] BIND (опционально, `protocol.socks5.bind`)
+- [x] UDP ASSOCIATE (опционально, `protocol.socks5.udp_associate`)
 - [x] Аутентификация user-pass (RFC 1929), constant-time сравнение
 - [x] Reply-коды
 - [x] Fuzz-тестирование парсера (`cargo-fuzz`)

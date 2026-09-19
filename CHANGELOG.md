@@ -16,6 +16,9 @@
 
 ### Added
 
+- **`skadi-config`** — server TOML config + validation вынесены из `skadi-server`
+- **SOCKS5 BIND / UDP ASSOCIATE** — опционально (`protocol.socks5.bind`, `udp_associate`)
+
 - **gRPC audit log** — `api.audit_log` (default `true`), события в `skadi.grpc.audit`
 - **`scripts/probe-test.sh`** — TLS summary, опциональный JA3, сравнение таймингов dest vs Skadi
 - **`scripts/smoke-transports.sh`** — `check-config` для AWG/Hysteria2/TUIC + опциональные бинарники

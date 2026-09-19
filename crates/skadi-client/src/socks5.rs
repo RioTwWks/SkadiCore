@@ -16,6 +16,8 @@ fn local_socks5_config() -> Socks5Config {
         enabled: true,
         auth: skadi_protocol::AuthMethod::NoAuth,
         users: vec![],
+        bind: false,
+        udp_associate: false,
     }
 }
 
@@ -66,7 +68,7 @@ async fn handle_session(
 ) -> Result<()> {
     let socks5 = local_socks5_config();
     let target = match Socks5Handler::negotiate(local, &socks5).await {
-        Ok(endpoint) => endpoint,
+        Ok(req) => req.target,
         Err(err) => {
             let _ = Socks5Handler::send_error(local, skadi_protocol::REP_GENERAL_FAILURE).await;
             return Err(err).context("SOCKS5 negotiation failed");

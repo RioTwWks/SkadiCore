@@ -18,6 +18,7 @@ path = "src/bin/soak_load.rs"
 
 [dependencies]
 skadi-core.workspace = true
+skadi-config.workspace = true
 skadi-transport.workspace = true
 skadi-protocol.workspace = true
 skadi-api.workspace = true
