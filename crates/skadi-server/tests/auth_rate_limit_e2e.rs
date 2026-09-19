@@ -59,6 +59,8 @@ async fn blocks_ip_after_repeated_auth_failures() {
                 enabled: false,
                 auth: skadi_protocol::AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: VlessConfig {
                 enabled: true,

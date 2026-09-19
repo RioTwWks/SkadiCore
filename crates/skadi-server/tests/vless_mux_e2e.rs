@@ -105,6 +105,8 @@ async fn vless_mux_tcp_connect_and_relay() {
                 enabled: false,
                 auth: skadi_protocol::AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: test_vless_config(),
         },

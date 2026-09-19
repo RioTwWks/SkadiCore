@@ -64,6 +64,8 @@ async fn idle_timeout_closes_inactive_vless_session() {
                 enabled: false,
                 auth: skadi_protocol::AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: VlessConfig {
                 enabled: true,
@@ -133,6 +135,8 @@ async fn rejects_zero_idle_timeout_in_config() {
                 enabled: true,
                 auth: skadi_protocol::AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: VlessConfig {
                 enabled: false,

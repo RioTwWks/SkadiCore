@@ -99,6 +99,8 @@ async fn vless_relay_over_tls_outbound() {
                 enabled: false,
                 auth: skadi_protocol::AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: test_vless_config(),
         },

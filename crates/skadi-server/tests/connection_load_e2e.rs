@@ -61,6 +61,8 @@ async fn spawn_load_proxy(
                 enabled: false,
                 auth: skadi_protocol::AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: VlessConfig {
                 enabled: true,

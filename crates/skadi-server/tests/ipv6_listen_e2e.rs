@@ -73,6 +73,8 @@ async fn accepts_connections_on_ipv6_loopback() {
                 enabled: false,
                 auth: skadi_protocol::AuthMethod::NoAuth,
                 users: vec![],
+                bind: false,
+                udp_associate: false,
             },
             vless: vless_config(),
         },
