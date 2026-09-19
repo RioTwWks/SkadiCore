@@ -143,12 +143,7 @@ cargo build --release
 Готовые статические Linux-бинарники (musl, x86_64 и aarch64) — в
 [GitHub Releases](https://github.com/RioTwWks/SkadiCore/releases). Текущая линия версий начинается с **v0.1.0** (`CHANGELOG.md`, `docs/RELEASING.md`).
 
-Проверка целостности и подписи релиза:
-
-```bash
-sha256sum -c SHA256SUMS
-./scripts/verify-release.sh minisign.pub dist   # если есть .minisig
-```
+Проверка скачанного релиза (SHA256 и опционально minisign): см. **[docs/RELEASING.md](docs/RELEASING.md)** (раздел «Пользователь»).
 
 Docker (musl static, `FROM scratch`): `docker build -t skadicore:local .` — см.
 `docs/DEVELOPMENT.md`.

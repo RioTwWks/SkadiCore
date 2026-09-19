@@ -15,6 +15,7 @@
 
 ### Changed
 
+- **`docs/RELEASING.md`** — подробное руководство по релизам и minisign
 - **`docs/CONFIGURATION.md`** — секция `[remote.reality]`, уточнение `server` vs `server_name`
 - **`SECURITY.md`** — политика поддержки для релизных тегов
 - README: дорожная карта VLESS/REALITY, статус v0.1.0
