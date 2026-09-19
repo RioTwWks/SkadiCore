@@ -1,5 +1,6 @@
 //! Общие хелперы для интеграционных тестов.
 
+pub mod awg_fixtures;
 pub mod xray;
 
 use skadi_server::config::OutboundConfig;

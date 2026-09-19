@@ -15,7 +15,7 @@ enabled = false
 enabled = true
 listen = "127.0.0.1:8443"
 uuid = "00000000-0000-0000-0000-000000000001"
-password = "tuic-pass"
+password = "test-only-not-a-secret"
 certificate = "/tmp/cert.pem"
 private_key = "/tmp/key.pem"
 "#;

@@ -14,7 +14,7 @@ enabled = false
 [transport.hysteria2]
 enabled = true
 listen = ":8443"
-password = "test-pass"
+password = "test-only-not-a-secret"
 cert = "/tmp/cert.pem"
 key = "/tmp/key.pem"
 "#;

@@ -1,54 +1,27 @@
 //! Валидация `[transport.awg]` в server config.
 
+mod common;
+
 use std::fs;
 use tempfile::TempDir;
 
-const AWG_MINIMAL: &str = r#"
-[server]
-listen = "127.0.0.1:18080"
-
-[protocol.socks5]
-enabled = false
-
-[protocol.vless]
-enabled = false
-
-[transport.awg]
-enabled = true
-listen = "127.0.0.1:51820"
-private_key = "sJkP2oorqrq49P6Ln25MWo3X04PxhB8k+RnJJnZ4gEo="
-address = "10.8.0.1/24"
-
-[[transport.awg.peers]]
-public_key = "kHkjzj1KeQjR/82vXYRdQPA113MAzNRkDsedH5kZLi4="
-allowed_ips = ["10.8.0.2/32"]
-"#;
-
 #[test]
 fn awg_config_validates() {
+    let keys = common::awg_fixtures::AwgTomlKeys::generate();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("awg.toml");
-    fs::write(&path, AWG_MINIMAL).unwrap();
+    fs::write(&path, common::awg_fixtures::minimal_awg_toml(&keys)).unwrap();
     skadi_server::check_config(&path).expect("valid awg config");
 }
 
 #[test]
 fn awg_config_requires_peer() {
+    let (server_private, _) = skadi_transport::generate_keypair();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("awg-no-peers.toml");
     fs::write(
         &path,
-        r#"
-[server]
-listen = "127.0.0.1:18080"
-[protocol.vless]
-enabled = false
-[protocol.socks5]
-enabled = false
-[transport.awg]
-enabled = true
-private_key = "sJkP2oorqrq49P6Ln25MWo3X04PxhB8k+RnJJnZ4gEo="
-"#,
+        common::awg_fixtures::awg_toml_no_peers(&server_private),
     )
     .unwrap();
     let err = skadi_server::check_config(&path).unwrap_err();
