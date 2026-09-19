@@ -2,6 +2,14 @@
 
 use std::net::SocketAddr;
 
+/// Базовая директория UAPI-сокетов `amneziawg-go` (Linux).
+///
+/// По умолчанию `/var/run/amneziawg`; для тестов и нестандартных установок
+/// можно задать `AWG_UAPI_DIR`.
+pub fn awg_uapi_socket_dir() -> String {
+    std::env::var("AWG_UAPI_DIR").unwrap_or_else(|_| "/var/run/amneziawg".to_string())
+}
+
 /// Параметры обфускации AmneziaWG 2.0 (должны совпадать с клиентом).
 #[derive(Debug, Clone)]
 pub struct AwgObfuscationConfig {
@@ -43,7 +51,7 @@ pub struct AwgServerConfig {
 impl AwgServerConfig {
     /// Путь к UAPI-сокету `amneziawg-go` (Linux).
     pub fn uapi_socket_path(&self) -> String {
-        format!("/var/run/amneziawg/{}.sock", self.interface_name)
+        format!("{}/{}.sock", awg_uapi_socket_dir(), self.interface_name)
     }
 }
 
@@ -64,6 +72,6 @@ pub struct AwgClientConfig {
 
 impl AwgClientConfig {
     pub fn uapi_socket_path(&self) -> String {
-        format!("/var/run/amneziawg/{}.sock", self.interface_name)
+        format!("{}/{}.sock", awg_uapi_socket_dir(), self.interface_name)
     }
 }

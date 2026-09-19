@@ -6,7 +6,6 @@ use skadi_transport::{
 };
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 use tempfile::TempDir;
 use tokio::sync::watch;
@@ -23,7 +22,7 @@ impl EnvGuard {
         let lock = ENV_LOCK
             .get_or_init(|| Mutex::new(()))
             .lock()
-            .expect("env lock");
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let saved = vars
             .iter()
             .map(|(k, _)| (k.to_string(), std::env::var(k).ok()))
@@ -47,15 +46,6 @@ impl Drop for EnvGuard {
             }
         }
     }
-}
-
-fn prepare_awg_socket_dir() {
-    let _ = Command::new("sudo")
-        .args(["mkdir", "-p", "/var/run/amneziawg"])
-        .status();
-    let _ = Command::new("sudo")
-        .args(["chmod", "777", "/var/run/amneziawg"])
-        .status();
 }
 
 fn write_executable(path: &Path, content: &str) -> PathBuf {
@@ -102,6 +92,8 @@ fn sample_awg_server_config(iface: &str) -> AwgServerConfig {
 
 fn fake_awg_go() -> &'static str {
     r#"#!/bin/sh
+dir="${AWG_UAPI_DIR:-/var/run/amneziawg}"
+mkdir -p "$dir"
 iface=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -109,7 +101,7 @@ while [ $# -gt 0 ]; do
     *) shift ;;
   esac
 done
-touch "/var/run/amneziawg/${iface}.sock"
+touch "${dir}/${iface}.sock"
 exec sleep 300
 "#
 }
@@ -128,8 +120,9 @@ fn fake_exit_binary() -> &'static str {
 
 #[tokio::test]
 async fn awg_manager_start_and_shutdown() {
-    prepare_awg_socket_dir();
     let dir = TempDir::new().expect("tempdir");
+    let socket_dir = dir.path().join("awg-sockets");
+    std::fs::create_dir_all(&socket_dir).expect("socket dir");
     let go_bin = write_executable(&dir.path().join("amneziawg-go"), fake_awg_go());
     let tools_bin = write_executable(&dir.path().join("awg"), fake_awg_tools());
     let iface = format!("skadiwg{}", std::process::id());
@@ -143,6 +136,7 @@ async fn awg_manager_start_and_shutdown() {
     let _env = EnvGuard::set(&[
         ("AWG_GO_BINARY", Some(go_bin.to_str().unwrap())),
         ("AWG_TOOLS_BINARY", Some(tools_bin.to_str().unwrap())),
+        ("AWG_UAPI_DIR", Some(socket_dir.to_str().unwrap())),
     ]);
 
     let manager = AwgManager::start(&config, Some(&nat))
@@ -156,8 +150,9 @@ async fn awg_manager_start_and_shutdown() {
 
 #[tokio::test]
 async fn awg_client_manager_start_and_stop() {
-    prepare_awg_socket_dir();
     let dir = TempDir::new().expect("tempdir");
+    let socket_dir = dir.path().join("awg-sockets");
+    std::fs::create_dir_all(&socket_dir).expect("socket dir");
     let go_bin = write_executable(&dir.path().join("amneziawg-go"), fake_awg_go());
     let tools_bin = write_executable(&dir.path().join("awg"), fake_awg_tools());
     let iface = format!("skadiawg{}", std::process::id());
@@ -177,6 +172,7 @@ async fn awg_client_manager_start_and_stop() {
     let _env = EnvGuard::set(&[
         ("AWG_GO_BINARY", Some(go_bin.to_str().unwrap())),
         ("AWG_TOOLS_BINARY", Some(tools_bin.to_str().unwrap())),
+        ("AWG_UAPI_DIR", Some(socket_dir.to_str().unwrap())),
     ]);
 
     let mut manager = skadi_transport::AwgClientManager::start(&config)
