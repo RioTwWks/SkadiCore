@@ -4,7 +4,7 @@
 и sing-box (низкое потребление ресурсов, встроенный TUN, поддержка
 множества протоколов).
 
-**Статус**: ранний MVP (релизы на [GitHub Releases](https://github.com/RioTwWks/SkadiCore/releases), сейчас **v0.1.1**). Не использовать в продакшене без собственного аудита.
+**Статус**: ранний MVP (релизы на [GitHub Releases](https://github.com/RioTwWks/SkadiCore/releases), сейчас **v0.1.2**). Не использовать в продакшене без собственного аудита.
 
 ---
 
@@ -142,7 +142,7 @@ cargo build --release
 Бинарник: `target/release/skadicore`.
 
 Готовые статические Linux-бинарники (musl, x86_64 и aarch64) — в
-[GitHub Releases](https://github.com/RioTwWks/SkadiCore/releases). Текущая линия версий — **v0.1.1** (`CHANGELOG.md`, `docs/RELEASING.md`).
+[GitHub Releases](https://github.com/RioTwWks/SkadiCore/releases). Текущая линия версий — **v0.1.2** (`CHANGELOG.md`, `docs/RELEASING.md`).
 
 Проверка скачанного релиза (SHA256 и опционально minisign): см. **[docs/RELEASING.md](docs/RELEASING.md)** (раздел «Пользователь»).
 

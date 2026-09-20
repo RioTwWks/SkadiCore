@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-20
+
 ### Added
 
 - **Клиентский Hysteria2** (`[hysteria2]`): `skadicore client` → `hysteria client` → локальный SOCKS5
@@ -139,6 +141,7 @@
 
 Типы секций: **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**, **Security**.
 
-[Unreleased]: https://github.com/RioTwWks/SkadiCore/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/RioTwWks/SkadiCore/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/RioTwWks/SkadiCore/releases/tag/v0.1.2
 [0.1.1]: https://github.com/RioTwWks/SkadiCore/releases/tag/v0.1.1
 [0.1.0]: https://github.com/RioTwWks/SkadiCore/releases/tag/v0.1.0
