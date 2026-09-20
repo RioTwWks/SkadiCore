@@ -35,7 +35,7 @@ rustls-native-certs = "0.8"
 tokio-rustls = "0.25"
 
 # REALITY crypto
-x25519-dalek = { version = "2", features = ["static_secrets"] }
+x25519-dalek = { version = "3", features = ["static_secrets"] }
 hkdf = "0.12"
 sha2 = "0.10"
 aes-gcm = "0.10"
