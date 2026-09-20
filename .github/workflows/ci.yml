@@ -303,6 +303,7 @@ jobs:
           cargo tarpaulin \
             -p skadi-core -p skadi-transport -p skadi-protocol -p skadi-api -p skadi-server \
             --exclude-files 'third_party/*' \
+            --exclude-files '**/tests/*_traffic_e2e.rs' \
             --fail-under 70 \
             --timeout 600
 

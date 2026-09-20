@@ -360,3 +360,48 @@ fn wait_for_socket(socket: &Path, child: &mut Child) -> Result<(), AwgError> {
     let _ = child.kill();
     Err(AwgError::SocketTimeout(socket.display().to_string()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn skip_ip_bringup_env_short_circuits() {
+        let _guard = EnvVarGuard::set("AWG_SKIP_IP_BRINGUP", "1");
+        assert!(maybe_bring_up_interface("nosuchiface", "10.0.0.1/32").is_ok());
+    }
+
+    #[test]
+    fn bring_up_missing_iface_errors() {
+        let err = bring_up_interface("skadinoface999", "10.66.0.1/32");
+        assert!(err.is_err());
+        let msg = err.unwrap_err().to_string();
+        assert!(
+            msg.contains("ip addr")
+                || msg.contains("Cannot find device")
+                || msg.contains("skadinoface")
+        );
+    }
+
+    struct EnvVarGuard {
+        key: &'static str,
+        prev: Option<std::ffi::OsString>,
+    }
+
+    impl EnvVarGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let prev = std::env::var_os(key);
+            std::env::set_var(key, value);
+            Self { key, prev }
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            match &self.prev {
+                Some(v) => std::env::set_var(self.key, v),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+}
