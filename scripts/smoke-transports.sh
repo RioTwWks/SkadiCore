@@ -85,9 +85,14 @@ if [[ "$SMOKE_TRAFFIC" == "1" ]]; then
   export HYSTERIA2_BINARY="${HYSTERIA2_BINARY:-$hy2}"
   export TUIC_SERVER_BINARY="${TUIC_SERVER_BINARY:-$tuic}"
   export TUIC_CLIENT_BINARY="${TUIC_CLIENT_BINARY:-$tuic_client}"
+  if [[ -n "$awg_go" && -n "$awg_tools" ]]; then
+    export AWG_GO_BINARY="${AWG_GO_BINARY:-$awg_go}"
+    export AWG_TOOLS_BINARY="${AWG_TOOLS_BINARY:-$awg_tools}"
+  fi
   cargo test -p skadi-server \
     --test hysteria2_traffic_e2e \
     --test tuic_traffic_e2e \
+    --test awg_traffic_e2e \
     -- --nocapture
 fi
 

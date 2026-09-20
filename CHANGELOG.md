@@ -7,6 +7,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- **AWG traffic e2e** (`awg_traffic_e2e`): L3 TCP echo через два netns + реальные `amneziawg-go`/`awg`
+- `scripts/install-sidecar-bins.sh`: установка AmneziaWG tools + `go install` amneziawg-go v3
+
+### Fixed
+
+- AWG `awg setconf`: strip `Address`/`MTU`/`DNS` (wg-quick-only) перед setconf
+- AWG managers: `ip addr replace` + `ip link set up` после setconf
+
 ## [0.1.2] - 2026-09-20
 
 ### Added

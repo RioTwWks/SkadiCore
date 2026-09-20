@@ -20,8 +20,8 @@
 
 ## Сейчас (ближайшие задачи)
 
-1. После тега **`v0.1.2`**: накопить следующий `[Unreleased]`.
-2. Опционально: AWG traffic e2e в CI (нужны `amneziawg-go` / `awg`).
+1. После мержа AWG traffic e2e: рефакторинг `InboundHandler` / `Transport`.
+2. Sync `third_party/rustls-reality` (Action / Renovate).
 
 ## Позже
 
@@ -31,6 +31,7 @@
 | ~~AWG / Hy2 / TUIC server~~ | ✅ MVP binary |
 | ~~Hy2 / TUIC client~~ | ✅ sidecar SOCKS5 |
 | ~~Hy2 / TUIC traffic e2e~~ | ✅ CI `sidecar-traffic-e2e` |
+| ~~AWG traffic e2e~~ | ✅ netns + real bins |
 | Трейты `InboundHandler` / `Transport` | рефакторинг `handle_client` |
 | Sync `third_party/rustls-reality` | Action / Renovate |
 | CI examples + Xray в Docker | совместимость |

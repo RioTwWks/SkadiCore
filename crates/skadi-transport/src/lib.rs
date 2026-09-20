@@ -20,8 +20,8 @@ mod xudp;
 
 pub use awg::{
     apply_nat, generate_keypair, public_key_from_private, render_client_conf, render_server_conf,
-    AwgClientConfig, AwgClientExport, AwgClientManager, AwgError, AwgManager, AwgNatConfig,
-    AwgObfuscationConfig, AwgPeerConfig, AwgServerConfig,
+    strip_wgquick_fields, AwgClientConfig, AwgClientExport, AwgClientManager, AwgError, AwgManager,
+    AwgNatConfig, AwgObfuscationConfig, AwgPeerConfig, AwgServerConfig,
 };
 pub use crypto::TlsKexMode;
 pub use hysteria2::{
