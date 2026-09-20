@@ -302,9 +302,9 @@
 
 **Чего не хватает:** трейта `InboundHandler` с методом `handshake<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S, config: &Self::Config) -> Result<Endpoint>` и трейта `Transport` с методом `connect(endpoint) -> Result<impl AsyncRead + AsyncWrite>`. Тогда `handle_client` становится generic-функцией, а добавление нового протокола — это новый impl трейта, а не правка ядра.
 
-- [ ] Трейт `InboundHandler` для протоколов
-- [ ] Трейт `Transport` для транспортов
-- [ ] Рефакторинг `handle_client` под generic-обработку
+- [x] Трейт `InboundHandler` для протоколов (`skadi-protocol::inbound`)
+- [x] Трейт `OutboundTransport` для транспортов (`skadi-transport::connect`)
+- [x] Рефакторинг `handle_connection` под `handshake_inbound` + `OutboundTransport::connect`
 
 #### 1.3. `rustls-reality` в `third_party/`
 

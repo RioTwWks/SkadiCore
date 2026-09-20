@@ -17,11 +17,13 @@
 - [x] AmneziaWG / Hysteria2 / TUIC server MVP (binary backends)
 - [x] Hysteria2 / TUIC **client** sidecar modes (`skadicore client`)
 - [x] Hy2 / TUIC traffic e2e в CI
+- [x] AWG traffic e2e (netns + real bins)
+- [x] Трейты `InboundHandler` / `OutboundTransport` + рефакторинг `handle_connection`
 
 ## Сейчас (ближайшие задачи)
 
-1. После мержа AWG traffic e2e: рефакторинг `InboundHandler` / `Transport`.
-2. Sync `third_party/rustls-reality` (Action / Renovate).
+1. Sync `third_party/rustls-reality` (Action / Renovate).
+2. CI examples + Xray в Docker.
 
 ## Позже
 
@@ -32,7 +34,7 @@
 | ~~Hy2 / TUIC client~~ | ✅ sidecar SOCKS5 |
 | ~~Hy2 / TUIC traffic e2e~~ | ✅ CI `sidecar-traffic-e2e` |
 | ~~AWG traffic e2e~~ | ✅ netns + real bins |
-| Трейты `InboundHandler` / `Transport` | рефакторинг `handle_client` |
+| ~~Трейты `InboundHandler` / `Transport`~~ | ✅ `handshake_inbound` + `OutboundTransport` |
 | Sync `third_party/rustls-reality` | Action / Renovate |
 | CI examples + Xray в Docker | совместимость |
 | IPv6 клиентские конфиги | |

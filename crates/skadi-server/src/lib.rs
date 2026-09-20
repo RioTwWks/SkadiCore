@@ -18,15 +18,16 @@ use config::{Config, ListenAddrs};
 use prefixed::PrefixedStream;
 use skadi_core::{validate_outbound_literal, EnabledProtocols, Protocol, Session};
 use skadi_protocol::{
-    Socks5Handler, VlessHandler, CMD_BIND, CMD_MUX, CMD_TCP, CMD_UDP, CMD_UDP_ASSOCIATE,
+    handshake_inbound, Socks5Handler, CMD_BIND, CMD_MUX, CMD_UDP, CMD_UDP_ASSOCIATE,
     REP_CONNECTION_REFUSED, REP_GENERAL_FAILURE, REP_HOST_UNREACHABLE, REP_NOT_ALLOWED,
     REP_SUCCEEDED,
 };
 use skadi_transport::{
     accept_xhttp, copy_bidirectional_with_limits, relay_vless_mux_with_limits,
-    relay_vless_udp_with_limits, AwgManager, Hysteria2Manager, OutboundTcpTransport, RealityError,
-    RealityTransport, RelayLimits, TlsTransport, TuicManager, UdpTransport, XhttpAcceptResult,
-    XhttpConfig, XhttpSessionManager, IDLE_TIMEOUT_MSG, SESSION_LIFETIME_MSG,
+    relay_vless_udp_with_limits, AwgManager, Hysteria2Manager, OutboundTcpTransport,
+    OutboundTransport, RealityError, RealityTransport, RelayLimits, TlsTransport, TuicManager,
+    UdpTransport, XhttpAcceptResult, XhttpConfig, XhttpSessionManager, IDLE_TIMEOUT_MSG,
+    SESSION_LIFETIME_MSG,
 };
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -613,64 +614,50 @@ where
             .expect("at least one protocol enabled (validated at config load)")
     };
 
-    let (target, vless_command) = match protocol {
-        Protocol::Socks5 => {
-            let req = match Socks5Handler::negotiate(&mut stream, &socks_config).await {
-                Ok(r) => r,
-                Err(e) => {
-                    if is_auth_failure(&e) {
-                        record_auth_failure(
-                            auth_rate_limiter.as_ref(),
-                            session.peer.ip(),
-                            Protocol::Socks5.metric_label(),
-                        );
-                    }
-                    return Err(e);
-                }
-            };
-            match req.command {
-                CMD_BIND => {
-                    observability::connection_opened("socks5-bind");
-                    let relay =
-                        socks5_relay::handle_socks5_bind(stream, connect_timeout, relay_limits)
-                            .await;
-                    return finish_relay(
-                        session.id,
-                        "socks5-bind",
-                        relay.map(|_| (0, 0)).map_err(|e| std::io::Error::other(e)),
-                    );
-                }
-                CMD_UDP_ASSOCIATE => {
-                    observability::connection_opened("socks5-udp");
-                    let relay = socks5_relay::handle_socks5_udp_associate(
-                        stream,
-                        outbound_udp,
-                        relay_limits,
-                    )
-                    .await;
-                    return finish_relay(
-                        session.id,
-                        "socks5-udp",
-                        relay.map(|_| (0, 0)).map_err(|e| std::io::Error::other(e)),
-                    );
-                }
-                _ => (req.target, CMD_TCP),
+    let inbound = match handshake_inbound(protocol, &mut stream, &socks_config, &vless_config).await
+    {
+        Ok(req) => req,
+        Err(e) => {
+            if is_auth_failure(&e) {
+                record_auth_failure(
+                    auth_rate_limiter.as_ref(),
+                    session.peer.ip(),
+                    protocol.metric_label(),
+                );
             }
+            return Err(e);
         }
-        Protocol::Vless => match VlessHandler::handshake(&mut stream, &vless_config).await {
-            Ok(handshake) => (handshake.target, handshake.command),
-            Err(e) => {
-                if is_auth_failure(&e) {
-                    record_auth_failure(
-                        auth_rate_limiter.as_ref(),
-                        session.peer.ip(),
-                        Protocol::Vless.metric_label(),
-                    );
-                }
-                return Err(e);
-            }
-        },
     };
+
+    let target = inbound.target;
+    let command = inbound.command;
+
+    if protocol == Protocol::Socks5 {
+        match command {
+            CMD_BIND => {
+                observability::connection_opened("socks5-bind");
+                let relay =
+                    socks5_relay::handle_socks5_bind(stream, connect_timeout, relay_limits).await;
+                return finish_relay(
+                    session.id,
+                    "socks5-bind",
+                    relay.map(|_| (0, 0)).map_err(|e| std::io::Error::other(e)),
+                );
+            }
+            CMD_UDP_ASSOCIATE => {
+                observability::connection_opened("socks5-udp");
+                let relay =
+                    socks5_relay::handle_socks5_udp_associate(stream, outbound_udp, relay_limits)
+                        .await;
+                return finish_relay(
+                    session.id,
+                    "socks5-udp",
+                    relay.map(|_| (0, 0)).map_err(|e| std::io::Error::other(e)),
+                );
+            }
+            _ => {}
+        }
+    }
 
     if let Err(err) = validate_outbound_literal(&target, allow_private_outbound) {
         if protocol == Protocol::Socks5 {
@@ -679,11 +666,11 @@ where
         return Err(anyhow::anyhow!(err.to_string()));
     }
 
-    let protocol_label = vless_metric_label(protocol, vless_command);
+    let protocol_label = vless_metric_label(protocol, command);
 
     observability::connection_opened(protocol_label);
 
-    if protocol == Protocol::Vless && vless_command == CMD_MUX {
+    if protocol == Protocol::Vless && command == CMD_MUX {
         info!(
             session = ?session.id,
             protocol = "vless-mux",
@@ -695,7 +682,7 @@ where
         return finish_relay(session.id, protocol_label, relay);
     }
 
-    if protocol == Protocol::Vless && vless_command == CMD_UDP {
+    if protocol == Protocol::Vless && command == CMD_UDP {
         let mut upstream = match outbound_udp.connect(&target).await {
             Ok(s) => s,
             Err(e) => {
@@ -715,7 +702,7 @@ where
         return finish_relay(session.id, protocol_label, relay);
     }
 
-    let mut upstream = match outbound_tcp.connect(&target).await {
+    let mut upstream = match OutboundTransport::connect(&outbound_tcp, &target).await {
         Ok(s) => s,
         Err(e) => {
             if protocol == Protocol::Socks5 {

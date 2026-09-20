@@ -366,11 +366,13 @@ shutdown. Если сессия долгая (большая загрузка), 
 1. Создать `crates/skadi-protocol/src/trojan/` с `parse.rs`,
    `handler.rs`, `config.rs`.
 2. В `parse.rs` — чистые функции разбора заголовка.
-3. В `handler.rs` — `TrojanHandler::handshake(client, config) ->
-   Result<Endpoint>`.
+3. В `handler.rs` — `impl InboundHandler for TrojanHandler`
+   (`handshake` → `InboundRequest`).
 4. Добавить fuzz-таргет в `fuzz/fuzz_targets/`.
-5. В `skadi-server/src/config.rs` добавить `TrojanConfig`.
-6. В `handle_client` добавить ветку.
+5. В `skadi-server` / `skadi-config` добавить `TrojanConfig` и
+   вариант в `Protocol` / `handshake_inbound`.
+6. Специальные команды (если есть) — ветка по
+   `InboundRequest.command` в `handle_connection`.
 
 Парсер и handler не должны знать про `skadi-server`. Только
 через `skadi-core` типы.
@@ -378,10 +380,10 @@ shutdown. Если сессия долгая (большая загрузка), 
 ### Добавить новый транспорт (например, XHTTP)
 
 1. Создать `crates/skadi-transport/src/xhttp.rs`.
-2. Реализовать `XhttpTransport::connect(endpoint) ->
-   Result<impl AsyncRead + AsyncWrite>`.
-3. Если нужен TLS — обернуть `TcpTransport` в `TlsTransport`,
-   затем в `XhttpTransport`.
+2. Реализовать `impl OutboundTransport` с
+   `connect(endpoint) -> Result<Self::Stream>`.
+3. Если нужен TLS — обернуть `TcpTransport` в `TlsOutboundTransport`,
+   затем в новый транспорт / вариант `OutboundTcpTransport`.
 
 Транспорты **не знают про протоколы**. XHTTP-транспорт может
 нести VLESS, Trojan или что угодно.
@@ -403,7 +405,10 @@ EnabledProtocols::detect(wire byte) → Protocol  # sniff при двух про
 PrefixedStream (prefix byte)                   # если sniffing
           │
           ▼
-VlessHandler::handshake(S) / Socks5Handler::negotiate(S) → Endpoint
+handshake_inbound(Protocol) → InboundRequest   # InboundHandler
+          │
+          ▼
+OutboundTransport::connect(target) → upstream  # TCP / TLS / REALITY
 ```
 
 Handlers принимают generic `S: AsyncRead + AsyncWrite + Unpin`.

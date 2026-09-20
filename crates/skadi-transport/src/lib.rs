@@ -1,6 +1,7 @@
 //! Транспортный слой: TCP, TLS, REALITY, XHTTP, AmneziaWG, Hysteria2, TUIC.
 
 pub mod awg;
+pub mod connect;
 pub mod crypto;
 mod hybrid_kx;
 pub mod hysteria2;
@@ -23,6 +24,7 @@ pub use awg::{
     strip_wgquick_fields, AwgClientConfig, AwgClientExport, AwgClientManager, AwgError, AwgManager,
     AwgNatConfig, AwgObfuscationConfig, AwgPeerConfig, AwgServerConfig,
 };
+pub use connect::OutboundTransport;
 pub use crypto::TlsKexMode;
 pub use hysteria2::{
     render_client_yaml as render_hysteria2_client_yaml,
