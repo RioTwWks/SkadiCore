@@ -3,8 +3,8 @@
 mod common;
 
 use skadi_transport::{
-    AwgManager, AwgNatConfig, Hysteria2Manager, Hysteria2ServerConfig, TuicManager,
-    TuicServerConfig,
+    AwgManager, AwgNatConfig, Hysteria2ClientConfig, Hysteria2ClientManager, Hysteria2Manager,
+    Hysteria2ServerConfig, TuicClientConfig, TuicClientManager, TuicManager, TuicServerConfig,
 };
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -240,4 +240,55 @@ async fn hysteria2_early_exit_is_reported() {
         Ok(_) => panic!("expected hysteria early exit"),
     };
     assert!(err.to_string().contains("exited"));
+}
+
+#[tokio::test]
+async fn hysteria2_client_manager_lifecycle() {
+    let dir = TempDir::new().expect("tempdir");
+    let bin = write_executable(&dir.path().join("hysteria"), fake_sleep_binary());
+    let config = Hysteria2ClientConfig {
+        server: "127.0.0.1:443".into(),
+        password: common::TEST_ONLY_PASSWORD.into(),
+        socks5_listen: "127.0.0.1:11080".into(),
+        http_listen: None,
+        sni: None,
+        ca_file: None,
+        insecure: true,
+        pin_sha256: None,
+        bandwidth_up: None,
+        bandwidth_down: None,
+    };
+    let _env = EnvGuard::set(&[("HYSTERIA2_BINARY", Some(bin.to_str().unwrap()))]);
+    let manager = Hysteria2ClientManager::start(&config)
+        .await
+        .expect("hy2 client start");
+    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    let handle = tokio::spawn(async move { manager.run_until_shutdown(shutdown_rx).await });
+    shutdown_tx.send(true).expect("shutdown");
+    handle.await.expect("join").expect("clean shutdown");
+}
+
+#[tokio::test]
+async fn tuic_client_manager_lifecycle() {
+    let dir = TempDir::new().expect("tempdir");
+    let bin = write_executable(&dir.path().join("tuic-client"), fake_sleep_binary());
+    let config = TuicClientConfig {
+        server: "127.0.0.1:8443".into(),
+        uuid: common::TEST_ONLY_UUID.into(),
+        password: common::TEST_ONLY_PASSWORD.into(),
+        socks5_listen: "127.0.0.1:11081".into(),
+        ip: None,
+        congestion_control: "bbr".into(),
+        alpn: vec!["h3".into()],
+        udp_relay_mode: "native".into(),
+        allow_insecure: true,
+    };
+    let _env = EnvGuard::set(&[("TUIC_CLIENT_BINARY", Some(bin.to_str().unwrap()))]);
+    let manager = TuicClientManager::start(&config)
+        .await
+        .expect("tuic client start");
+    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    let handle = tokio::spawn(async move { manager.run_until_shutdown(shutdown_rx).await });
+    shutdown_tx.send(true).expect("shutdown");
+    handle.await.expect("join").expect("clean shutdown");
 }

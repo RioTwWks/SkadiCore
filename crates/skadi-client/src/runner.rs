@@ -1,9 +1,9 @@
-//! Клиентский режим: SOCKS5 и/или TUN → VLESS outbound.
+//! Клиентский режим: SOCKS5/TUN → VLESS, либо sidecar AWG / Hysteria2 / TUIC.
 
 use crate::config::ClientConfig;
 use crate::outbound::Outbound;
 use anyhow::{Context, Result};
-use skadi_transport::AwgClientManager;
+use skadi_transport::{AwgClientManager, Hysteria2ClientManager, TuicClientManager};
 use tokio::sync::watch;
 use tracing::info;
 
@@ -13,6 +13,12 @@ use crate::tun;
 pub async fn run(config: ClientConfig, mut shutdown: watch::Receiver<bool>) -> Result<()> {
     if config.awg_enabled() {
         return run_awg_client(config, shutdown).await;
+    }
+    if config.hysteria2_enabled() {
+        return run_hysteria2_client(config, shutdown).await;
+    }
+    if config.tuic_enabled() {
+        return run_tuic_client(config, shutdown).await;
     }
 
     let outbound = Outbound::from_config(&config)?;
@@ -107,5 +113,47 @@ async fn run_awg_client(config: ClientConfig, shutdown: watch::Receiver<bool>) -
         .map_err(|e| anyhow::anyhow!("AWG client stopped with error: {}", e))?;
 
     info!("SkadiCore AWG client stopped");
+    Ok(())
+}
+
+async fn run_hysteria2_client(config: ClientConfig, shutdown: watch::Receiver<bool>) -> Result<()> {
+    let hy2 = config.hysteria2_runtime_config()?;
+    info!(
+        server = %hy2.server,
+        socks5 = %hy2.socks5_listen,
+        "SkadiCore Hysteria2 client starting"
+    );
+
+    let manager = Hysteria2ClientManager::start(&hy2)
+        .await
+        .map_err(|e| anyhow::anyhow!("failed to start Hysteria2 client: {}", e))?;
+
+    manager
+        .run_until_shutdown(shutdown)
+        .await
+        .map_err(|e| anyhow::anyhow!("Hysteria2 client stopped with error: {}", e))?;
+
+    info!("SkadiCore Hysteria2 client stopped");
+    Ok(())
+}
+
+async fn run_tuic_client(config: ClientConfig, shutdown: watch::Receiver<bool>) -> Result<()> {
+    let tuic = config.tuic_runtime_config()?;
+    info!(
+        server = %tuic.server,
+        socks5 = %tuic.socks5_listen,
+        "SkadiCore TUIC client starting"
+    );
+
+    let manager = TuicClientManager::start(&tuic)
+        .await
+        .map_err(|e| anyhow::anyhow!("failed to start TUIC client: {}", e))?;
+
+    manager
+        .run_until_shutdown(shutdown)
+        .await
+        .map_err(|e| anyhow::anyhow!("TUIC client stopped with error: {}", e))?;
+
+    info!("SkadiCore TUIC client stopped");
     Ok(())
 }

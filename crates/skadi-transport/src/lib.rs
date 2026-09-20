@@ -25,7 +25,9 @@ pub use awg::{
 };
 pub use crypto::TlsKexMode;
 pub use hysteria2::{
-    render_server_yaml as render_hysteria2_yaml, Hysteria2Error, Hysteria2Manager,
+    render_client_yaml as render_hysteria2_client_yaml,
+    render_server_yaml as render_hysteria2_yaml, render_share_uri as render_hysteria2_share_uri,
+    Hysteria2ClientConfig, Hysteria2ClientManager, Hysteria2Error, Hysteria2Manager,
     Hysteria2ServerConfig,
 };
 pub use mux::relay_vless_mux_with_limits;
@@ -42,7 +44,10 @@ pub use relay::{
 pub use tcp::TcpTransport;
 pub use tls::{TlsCertPaths, TlsError, TlsServerConfig, TlsSniCert, TlsTransport};
 pub use tls_client::{TlsClientConfig, TlsOutboundTransport};
-pub use tuic::{render_server_toml as render_tuic_toml, TuicError, TuicManager, TuicServerConfig};
+pub use tuic::{
+    render_client_json as render_tuic_client_json, render_server_toml as render_tuic_toml,
+    TuicClientConfig, TuicClientManager, TuicError, TuicManager, TuicServerConfig,
+};
 pub use udp::{
     read_vless_udp_frame, relay_vless_udp_with_limits, write_vless_udp_frame, UdpTransport,
 };

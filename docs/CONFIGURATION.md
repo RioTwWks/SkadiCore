@@ -477,6 +477,64 @@ allowed_ips = ["10.8.0.2/32"]
 
 ---
 
+## Секция `[transport.hysteria2]`
+
+Hysteria2 — QUIC/UDP прокси через внешний [`hysteria`](https://v2.hysteria.network) binary.
+SkadiCore пишет YAML и запускает `hysteria server`. Нужен бинарник в PATH
+или `HYSTERIA2_BINARY`.
+
+```toml
+[transport.hysteria2]
+enabled = true
+listen = ":443"
+password = "change-me"
+cert = "certs/cert.pem"
+key = "certs/key.pem"
+masquerade_url = "https://www.bing.com"
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `enabled` | bool | Запустить Hysteria2 backend |
+| `listen` | string | UDP listen (`:443` или `0.0.0.0:443`) |
+| `password` | string | Auth password |
+| `cert` / `key` | string | TLS PEM |
+| `masquerade_url` | string? | HTTP masquerade proxy URL |
+
+Клиент: `examples/client-hysteria2/` или официальный Hy2. Пример сервера: `examples/hysteria2/`.
+
+---
+
+## Секция `[transport.tuic]`
+
+TUIC — QUIC прокси через внешний `tuic-server`. SkadiCore пишет TOML и
+запускает процесс. Нужен `tuic-server` в PATH или `TUIC_SERVER_BINARY`.
+
+```toml
+[transport.tuic]
+enabled = true
+listen = "0.0.0.0:8443"
+uuid = "00000000-0000-0000-0000-000000000001"
+password = "change-me"
+certificate = "certs/cert.pem"
+private_key = "certs/key.pem"
+congestion_control = "bbr"
+alpn = ["h3"]
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `enabled` | bool | Запустить TUIC backend |
+| `listen` | string | UDP listen |
+| `uuid` / `password` | string | Учётка пользователя |
+| `certificate` / `private_key` | string | TLS PEM |
+| `congestion_control` | string | `bbr` (по умолчанию) и др. |
+| `alpn` | string[] | Обычно `["h3"]` |
+
+Клиент: `examples/client-tuic/` (`TUIC_CLIENT_BINARY`). Пример сервера: `examples/tuic/`.
+
+---
+
 ## Секция `[transport.reality]`
 
 REALITY — TLS-маскировка с fallback на реальный сайт при невалидном
@@ -1210,6 +1268,70 @@ mode = "stream-one"   # auto | stream-one | stream-up | packet-up
 | `x_padding_bytes` | `[u32; 2]?` | Диапазон длины `X-Padding` в запросе (по умолчанию 100..=1000) |
 
 `flow` / Vision с XHTTP не используйте. Пример: `examples/client-reality-xhttp-vless/`.
+
+### Секция `[hysteria2]` (клиент)
+
+Взаимоисключающа с `[remote]`, `[awg]`, `[tuic]`. Запускает `hysteria client`
+и поднимает локальный SOCKS5.
+
+```toml
+[client]
+listen = "127.0.0.1:10808"
+
+[hysteria2]
+server = "example.com:443"
+password = "secret"
+insecure = false
+# sni = "example.com"
+# ca_file = "ca.pem"
+# http_listen = "127.0.0.1:8080"
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `server` | string | `host:port` Hy2-сервера |
+| `password` | string | Auth password |
+| `socks5_listen` | string? | Локальный SOCKS5 (по умолчанию `client.listen` или `127.0.0.1:10808`) |
+| `http_listen` | string? | Опциональный HTTP proxy |
+| `sni` / `ca_file` / `pin_sha256` | string? | TLS |
+| `insecure` | bool | Не проверять сертификат (lab) |
+| `bandwidth_up` / `bandwidth_down` | string? | Brutal bandwidth (`20 mbps`) |
+
+Env: `HYSTERIA2_BINARY`. Пример: `examples/client-hysteria2/`.
+
+### Секция `[tuic]` (клиент)
+
+Взаимоисключающа с `[remote]`, `[awg]`, `[hysteria2]`. Запускает `tuic-client`.
+
+```toml
+[client]
+listen = "127.0.0.1:10808"
+
+[tuic]
+server = "example.com:8443"
+uuid = "00000000-0000-0000-0000-000000000001"
+password = "secret"
+allow_insecure = false
+# ip = "1.2.3.4"
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `server` | string | `host:port` (часто CN сертификата) |
+| `uuid` / `password` | string | Учётка |
+| `socks5_listen` | string? | Локальный SOCKS5 |
+| `ip` | string? | Dial IP (обход DNS) |
+| `congestion_control` | string | `bbr` по умолчанию |
+| `alpn` | string[] | `["h3"]` |
+| `udp_relay_mode` | string | `native` по умолчанию |
+| `allow_insecure` | bool | Не проверять сертификат (lab) |
+
+Env: `TUIC_CLIENT_BINARY`. Пример: `examples/client-tuic/`.
+
+### Секция `[awg]` (клиент)
+
+AmneziaWG L3 VPN через `amneziawg-go` (не SOCKS5). Взаимоисключающа с
+`[remote]` / `[hysteria2]` / `[tuic]`. См. `examples/awg-vpn/client.toml`.
 
 ---
 

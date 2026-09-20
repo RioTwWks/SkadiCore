@@ -1,0 +1,18 @@
+# Локальный SOCKS5 через внешний `hysteria client`.
+#
+# Сервер: examples/hysteria2/server.toml
+# Требует: hysteria v2 в PATH или HYSTERIA2_BINARY
+
+[client]
+listen = "127.0.0.1:10808"
+
+[hysteria2]
+server = "127.0.0.1:443"
+password = "change-me-hy2"
+# sni = "example.com"
+# Для self-signed (lab):
+insecure = true
+# ca_file = "examples/hysteria2/cert.pem"
+# http_listen = "127.0.0.1:8080"
+# bandwidth_up = "20 mbps"
+# bandwidth_down = "100 mbps"

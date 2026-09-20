@@ -10,8 +10,10 @@
 | [reality-xhttp-vless/](reality-xhttp-vless/) | VLESS + REALITY + XHTTP (сервер; клиент Xray) | REALITY + XHTTP |
 | [client-reality-xhttp-vless/](client-reality-xhttp-vless/) | **Клиент** SOCKS5 → VLESS+REALITY+XHTTP (native) | REALITY + XHTTP |
 | [awg-vpn/](awg-vpn/) | AmneziaWG VPN (UDP) | AmneziaWG |
-| [hysteria2/](hysteria2/) | Hysteria2 QUIC proxy | Hysteria2 |
-| [tuic/](tuic/) | TUIC QUIC proxy | TUIC |
+| [hysteria2/](hysteria2/) | Hysteria2 QUIC proxy (сервер) | Hysteria2 |
+| [client-hysteria2/](client-hysteria2/) | **Клиент** SOCKS5 → Hysteria2 (binary) | Hysteria2 |
+| [tuic/](tuic/) | TUIC QUIC proxy (сервер) | TUIC |
+| [client-tuic/](client-tuic/) | **Клиент** SOCKS5 → TUIC (binary) | TUIC |
 | [vless-tls/](vless-tls/) | VLESS поверх TLS | TLS 1.3 |
 | [socks5-tls/](socks5-tls/) | SOCKS5 user-pass поверх TLS | TLS 1.3 |
 

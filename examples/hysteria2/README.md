@@ -24,9 +24,11 @@ cargo run --bin skadicore -- --config examples/hysteria2/server.toml
 
 ## 3. Клиент
 
-Используйте официальный Hysteria2 client или sing-box с тем же password и TLS.
+Нативный sidecar: [`../client-hysteria2/`](../client-hysteria2/) (`skadicore client` + `hysteria client`).
 
-Share link формат: `hy2://password@server:443?sni=example.com`
+Либо официальный Hysteria2 / sing-box с тем же password и TLS.
+
+Share link: `hy2://password@server:443?sni=example.com`
 
 ## 4. Проверка
 
