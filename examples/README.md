@@ -16,6 +16,7 @@
 | [client-tuic/](client-tuic/) | **Клиент** SOCKS5 → TUIC (binary) | TUIC |
 | [vless-tls/](vless-tls/) | VLESS поверх TLS | TLS 1.3 |
 | [socks5-tls/](socks5-tls/) | SOCKS5 user-pass поверх TLS | TLS 1.3 |
+| [docker-xray/](docker-xray/) | CI e2e: примеры × Xray-core в Docker | — |
 
 Запуск из корня репозитория:
 
@@ -27,6 +28,12 @@ cargo run --bin skadicore -- --config examples/<name>/server.toml
 
 ```bash
 cargo run --bin skadicore -- check-config --config examples/<name>/server.toml
+```
+
+Совместимость с Xray (REALITY / VLESS-TLS / REALITY+XHTTP):
+
+```bash
+./scripts/examples-xray-docker-e2e.sh
 ```
 
 Для TLS-примеров сначала сгенерируйте сертификаты (`./generate-certs.sh` в каталоге примера).

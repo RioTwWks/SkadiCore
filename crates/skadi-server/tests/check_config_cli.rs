@@ -75,3 +75,17 @@ fn check_config_reality_xhttp_example() {
         .join("../../examples/reality-xhttp-vless/server.toml");
     skadi_server::check_config(&path).expect("reality-xhttp example config");
 }
+
+#[test]
+fn check_config_reality_vless_example() {
+    let path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/reality-vless/server.toml");
+    skadi_server::check_config(&path).expect("reality-vless example config");
+}
+
+#[test]
+fn check_config_hysteria2_and_tuic_examples() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    skadi_server::check_config(&root.join("hysteria2/server.toml")).expect("hysteria2");
+    skadi_server::check_config(&root.join("tuic/server.toml")).expect("tuic");
+}

@@ -325,7 +325,7 @@
 
 **Чего не хватает:** CI-шага, который поднимает `xray-core` в Docker и прогоняет через SkadiCore реальный трафик. Это единственный способ поймать несовместимость с клиентами до релиза.
 
-- [ ] CI: интеграционные тесты examples/ с xray-core (Docker)
+- [x] CI: интеграционные тесты examples/ с xray-core (Docker) — `scripts/examples-xray-docker-e2e.sh`, job `examples-xray-e2e`
 
 ---
 

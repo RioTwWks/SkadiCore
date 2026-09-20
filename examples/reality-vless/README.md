@@ -65,11 +65,17 @@ vless://b831381d-6324-4d53-ad4f-8cda48b30811@127.0.0.1:443?encryption=none&secur
 
 ## 6. Автотест
 
-E2E с реальным бинарником Xray:
+E2E с реальным бинарником Xray (unit-стиль):
 
 ```bash
 cargo test -p skadi-server --test reality_vless_xray_e2e
 ```
 
-При первом запуске скачивается Xray v25.12.8 (нужны `curl` и `unzip`), либо
-укажите `XRAY_BINARY=/path/to/xray`.
+E2E по **этому** примеру + Docker Xray (CI job `examples-xray-e2e`):
+
+```bash
+./scripts/examples-xray-docker-e2e.sh
+```
+
+При первом запуске без Docker скачивается Xray v25.12.8 (нужны `curl` и `unzip`),
+либо укажите `XRAY_BINARY=/path/to/xray` / `SKIP_DOCKER=1`.
