@@ -310,10 +310,14 @@
 
 Вы вендорите `rustls-reality` в `third_party/rustls-reality`. Это разумно, потому что `rustls-reality` — это форк `rustls`, и его нужно синхронизировать с upstream. Но вендоринг создаёт **supply chain risk**: вы фиксируете конкретный коммит, но не отслеживаете CVE в `rustls`, которые исправляются в upstream. В `Cargo.lock` `rustls-webpki` обновлён до 0.103.15, но что с остальными транзитивными зависимостями?
 
-**Чего не хватает:** автоматического механизма синхронизации `third_party/rustls-reality` с upstream. Это может быть GitHub Action, который раз в неделю проверяет upstream и открывает PR. Или, как минимум, `renovate.json` / `dependabot.yml` с правилом для `third_party`.
+**Статус:** pin в `third_party/rustls-reality/UPSTREAM.toml`, weekly workflow
+`sync-rustls-reality.yml` (`scripts/check-rustls-reality-upstream.sh`),
+корневые `renovate.json` (regex → `rustls/rustls` releases) и
+`.github/dependabot.yml` (cargo + github-actions). Полный rebase дерева
+на `0.23.x` — отдельная задача (см. `UPSTREAM.md`).
 
-- [ ] CI/Action для синхронизации `third_party/rustls-reality` с upstream
-- [ ] `renovate.json` / `dependabot.yml` для `third_party/`
+- [x] CI/Action для синхронизации `third_party/rustls-reality` с upstream
+- [x] `renovate.json` / `dependabot.yml` для `third_party/`
 
 #### 1.4. `examples/` без тестов
 

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "labels": ["enhancement"],
+  "rangeStrategy": "bump",
+  "packageRules": [
+    {
+      "description": "Path-vendored rustls — track only via UPSTREAM.toml",
+      "matchPackageNames": ["rustls"],
+      "matchManagers": ["cargo"],
+      "enabled": false
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track upstream rustls/rustls releases for third_party pin",
+      "fileMatch": ["^third_party/rustls-reality/UPSTREAM\\.toml$"],
+      "matchStrings": [
+        "version = \"(?<currentValue>[^\"]+)\"\\n# Тег upstream \\(формат rustls: v\\/X\\.Y\\.Z\\)\\ntag = \"v\\/[^\"]+\""
+      ],
+      "autoReplaceStringTemplate": "version = \"{{{newValue}}}\"\n# Тег upstream (формат rustls: v/X.Y.Z)\ntag = \"v/{{{newValue}}}\"",
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "rustls/rustls",
+      "extractVersionTemplate": "^v\\/(?<version>.*)$",
+      "versioningTemplate": "semver"
+    }
+  ]
+}

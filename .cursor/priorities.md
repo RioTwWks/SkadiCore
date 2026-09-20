@@ -19,11 +19,12 @@
 - [x] Hy2 / TUIC traffic e2e в CI
 - [x] AWG traffic e2e (netns + real bins)
 - [x] Трейты `InboundHandler` / `OutboundTransport` + рефакторинг `handle_connection`
+- [x] Sync monitor `third_party/rustls-reality` (Action + Renovate + Dependabot)
 
 ## Сейчас (ближайшие задачи)
 
-1. Sync `third_party/rustls-reality` (Action / Renovate).
-2. CI examples + Xray в Docker.
+1. CI examples + Xray в Docker.
+2. (опционально) rebase vendored rustls 0.22.4 → 0.23.x — по issue от sync Action.
 
 ## Позже
 
@@ -35,8 +36,9 @@
 | ~~Hy2 / TUIC traffic e2e~~ | ✅ CI `sidecar-traffic-e2e` |
 | ~~AWG traffic e2e~~ | ✅ netns + real bins |
 | ~~Трейты `InboundHandler` / `Transport`~~ | ✅ `handshake_inbound` + `OutboundTransport` |
-| Sync `third_party/rustls-reality` | Action / Renovate |
+| ~~Sync `third_party/rustls-reality`~~ | ✅ pin + weekly Action + Renovate/Dependabot |
 | CI examples + Xray в Docker | совместимость |
+| Rebase rustls-reality → 0.23.x | по `UPSTREAM.md` |
 | IPv6 клиентские конфиги | |
 | Дока по троттлингу (zapret/ByeDPI) | не NFQUEUE в ядре |
 

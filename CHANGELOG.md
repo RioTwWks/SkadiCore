@@ -9,6 +9,7 @@
 
 ### Added
 
+- **rustls-reality upstream sync** — `UPSTREAM.toml`/`UPSTREAM.md`, weekly Action `sync-rustls-reality`, `renovate.json` + Dependabot (cargo/actions)
 - **InboundHandler / OutboundTransport** — трейты + `handshake_inbound` / `OutboundTransport::connect`; `handle_connection` без жёстких веток negotiate/handshake
 - **AWG traffic e2e** (`awg_traffic_e2e`): L3 TCP echo через два netns + реальные `amneziawg-go`/`awg`
 - `scripts/install-sidecar-bins.sh`: установка AmneziaWG tools + `go install` amneziawg-go v3
