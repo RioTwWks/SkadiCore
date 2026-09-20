@@ -32,8 +32,8 @@ skadicore/
 accept(TCP)
   → [опционально] TlsTransport::accept()   # TLS 1.3, SNI
   → sniff 0x05/0x00 (если оба протокола)
-  → SOCKS5 negotiate / VLESS handshake
-  → TcpTransport::connect(upstream)
+  → handshake_inbound (InboundHandler)
+  → OutboundTransport::connect(upstream)
   → [SOCKS5] send_reply
   → copy_bidirectional
 ```
@@ -50,24 +50,27 @@ accept(TCP)
 | TLS inbound + SNI | ✅ |
 | Fuzz SOCKS5/VLESS | ✅ |
 | CI (fmt/clippy/test/audit) | ✅ |
-| Интеграционные TLS-тесты | ✅ (5) |
-| Prometheus / healthz | ⏳ |
-| REALITY | ⏳ |
-| gRPC API | ⏳ |
-| TUN | ⏳ |
-| VLESS UDP/Mux/flow | ⏳ |
+| InboundHandler / OutboundTransport | ✅ |
+| Интеграционные TLS-тесты | ✅ |
+| Prometheus / healthz | ✅ |
+| REALITY | ✅ |
+| gRPC API | ✅ |
+| XHTTP | ✅ |
+| AWG / Hy2 / TUIC | ✅ MVP |
 
-**Тесты:** `cargo test --workspace` → 25 тестов (20 parser + 5 integration).
+**Тесты:** `cargo test --workspace` (см. CI).
 
 ## Ключевые файлы
 
 | Файл | Роль |
 |------|------|
-| `crates/skadi-server/src/lib.rs` | `run()`, `run_server()`, accept loop |
-| `crates/skadi-server/src/config.rs` | TOML + валидация |
+| `crates/skadi-server/src/lib.rs` | `run()`, `run_server()`, accept loop, `handle_connection` |
+| `crates/skadi-protocol/src/inbound.rs` | `InboundHandler`, `handshake_inbound` |
+| `crates/skadi-transport/src/connect.rs` | `OutboundTransport` |
+| `crates/skadi-config/` | TOML + валидация |
 | `crates/skadi-transport/src/tls.rs` | TLS accept, SNI resolver |
 | `crates/skadi-protocol/src/vless/parse.rs` | parse + build_tcp_request |
-| `crates/skadi-server/tests/tls_*_e2e.rs` | интеграционные тесты |
+| `crates/skadi-server/tests/*_e2e.rs` | интеграционные тесты |
 
 ## Конфиг (минимум)
 

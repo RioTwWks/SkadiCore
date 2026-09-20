@@ -1,8 +1,10 @@
 //! Протоколы: SOCKS5, VLESS, REALITY.
 
+pub mod inbound;
 pub mod socks5;
 pub mod vless;
 
+pub use inbound::{handshake_inbound, InboundHandler, InboundRequest};
 pub use socks5::{
     AuthMethod, Socks5Config, Socks5Handler, Socks5Request, UserCredential, CMD_BIND,
     CMD_UDP_ASSOCIATE, REP_ADDRESS_NOT_SUPPORTED, REP_COMMAND_NOT_SUPPORTED,

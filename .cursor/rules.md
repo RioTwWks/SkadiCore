@@ -64,14 +64,15 @@ pub fn parse_request(input: &[u8]) -> Result<(T, usize), ParseError>
 ## Добавление нового протокола
 
 1. `crates/skadi-protocol/src/<proto>/` — `parse.rs`, `handler.rs`, `config.rs`
-2. Fuzz-таргет в `fuzz/fuzz_targets/`
-3. Секция в `config.rs` сервера + ветка в `handle_client`
-4. Обновить `docs/PROTOCOLS.md`, `docs/CONFIGURATION.md`, `CHANGELOG.md`
+2. `impl InboundHandler` + ветка в `handshake_inbound`
+3. Fuzz-таргет в `fuzz/fuzz_targets/`
+4. Секция в конфиге + `Protocol` / sniff при необходимости
+5. Обновить `docs/PROTOCOLS.md`, `docs/CONFIGURATION.md`, `CHANGELOG.md`
 
 ## Добавление транспорта
 
 1. `crates/skadi-transport/src/<name>.rs`
-2. Возвращает `impl AsyncRead + AsyncWrite + Unpin`
+2. `impl OutboundTransport` (`connect` → `Self::Stream: AsyncRead + AsyncWrite + Unpin`)
 3. Handlers обобщить: `S: AsyncRead + AsyncWrite + Unpin` вместо `TcpStream`
 
 ## Антипаттерны

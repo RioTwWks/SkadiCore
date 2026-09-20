@@ -788,13 +788,11 @@ pub struct ProtocolConfig {
 }
 ```
 
-В `handle_client`:
+В `handle_connection` после sniff:
 ```rust
-let target = if config.trojan.enabled {
-    TrojanHandler::handshake(&mut client, &config.trojan).await?
-} else if config.vless.enabled {
-    // ...
-};
+// Новый протокол: impl InboundHandler + ветка в handshake_inbound.
+let inbound = handshake_inbound(protocol, &mut stream, &socks5, &vless).await?;
+// Специальные команды — по inbound.command; TCP — OutboundTransport::connect.
 ```
 
 ### 7. Обновить документацию
