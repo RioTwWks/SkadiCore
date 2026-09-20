@@ -4,22 +4,12 @@ use crate::config::ClientConfig;
 use crate::outbound::Outbound;
 use anyhow::{Context, Result};
 use skadi_core::Endpoint;
-use skadi_protocol::socks5::{Socks5Config, Socks5Handler, REP_SUCCEEDED};
+use skadi_protocol::socks5::{AuthMethod, Socks5Handler, REP_SUCCEEDED};
 use skadi_transport::{copy_bidirectional_with_limits, RelayLimits};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::watch;
 use tracing::{debug, info, warn};
-
-fn local_socks5_config() -> Socks5Config {
-    Socks5Config {
-        enabled: true,
-        auth: skadi_protocol::AuthMethod::NoAuth,
-        users: vec![],
-        bind: false,
-        udp_associate: false,
-    }
-}
 
 pub async fn run(
     config: &ClientConfig,
@@ -31,7 +21,25 @@ pub async fn run(
         .await
         .with_context(|| format!("failed to bind client SOCKS5 on {}", listen))?;
 
-    info!(listen = %listen, "client SOCKS5 listening");
+    let socks5 = config.client.socks5.inbound_config();
+    let auth_label = match socks5.auth {
+        AuthMethod::NoAuth => "no-auth",
+        AuthMethod::UserPass => "user-pass",
+    };
+    info!(
+        listen = %listen,
+        auth = auth_label,
+        users = socks5.users.len(),
+        "client SOCKS5 listening"
+    );
+
+    if !listen.ip().is_loopback() && socks5.auth == AuthMethod::NoAuth {
+        warn!(
+            listen = %listen,
+            "client SOCKS5 binds a non-loopback address without auth; \
+             set [client.socks5] auth = \"user-pass\" or bind 127.0.0.1 / ::1"
+        );
+    }
 
     loop {
         if *shutdown.borrow() {
@@ -50,9 +58,10 @@ pub async fn run(
 
         let (mut local, peer) = accept.context("client SOCKS5 accept failed")?;
         let outbound = outbound.clone();
+        let socks5 = socks5.clone();
 
         tokio::spawn(async move {
-            if let Err(err) = handle_session(&mut local, peer, &outbound).await {
+            if let Err(err) = handle_session(&mut local, peer, &outbound, &socks5).await {
                 debug!(peer = %peer, error = %err, "client SOCKS5 session ended");
             }
         });
@@ -65,9 +74,9 @@ async fn handle_session(
     local: &mut TcpStream,
     peer: SocketAddr,
     outbound: &Outbound,
+    socks5: &skadi_protocol::socks5::Socks5Config,
 ) -> Result<()> {
-    let socks5 = local_socks5_config();
-    let target = match Socks5Handler::negotiate(local, &socks5).await {
+    let target = match Socks5Handler::negotiate(local, socks5).await {
         Ok(req) => req.target,
         Err(err) => {
             let _ = Socks5Handler::send_error(local, skadi_protocol::REP_GENERAL_FAILURE).await;

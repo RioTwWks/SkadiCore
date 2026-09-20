@@ -9,6 +9,7 @@
 
 ### Added
 
+- **Client SOCKS5 auth** — `[client.socks5] auth = "user-pass"` + `[[client.socks5.users]]` (RFC 1929); warn if non-loopback listen without auth
 - **IPv6 client configs** — `remote.server` / `client.listen` в форме `[IPv6]:port`; примеры `client-ipv6.toml`, `client-xray-ipv6.json`
 - **`docs/THROTTLING.md`** — обход троттлинга через zapret / ByeDPI / SpoofDPI (без NFQUEUE в ядре)
 - **examples × Xray Docker e2e** — `scripts/examples-xray-docker-e2e.sh` + CI job `examples-xray-e2e` (REALITY / VLESS-TLS / REALITY+XHTTP)

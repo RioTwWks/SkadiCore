@@ -6,6 +6,13 @@
 [client]
 listen = "127.0.0.1:10808"
 
+# Опционально: защита локального SOCKS5 (RFC 1929).
+# [client.socks5]
+# auth = "user-pass"
+# [[client.socks5.users]]
+# username = "alice"
+# password = "change-me"
+
 [remote]
 server = "127.0.0.1:443"
 uuid = "b831381d-6324-4d53-ad4f-8cda48b30811"

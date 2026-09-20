@@ -3,6 +3,7 @@
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use skadi_core::Endpoint;
+use skadi_protocol::socks5::{AuthMethod, Socks5Config, UserCredential};
 use skadi_protocol::vless::Uuid;
 use skadi_transport::{
     AwgClientConfig, AwgObfuscationConfig, Hysteria2ClientConfig, PaddingRange,
@@ -157,8 +158,61 @@ fn default_awg_h4() -> String {
 pub struct ClientListenConfig {
     /// Локальный SOCKS5. Опционально, если включён TUN.
     pub listen: Option<String>,
+    /// Auth для локального SOCKS5 (`[client.socks5]`).
+    #[serde(default)]
+    pub socks5: ClientSocks5AuthConfig,
     #[serde(default)]
     pub tun: TunConfig,
+}
+
+/// Локальный SOCKS5 inbound auth (RFC 1929), зеркало `[protocol.socks5]` на сервере.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ClientSocks5AuthConfig {
+    #[serde(default = "default_client_socks5_auth")]
+    pub auth: AuthMethod,
+    #[serde(default)]
+    pub users: Vec<UserCredential>,
+}
+
+impl Default for ClientSocks5AuthConfig {
+    fn default() -> Self {
+        Self {
+            auth: default_client_socks5_auth(),
+            users: Vec::new(),
+        }
+    }
+}
+
+fn default_client_socks5_auth() -> AuthMethod {
+    AuthMethod::NoAuth
+}
+
+impl ClientSocks5AuthConfig {
+    pub fn validate(&self) -> Result<()> {
+        if self.auth == AuthMethod::UserPass && self.users.is_empty() {
+            bail!("client.socks5.auth is user-pass but no users configured");
+        }
+        for (i, user) in self.users.iter().enumerate() {
+            if user.username.is_empty() {
+                bail!("client.socks5.users[{i}].username must not be empty");
+            }
+            if user.password.is_empty() {
+                bail!("client.socks5.users[{i}].password must not be empty");
+            }
+        }
+        Ok(())
+    }
+
+    /// Конфиг для `Socks5Handler::negotiate` на локальном inbound.
+    pub fn inbound_config(&self) -> Socks5Config {
+        Socks5Config {
+            enabled: true,
+            auth: self.auth,
+            users: self.users.clone(),
+            bind: false,
+            udp_associate: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -439,6 +493,11 @@ impl ClientConfig {
         }
         if let Some(listen) = &self.client.listen {
             parse_socket_addr(listen, "client.listen")?;
+            self.client.socks5.validate()?;
+        } else if self.client.socks5.auth != AuthMethod::NoAuth
+            || !self.client.socks5.users.is_empty()
+        {
+            bail!("client.socks5 auth/users require client.listen (native SOCKS5 inbound)");
         }
         if let Some(remote) = &self.remote {
             parse_server_endpoint(&remote.server)?;
@@ -1067,6 +1126,71 @@ allow_insecure = true
         let tuic = config.tuic_runtime_config().unwrap();
         assert_eq!(tuic.socks5_listen, "127.0.0.1:1080");
         assert_eq!(tuic.congestion_control, "bbr");
+    }
+
+    #[test]
+    fn client_socks5_user_pass_requires_users() {
+        let raw = r#"
+[client]
+listen = "127.0.0.1:1080"
+
+[client.socks5]
+auth = "user-pass"
+
+[remote]
+server = "127.0.0.1:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn client_socks5_user_pass_validates() {
+        let raw = r#"
+[client]
+listen = "127.0.0.1:1080"
+
+[client.socks5]
+auth = "user-pass"
+
+[[client.socks5.users]]
+username = "alice"
+password = "secret"
+
+[remote]
+server = "127.0.0.1:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        config.validate().unwrap();
+        let inbound = config.client.socks5.inbound_config();
+        assert_eq!(inbound.auth, AuthMethod::UserPass);
+        assert_eq!(inbound.users.len(), 1);
+        assert_eq!(inbound.users[0].username, "alice");
+    }
+
+    #[test]
+    fn client_socks5_auth_without_listen_fails() {
+        let raw = r#"
+[client]
+[client.tun]
+enabled = true
+
+[client.socks5]
+auth = "user-pass"
+
+[[client.socks5.users]]
+username = "alice"
+password = "secret"
+
+[remote]
+server = "127.0.0.1:443"
+uuid = "00000000-0000-0000-0000-000000000001"
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("client.socks5"), "unexpected error: {err}");
     }
 
     #[test]

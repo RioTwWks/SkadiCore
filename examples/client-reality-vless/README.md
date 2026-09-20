@@ -18,6 +18,12 @@ skadicore client --config examples/client-reality-vless/client.toml
 curl -v --socks5-hostname 127.0.0.1:10808 https://example.com/
 ```
 
+Если включён `[client.socks5] auth = "user-pass"`:
+
+```bash
+curl -v --socks5-hostname alice:change-me@127.0.0.1:10808 https://example.com/
+```
+
 ## Поля
 
 | Поле | Назначение |
