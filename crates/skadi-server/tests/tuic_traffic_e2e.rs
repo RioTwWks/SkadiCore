@@ -106,9 +106,7 @@ async fn socks5_echo(proxy: std::net::SocketAddr, target: std::net::SocketAddr) 
 #[tokio::test]
 async fn tuic_skadi_client_socks5_echo() {
     if !tuic_binaries_available() {
-        eprintln!(
-            "SKIP tuic_traffic_e2e: tuic-server/tuic-client (or TUIC_*_BINARY) not found"
-        );
+        eprintln!("SKIP tuic_traffic_e2e: tuic-server/tuic-client (or TUIC_*_BINARY) not found");
         return;
     }
 
