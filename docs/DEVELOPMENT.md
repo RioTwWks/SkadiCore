@@ -416,6 +416,21 @@ cargo deny check
 - **bans** — запрещены `openssl`, `openssl-sys`, `native-tls`, `tokio-native-tls`, `hyper-tls`
 - **sources** — только `crates.io`; git-источники запрещены (vendored `rustls` — path dep, не git)
 
+### Vendored `rustls-reality`
+
+Path-форк: `third_party/rustls-reality/`. Pin и процедура rebase —
+`third_party/rustls-reality/UPSTREAM.md`.
+
+Проверка drift (нужны `jq` и сеть; `gh` опционально):
+
+```bash
+./scripts/check-rustls-reality-upstream.sh
+```
+
+CI: workflow **Sync rustls-reality upstream** (weekly) открывает/обновляет
+issue при drift. Dependabot (`.github/dependabot.yml`) и Renovate
+(`renovate.json`) следят за Cargo.lock / Actions и за pin в `UPSTREAM.toml`.
+
 ### Покрытие тестами (tarpaulin)
 
 ```bash

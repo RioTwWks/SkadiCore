@@ -1,0 +1,22 @@
+# Vendored rustls REALITY fork — upstream pin
+#
+# Renovate regexManager обновляет `version` / `tag` ниже.
+# Полный rebase дерева — ручной (сохранить Skadi patches, см. UPSTREAM.md).
+
+[rustls]
+repo = "https://github.com/rustls/rustls"
+# Версия в third_party/rustls-reality/rustls/Cargo.toml
+version = "0.22.4"
+# Тег upstream (формат rustls: v/X.Y.Z)
+tag = "v/0.22.4"
+# Последний релиз ветки 0.22; дальше — только rebase на 0.23+
+line = "0.22"
+
+[skadi]
+# Каталог path-зависимости workspace
+path = "third_party/rustls-reality/rustls"
+# Локальные модули, которые нельзя затирать при vendor-refresh
+preserve = [
+  "rustls/src/reality.rs",
+  "rustls/src/reality/",
+]

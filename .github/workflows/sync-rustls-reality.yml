@@ -1,0 +1,73 @@
+name: Sync rustls-reality upstream
+
+# Еженедельно сверяет pin third_party/rustls-reality/UPSTREAM.toml
+# с релизами github.com/rustls/rustls и открывает issue при drift.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Monday 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Check upstream rustls
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Compare UPSTREAM.toml with rustls releases
+        id: check
+        continue-on-error: true
+        run: |
+          set +e
+          ./scripts/check-rustls-reality-upstream.sh
+          code=$?
+          echo "exit_code=${code}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustls-reality-upstream-report
+          path: target/rustls-reality-upstream-report.md
+          if-no-files-found: ignore
+
+      - name: Open or refresh tracking issue
+        if: steps.check.outputs.exit_code == '10'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TITLE="chore(deps): rustls-reality upstream drift"
+          BODY_FILE=target/rustls-reality-upstream-report.md
+          {
+            echo "Автопроверка: workflow \`Sync rustls-reality upstream\`."
+            echo
+            cat "${BODY_FILE}"
+            echo
+            echo "---"
+            echo "Источник: \`${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\`"
+          } > /tmp/issue-body.md
+
+          existing="$(gh issue list --state open --search "in:title ${TITLE}" --json number,title --jq '.[0].number // empty')"
+          if [[ -n "${existing}" ]]; then
+            gh issue comment "${existing}" --body-file /tmp/issue-body.md
+            echo "Commented on #${existing}"
+          else
+            gh issue create --title "${TITLE}" --body-file /tmp/issue-body.md --label "enhancement"
+            echo "Created tracking issue"
+          fi
+
+      - name: Fail schedule when drift detected
+        if: steps.check.outputs.exit_code == '10'
+        run: |
+          echo "Upstream drift detected — tracking issue opened/updated."
+          # Не валим workflow: сигнал — issue. Для workflow_dispatch тоже exit 0.
+          exit 0

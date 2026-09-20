@@ -67,6 +67,7 @@ accept(TCP)
 | `crates/skadi-server/src/lib.rs` | `run()`, `run_server()`, accept loop, `handle_connection` |
 | `crates/skadi-protocol/src/inbound.rs` | `InboundHandler`, `handshake_inbound` |
 | `crates/skadi-transport/src/connect.rs` | `OutboundTransport` |
+| `third_party/rustls-reality/UPSTREAM.toml` | pin upstream rustls + sync automation |
 | `crates/skadi-config/` | TOML + валидация |
 | `crates/skadi-transport/src/tls.rs` | TLS accept, SNI resolver |
 | `crates/skadi-protocol/src/vless/parse.rs` | parse + build_tcp_request |
