@@ -54,7 +54,7 @@ metrics = "0.24"
 metrics-exporter-prometheus = "0.16"
 
 # Бенчмарки
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 
 # Property-based тесты
 proptest = "1"
