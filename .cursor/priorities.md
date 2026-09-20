@@ -11,15 +11,16 @@
 - [x] TLS inbound/outbound, REALITY inbound + **native REALITY client**, gRPC API, metrics
 - [x] Примеры конфигов: REALITY, VLESS TLS, SOCKS5 TLS, `client-reality-vless`
 - [x] CI: fmt, clippy, test, audit, deny, miri, musl, cross-platform, tarpaulin, smoke-transports
-- [x] GitHub Releases workflow + теги **`v0.1.0`**, **`v0.1.1`**
+- [x] GitHub Releases workflow + теги **`v0.1.0`**, **`v0.1.1`**, **`v0.1.2`**
 - [x] `CONTRIBUTING.md`, CHANGELOG Keep a Changelog, `docs/RELEASING.md`
 - [x] XHTTP server + client
 - [x] AmneziaWG / Hysteria2 / TUIC server MVP (binary backends)
 - [x] Hysteria2 / TUIC **client** sidecar modes (`skadicore client`)
+- [x] Hy2 / TUIC traffic e2e в CI
 
 ## Сейчас (ближайшие задачи)
 
-1. Накопить `[Unreleased]` → **`v0.1.2`** (Hy2/TUIC clients + traffic e2e + docs).
+1. После тега **`v0.1.2`**: накопить следующий `[Unreleased]`.
 2. Опционально: AWG traffic e2e в CI (нужны `amneziawg-go` / `awg`).
 
 ## Позже
