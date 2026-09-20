@@ -9,6 +9,14 @@
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.1.1] - 2026-09-19
+
+### Added
+
 - **Клиентский XHTTP** (`[remote.xhttp]`): stream-one / stream-up / packet-up поверх plain, TLS или REALITY
 - Пример **`examples/client-reality-xhttp-vless/`** + e2e `client_socks5_vless_reality_xhttp_e2e`
 - **`remote.reality.kex_mode`** на клиенте (`classic` / `hybrid_pq`, паритет с сервером)
@@ -21,7 +29,7 @@
 - **`docs/RELEASING.md`** — подробное руководство по релизам и minisign
 - **`docs/CONFIGURATION.md`** — секции `[remote.reality]`, `[remote.xhttp]`
 - **`SECURITY.md`** — политика поддержки для релизных тегов
-- README: дорожная карта VLESS/REALITY, статус v0.1.0
+- README: дорожная карта VLESS/REALITY, статус релизов
 
 ### Fixed
 
@@ -123,5 +131,6 @@
 
 Типы секций: **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**, **Security**.
 
-[Unreleased]: https://github.com/RioTwWks/SkadiCore/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/RioTwWks/SkadiCore/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/RioTwWks/SkadiCore/releases/tag/v0.1.1
 [0.1.0]: https://github.com/RioTwWks/SkadiCore/releases/tag/v0.1.0
