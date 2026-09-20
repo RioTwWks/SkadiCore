@@ -2683,7 +2683,7 @@ dependencies = [
  "tonic",
  "tracing",
  "tracing-subscriber",
- "x25519-dalek 2.0.1",
+ "x25519-dalek 3.0.0",
 ]
 
 [[package]]
@@ -2721,7 +2721,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "wireguard-conf",
- "x25519-dalek 2.0.1",
+ "x25519-dalek 3.0.0",
  "x509-parser",
 ]
 
