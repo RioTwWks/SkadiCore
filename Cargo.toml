@@ -41,7 +41,7 @@ sha2 = "0.10"
 aes-gcm = "0.10"
 hex = "0.4"
 base64 = "0.22"
-rcgen = "0.13"
+rcgen = "0.14"
 ring = "0.17"
 
 # gRPC
