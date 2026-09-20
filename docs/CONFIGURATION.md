@@ -533,6 +533,10 @@ alpn = ["h3"]
 
 Клиент: `examples/client-tuic/` (`TUIC_CLIENT_BINARY`). Пример сервера: `examples/tuic/`.
 
+Сгенерированный `tuic-server` TOML (Itsusinn 1.7+): `dual_stack = false`,
+`[experimental] drop_loopback/drop_private = false` (иначе LAN/loopback режутся ACL —
+ломает e2e и доступ к private через туннель).
+
 ---
 
 ## Секция `[transport.reality]`

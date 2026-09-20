@@ -1,9 +1,9 @@
-//! Рендер конфигов для `tuic-server` / `tuic-client`.
+//! Рендер конфигов для `tuic-server` / `tuic-client` (Itsusinn TUIC 1.7+).
 
 use super::config::{TuicClientConfig, TuicServerConfig};
 use anyhow::Result;
 
-/// Собрать минимальный `config.toml` для tuic-server.
+/// Собрать `config.toml` для Itsusinn `tuic-server`.
 pub fn render_server_toml(config: &TuicServerConfig) -> Result<String> {
     let alpn = config
         .alpn
@@ -12,28 +12,37 @@ pub fn render_server_toml(config: &TuicServerConfig) -> Result<String> {
         .collect::<Vec<_>>()
         .join(", ");
 
+    // dual_stack=false: на CI/контейнерах без IPv6 иначе EOPNOTSUPP.
+    // drop_loopback/private=false: Itsusinn 1.7+ по умолчанию режет LAN/loopback
+    // (e2e и типичный VPN-сценарий через allow_private на стороне Skadi).
     let toml = format!(
-        r#"[server]
-listen = "{listen}"
-users = [
-    {{ uuid = "{uuid}", password = "{password}" }}
-]
+        r#"log_level = "warn"
+server = "{listen}"
+udp_relay_ipv6 = false
+dual_stack = false
 
-[server.tls]
+[users]
+"{uuid}" = "{password}"
+
+[tls]
 certificate = "{cert}"
 private_key = "{key}"
-
-[server.quic]
-congestion_control = "{cc}"
 alpn = [{alpn}]
+
+[quic.congestion_control]
+controller = "{cc}"
+
+[experimental]
+drop_loopback = false
+drop_private = false
 "#,
         listen = config.listen,
         uuid = config.uuid,
-        password = config.password,
+        password = escape_toml_string(&config.password),
         cert = config.cert_path,
         key = config.key_path,
-        cc = config.congestion_control,
         alpn = alpn,
+        cc = config.congestion_control,
     );
 
     Ok(toml)
@@ -65,8 +74,8 @@ pub fn render_client_json(config: &TuicClientConfig) -> Result<String> {
         }
     }
     if config.allow_insecure {
-        // Совместимость с tuic-client / форками (Itsusinn и др.).
-        relay.push_str(",\n    \"allow_insecure\": true");
+        // Itsusinn tuic-client: `skip_cert_verify`.
+        relay.push_str(",\n    \"skip_cert_verify\": true");
     }
 
     let json = format!(
@@ -86,6 +95,10 @@ pub fn render_client_json(config: &TuicClientConfig) -> Result<String> {
     Ok(json)
 }
 
+fn escape_toml_string(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
 fn json_escape(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
 }
@@ -95,7 +108,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn client_json_contains_socks() {
+    fn server_toml_itsusinn_shape() {
+        let cfg = TuicServerConfig {
+            listen: "127.0.0.1:8443".parse().unwrap(),
+            uuid: "00000000-0000-0000-0000-000000000001".into(),
+            password: "secret".into(),
+            cert_path: "/tmp/cert.pem".into(),
+            key_path: "/tmp/key.pem".into(),
+            congestion_control: "bbr".into(),
+            alpn: vec!["h3".into()],
+        };
+        let toml = render_server_toml(&cfg).unwrap();
+        assert!(toml.contains("server = \"127.0.0.1:8443\""));
+        assert!(toml.contains("[users]"));
+        assert!(toml.contains("dual_stack = false"));
+        assert!(toml.contains("drop_loopback = false"));
+        assert!(toml.contains("drop_private = false"));
+        assert!(!toml.contains("[server]"));
+    }
+
+    #[test]
+    fn client_json_skip_cert_verify() {
         let cfg = TuicClientConfig {
             server: "example.com:8443".into(),
             uuid: "00000000-0000-0000-0000-000000000001".into(),
@@ -108,9 +141,7 @@ mod tests {
             allow_insecure: true,
         };
         let json = render_client_json(&cfg).unwrap();
-        assert!(json.contains("\"local\""));
-        assert!(json.contains("127.0.0.1:1080"));
-        assert!(json.contains("allow_insecure"));
+        assert!(json.contains("skip_cert_verify"));
         assert!(json.contains("1.2.3.4"));
     }
 }
