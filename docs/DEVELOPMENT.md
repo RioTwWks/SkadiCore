@@ -279,6 +279,15 @@ curl --socks5-hostname 127.0.0.1:10808 https://example.com
 См. `examples/reality-vless/README.md` для Nekoray и v2rayNG share link.
 Полный список примеров: `examples/README.md` (VLESS TLS, SOCKS5 TLS).
 
+**CI / Docker:** прогон опубликованных examples через Xray-core в контейнере:
+
+```bash
+./scripts/examples-xray-docker-e2e.sh
+# без Docker: SKIP_DOCKER=1 ./scripts/examples-xray-docker-e2e.sh
+```
+
+Job CI: `examples-xray-e2e`. Подробности: `examples/docker-xray/README.md`.
+
 **REALITY TLS client (rustls):** после REALITY auth session `auth_key` проверяйте leaf
 через `rustls::reality::RealityServerCertVerifier` (или `skadi_transport::reality::verify_server_cert_hmac`).
 Не используйте «accept all» verifier на пользовательском трафике; исключение — однократный

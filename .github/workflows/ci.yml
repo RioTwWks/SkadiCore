@@ -66,6 +66,31 @@ jobs:
       - name: Run scripts/smoke-transports.sh
         run: chmod +x scripts/smoke-transports.sh && ./scripts/smoke-transports.sh
 
+  examples-xray-e2e:
+    name: examples × Xray (Docker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y openssl python3 curl unzip
+
+      - name: Build skadicore
+        run: cargo build --release -p skadi-server
+
+      - name: examples × Xray Docker e2e
+        env:
+          SKADICORE_BIN: ${{ github.workspace }}/target/release/skadicore
+        run: |
+          chmod +x scripts/examples-xray-docker-e2e.sh
+          ./scripts/examples-xray-docker-e2e.sh
+
   sidecar-traffic-e2e:
     name: sidecar traffic e2e (Hy2 / TUIC / AWG)
     runs-on: ubuntu-latest
