@@ -33,7 +33,7 @@ jobs:
           exit 0
 
       - name: Upload report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rustls-reality-upstream-report
           path: target/rustls-reality-upstream-report.md
