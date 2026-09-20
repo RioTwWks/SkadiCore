@@ -66,6 +66,35 @@ jobs:
       - name: Run scripts/smoke-transports.sh
         run: chmod +x scripts/smoke-transports.sh && ./scripts/smoke-transports.sh
 
+  sidecar-traffic-e2e:
+    name: sidecar traffic e2e (Hy2 / TUIC)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Hysteria2 / TUIC binaries
+        run: |
+          chmod +x scripts/install-sidecar-bins.sh
+          ./scripts/install-sidecar-bins.sh /tmp/sidecar-bins
+          echo "/tmp/sidecar-bins" >> "$GITHUB_PATH"
+
+      - name: cargo test traffic e2e
+        env:
+          HYSTERIA2_BINARY: /tmp/sidecar-bins/hysteria
+          TUIC_SERVER_BINARY: /tmp/sidecar-bins/tuic-server
+          TUIC_CLIENT_BINARY: /tmp/sidecar-bins/tuic-client
+        run: |
+          cargo test -p skadi-server \
+            --test hysteria2_traffic_e2e \
+            --test tuic_traffic_e2e \
+            -- --nocapture
+
   deny:
     name: cargo deny
     runs-on: ubuntu-latest

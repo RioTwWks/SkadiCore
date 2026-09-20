@@ -532,6 +532,7 @@ QUIC/UDP — другой профиль трафика, альтернатив�
 - [x] Hysteria2 (MVP: `[transport.hysteria2]` + hysteria binary backend)
 - [x] TUIC (MVP: `[transport.tuic]` + tuic-server binary backend)
 - [x] Hysteria2 / TUIC **client** (`[hysteria2]` / `[tuic]` → локальный SOCKS5)
+- [x] Traffic e2e Hy2/TUIC в CI (`sidecar-traffic-e2e`, реальные бинарники)
 
 #### ⚡ Обход троттлинга и фрагментация (sonicdpi)
 

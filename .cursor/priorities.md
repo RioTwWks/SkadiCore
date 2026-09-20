@@ -19,8 +19,8 @@
 
 ## Сейчас (ближайшие задачи)
 
-1. Накопить `[Unreleased]` → **`v0.1.2`** (Hy2/TUIC clients + docs).
-2. Опционально: traffic e2e для Hy2/TUIC/AWG в CI (реальные бинарники).
+1. Накопить `[Unreleased]` → **`v0.1.2`** (Hy2/TUIC clients + traffic e2e + docs).
+2. Опционально: AWG traffic e2e в CI (нужны `amneziawg-go` / `awg`).
 
 ## Позже
 
@@ -29,6 +29,7 @@
 | ~~XHTTP (server/client)~~ | ✅ |
 | ~~AWG / Hy2 / TUIC server~~ | ✅ MVP binary |
 | ~~Hy2 / TUIC client~~ | ✅ sidecar SOCKS5 |
+| ~~Hy2 / TUIC traffic e2e~~ | ✅ CI `sidecar-traffic-e2e` |
 | Трейты `InboundHandler` / `Transport` | рефакторинг `handle_client` |
 | Sync `third_party/rustls-reality` | Action / Renovate |
 | CI examples + Xray в Docker | совместимость |

@@ -13,6 +13,13 @@
 - **Клиентский TUIC** (`[tuic]`): `skadicore client` → `tuic-client` → локальный SOCKS5
 - Примеры `examples/client-hysteria2/`, `examples/client-tuic/`
 - Документация `[transport.hysteria2]` / `[transport.tuic]` и клиентских секций в `CONFIGURATION.md`
+- **Traffic e2e** Hy2/TUIC с реальными бинарниками: `hysteria2_traffic_e2e`, `tuic_traffic_e2e` (skip без bins)
+- CI job **`sidecar-traffic-e2e`** + `scripts/install-sidecar-bins.sh` (hysteria v2.10.0, tuic 1.7.2)
+
+### Fixed
+
+- TUIC server render (Itsusinn 1.7+): top-level `server`, `[users]`, `dual_stack = false`, `drop_loopback/private = false`
+- TUIC client render: `allow_insecure` → `skip_cert_verify`
 
 ## [0.1.1] - 2026-09-19
 
