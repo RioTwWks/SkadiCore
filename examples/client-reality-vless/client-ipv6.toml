@@ -1,0 +1,23 @@
+# Локальный SOCKS5 (IPv6) → VLESS+REALITY по IPv6.
+#
+# Сервер: dual-stack listen, см. examples/reality-vless/server.toml
+#   listen = ["0.0.0.0:443", "[::]:443"]
+#
+# remote.server — обязательно в форме [IPv6]:port (скобки).
+
+[client]
+listen = "[::1]:10808"
+
+[remote]
+server = "[::1]:443"
+uuid = "b831381d-6324-4d53-ad4f-8cda48b30811"
+
+[remote.tls]
+enabled = false
+
+[remote.reality]
+enabled = true
+password = "EyxEK-AQ-9V-cmAzKKp25x_MwVA6riGTJ9FNnJmT9HI"
+short_id = "0123456789abcdef"
+server_name = "reality.test"
+kex_mode = "classic"

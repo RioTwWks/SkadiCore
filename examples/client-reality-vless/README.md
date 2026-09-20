@@ -28,3 +28,21 @@ curl -v --socks5-hostname 127.0.0.1:10808 https://example.com/
 | `remote.reality.short_id` | Hex short id (1–8 байт) |
 
 См. `docs/CONFIGURATION.md` и e2e `crates/skadi-server/tests/client_socks5_vless_reality_e2e.rs`.
+
+## IPv6
+
+Сервер dual-stack:
+
+```toml
+[server]
+listen = ["0.0.0.0:443", "[::]:443"]
+```
+
+Клиент (скобки обязательны для IPv6 в `remote.server`):
+
+```bash
+skadicore client --config examples/client-reality-vless/client-ipv6.toml
+curl -v --socks5-hostname [::1]:10808 https://example.com/
+```
+
+Xray по IPv6: `examples/reality-vless/client-xray-ipv6.json` (`address` / `listen` = `::1`).

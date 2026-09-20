@@ -4,6 +4,8 @@
 # Сгенерировать свои ключи: cargo run --bin skadicore -- genkey reality
 
 [server]
+# Dual-stack: IPv4 + IPv6 (рекомендуется для публичного сервера).
+# listen = ["0.0.0.0:443", "[::]:443"]
 listen = "0.0.0.0:443"
 
 [transport.reality]

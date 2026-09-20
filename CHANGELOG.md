@@ -9,6 +9,8 @@
 
 ### Added
 
+- **IPv6 client configs** — `remote.server` / `client.listen` в форме `[IPv6]:port`; примеры `client-ipv6.toml`, `client-xray-ipv6.json`
+- **`docs/THROTTLING.md`** — обход троттлинга через zapret / ByeDPI / SpoofDPI (без NFQUEUE в ядре)
 - **examples × Xray Docker e2e** — `scripts/examples-xray-docker-e2e.sh` + CI job `examples-xray-e2e` (REALITY / VLESS-TLS / REALITY+XHTTP)
 - **rustls-reality upstream sync** — `UPSTREAM.toml`/`UPSTREAM.md`, weekly Action `sync-rustls-reality`, `renovate.json` + Dependabot (cargo/actions)
 - **InboundHandler / OutboundTransport** — трейты + `handshake_inbound` / `OutboundTransport::connect`; `handle_connection` без жёстких веток negotiate/handshake
@@ -17,6 +19,7 @@
 
 ### Fixed
 
+- Client `remote.server`: корректный разбор bracketed IPv6 (`[::1]:443`); без скобок — явная ошибка
 - AWG `awg setconf`: strip `Address`/`MTU`/`DNS` (wg-quick-only) перед setconf
 - AWG managers: `ip addr replace` + `ip link set up` после setconf
 

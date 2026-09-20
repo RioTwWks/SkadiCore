@@ -1103,7 +1103,17 @@ skadicore client --config examples/client-vless-tls/client.toml
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `listen` | string? | Адрес локального SOCKS5, например `127.0.0.1:1080` |
+| `listen` | string? | Адрес локального SOCKS5, например `127.0.0.1:1080` или `[::1]:1080` |
+
+IPv6 в адресах:
+
+| Поле | Формат |
+|------|--------|
+| `client.listen` | `SocketAddr`: `127.0.0.1:1080` или `[::1]:10808` |
+| `remote.server` | `host:port` или **`[IPv6]:port`** (скобки обязательны) |
+
+Примеры: `examples/client-reality-vless/client-ipv6.toml`,
+`examples/client-vless-tls/client-ipv6.toml`.
 
 Приложения должны использовать **удалённый DNS** (`socks5h`, `curl --socks5-hostname`).
 Обычный `socks5`/`--socks5` резолвит имена локально — DNS-запросы уходят провайдеру.

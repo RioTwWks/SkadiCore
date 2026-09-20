@@ -177,6 +177,8 @@ RUST_LOG=debug ./target/release/skadicore
 ## Конфигурация
 
 Формат — TOML. Подробности: `docs/CONFIGURATION.md`.
+Обход троттлинга (zapret/ByeDPI, без NFQUEUE в ядре): `docs/THROTTLING.md`.
+IPv6-клиент: `examples/client-reality-vless/client-ipv6.toml`.
 
 ```toml
 [server]

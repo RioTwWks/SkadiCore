@@ -543,13 +543,12 @@ QUIC/UDP — другой профиль трафика, альтернатив�
 
 Примитивы: `fake`+`fooling`, `multisplit`, `fake,multidisorder`, `hostfakesplit`. Требуют raw sockets / NFQUEUE — для userspace TCP-прокси неэффективны; либо NFQUEUE/SO_ORIGINAL_DST, либо рекомендация `zapret` / `ByeDPI` / `SpoofDPI`.
 
-- [ ] Документировать/интегрировать обход троттлинга (клиентские утилиты или NFQUEUE)
+- [x] Документировать обход троттлинга (клиентские утилиты; без NFQUEUE в ядре) — `docs/THROTTLING.md`
 
 #### 🌍 IPv6-блокировки
 
 - [x] `[::]:443` + dual-stack `listen` на сервере
-- [ ] Корректные клиентские конфиги IPv6
-
+- [x] Корректные клиентские конфиги IPv6 (`[host]:port`, `client-ipv6.toml`, Xray IPv6 JSON)
 #### 🔐 Пост-квантовая устойчивость
 
 X25519 + ML-KEM-768 (гибрид, напр. Qeli / Chrome). Долгосрочно — заложить смену криптопримитивов.

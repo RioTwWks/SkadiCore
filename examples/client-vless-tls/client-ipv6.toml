@@ -1,0 +1,15 @@
+# Локальный SOCKS5 (IPv6) → VLESS+TLS по IPv6.
+#
+# remote.server — [IPv6]:port со скобками.
+
+[client]
+listen = "[::1]:1080"
+
+[remote]
+server = "[::1]:8443"
+uuid = "b831381d-6324-4d53-ad4f-8cda48b30811"
+
+[remote.tls]
+enabled = true
+# ca_file = "/path/to/ca.pem"
+server_name = "localhost"

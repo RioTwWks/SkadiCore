@@ -42,6 +42,13 @@ xray run -c examples/reality-vless/client-xray.json
 curl --socks5-hostname 127.0.0.1:10808 https://example.com
 ```
 
+IPv6 (сервер с `listen` на `[::]:443`):
+
+```bash
+xray run -c examples/reality-vless/client-xray-ipv6.json
+curl --socks5-hostname [::1]:10808 https://example.com
+```
+
 ## 4. Nekoray
 
 1. Импорт → из буфера / JSON → `client-xray.json`, или вручную:
