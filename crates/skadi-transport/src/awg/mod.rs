@@ -10,4 +10,4 @@ pub use config::{AwgClientConfig, AwgObfuscationConfig, AwgPeerConfig, AwgServer
 pub use keys::{generate_keypair, public_key_from_private};
 pub use manager::{AwgClientManager, AwgError, AwgManager};
 pub use nat::{apply_nat, AwgNatConfig};
-pub use render::{render_client_conf, render_server_conf, AwgClientExport};
+pub use render::{render_client_conf, render_server_conf, strip_wgquick_fields, AwgClientExport};

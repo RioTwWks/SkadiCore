@@ -67,7 +67,7 @@ jobs:
         run: chmod +x scripts/smoke-transports.sh && ./scripts/smoke-transports.sh
 
   sidecar-traffic-e2e:
-    name: sidecar traffic e2e (Hy2 / TUIC)
+    name: sidecar traffic e2e (Hy2 / TUIC / AWG)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -75,10 +75,18 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Go (amneziawg-go)
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
-      - name: Install Hysteria2 / TUIC binaries
+      - name: Install system deps (AWG netns)
+        run: sudo apt-get update && sudo apt-get install -y iproute2 unzip
+
+      - name: Install Hysteria2 / TUIC / AWG binaries
         run: |
           chmod +x scripts/install-sidecar-bins.sh
           ./scripts/install-sidecar-bins.sh /tmp/sidecar-bins
@@ -89,10 +97,13 @@ jobs:
           HYSTERIA2_BINARY: /tmp/sidecar-bins/hysteria
           TUIC_SERVER_BINARY: /tmp/sidecar-bins/tuic-server
           TUIC_CLIENT_BINARY: /tmp/sidecar-bins/tuic-client
+          AWG_GO_BINARY: /tmp/sidecar-bins/amneziawg-go
+          AWG_TOOLS_BINARY: /tmp/sidecar-bins/awg
         run: |
           cargo test -p skadi-server \
             --test hysteria2_traffic_e2e \
             --test tuic_traffic_e2e \
+            --test awg_traffic_e2e \
             -- --nocapture
 
   deny:

@@ -2,7 +2,9 @@
 
 use super::config::{AwgClientConfig, AwgServerConfig};
 use super::nat::{apply_nat, AwgNatConfig};
-use super::render::{render_client_conf, render_server_conf, AwgClientExport};
+use super::render::{
+    render_client_conf, render_server_conf, strip_wgquick_fields, AwgClientExport,
+};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
@@ -46,11 +48,12 @@ impl AwgManager {
 
         let conf =
             render_server_conf(config).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+        let setconf = strip_wgquick_fields(&conf);
 
         let conf_dir = std::env::temp_dir().join("skadicore-awg");
         std::fs::create_dir_all(&conf_dir).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
         let conf_path = conf_dir.join(format!("{}.conf", config.interface_name));
-        std::fs::write(&conf_path, &conf).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+        std::fs::write(&conf_path, &setconf).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
 
         info!(
             interface = %config.interface_name,
@@ -69,23 +72,8 @@ impl AwgManager {
         let socket = PathBuf::from(config.uapi_socket_path());
         wait_for_socket(&socket, &mut child)?;
 
-        let output = Command::new(&tools_bin)
-            .args([
-                "setconf",
-                &config.interface_name,
-                conf_path.to_str().unwrap(),
-            ])
-            .output()
-            .map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
-
-        if !output.status.success() {
-            let _ = child.kill();
-            return Err(AwgError::SetconfFailed(format!(
-                "exit {:?}: {}",
-                output.status,
-                String::from_utf8_lossy(&output.stderr)
-            )));
-        }
+        apply_setconf(&tools_bin, &config.interface_name, &conf_path)?;
+        maybe_bring_up_interface(&config.interface_name, &config.address)?;
 
         if let Some(nat_cfg) = nat {
             apply_nat(nat_cfg)?;
@@ -176,11 +164,12 @@ impl AwgClientManager {
             config.mtu,
         )
         .map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+        let setconf = strip_wgquick_fields(&conf);
 
         let conf_dir = std::env::temp_dir().join("skadicore-awg-client");
         std::fs::create_dir_all(&conf_dir).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
         let conf_path = conf_dir.join(format!("{}.conf", config.interface_name));
-        std::fs::write(&conf_path, &conf).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+        std::fs::write(&conf_path, &setconf).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
 
         info!(
             interface = %config.interface_name,
@@ -198,23 +187,8 @@ impl AwgClientManager {
         let socket = PathBuf::from(config.uapi_socket_path());
         wait_for_socket(&socket, &mut child)?;
 
-        let output = Command::new(&tools_bin)
-            .args([
-                "setconf",
-                &config.interface_name,
-                conf_path.to_str().unwrap(),
-            ])
-            .output()
-            .map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
-
-        if !output.status.success() {
-            let _ = child.kill();
-            return Err(AwgError::SetconfFailed(format!(
-                "exit {:?}: {}",
-                output.status,
-                String::from_utf8_lossy(&output.stderr)
-            )));
-        }
+        apply_setconf(&tools_bin, &config.interface_name, &conf_path)?;
+        maybe_bring_up_interface(&config.interface_name, &config.address)?;
 
         info!(interface = %config.interface_name, "AmneziaWG client configured");
         Ok(Self {
@@ -265,6 +239,57 @@ impl Drop for AwgClientManager {
     fn drop(&mut self) {
         self.stop();
     }
+}
+
+fn apply_setconf(tools_bin: &Path, iface: &str, conf_path: &Path) -> Result<(), AwgError> {
+    let output = Command::new(tools_bin)
+        .args(["setconf", iface, conf_path.to_str().unwrap()])
+        .output()
+        .map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+
+    if !output.status.success() {
+        return Err(AwgError::SetconfFailed(format!(
+            "exit {:?}: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+    Ok(())
+}
+
+/// `ip addr add` + `ip link set up` — `awg setconf` не применяет Address/MTU из conf.
+///
+/// `AWG_SKIP_IP_BRINGUP=1` — для unit-тестов с fake `amneziawg-go` (нет реального iface).
+fn maybe_bring_up_interface(iface: &str, address: &str) -> Result<(), AwgError> {
+    if std::env::var_os("AWG_SKIP_IP_BRINGUP").is_some() {
+        return Ok(());
+    }
+    bring_up_interface(iface, address)
+}
+
+fn bring_up_interface(iface: &str, address: &str) -> Result<(), AwgError> {
+    let addr_out = Command::new("ip")
+        .args(["addr", "replace", address, "dev", iface])
+        .output()
+        .map_err(|e| AwgError::SetconfFailed(format!("ip addr failed: {e}")))?;
+    if !addr_out.status.success() {
+        return Err(AwgError::SetconfFailed(format!(
+            "ip addr replace {address} dev {iface}: {}",
+            String::from_utf8_lossy(&addr_out.stderr)
+        )));
+    }
+
+    let link_out = Command::new("ip")
+        .args(["link", "set", iface, "up"])
+        .output()
+        .map_err(|e| AwgError::SetconfFailed(format!("ip link set up failed: {e}")))?;
+    if !link_out.status.success() {
+        return Err(AwgError::SetconfFailed(format!(
+            "ip link set {iface} up: {}",
+            String::from_utf8_lossy(&link_out.stderr)
+        )));
+    }
+    Ok(())
 }
 
 fn find_awg_go_binary() -> Result<PathBuf, AwgError> {

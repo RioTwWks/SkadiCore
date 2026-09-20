@@ -113,6 +113,35 @@ pub fn render_server_conf(config: &AwgServerConfig) -> Result<String> {
     Ok(iface.to_string())
 }
 
+/// Убрать поля `wg-quick` (`Address`, `MTU`, `DNS`), которые `awg setconf` не принимает.
+///
+/// Export/`.conf` для AmneziaVPN оставляют полный файл; для `setconf` нужен только UAPI-набор.
+pub fn strip_wgquick_fields(conf: &str) -> String {
+    conf.lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                return true;
+            }
+            let key = trimmed.split_once('=').map(|(k, _)| k.trim()).unwrap_or("");
+            !matches!(
+                key.to_ascii_lowercase().as_str(),
+                "address"
+                    | "mtu"
+                    | "dns"
+                    | "table"
+                    | "preup"
+                    | "postup"
+                    | "predown"
+                    | "postdown"
+                    | "saveconfig"
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n"
+}
+
 fn build_peer(peer: &AwgPeerConfig) -> Result<Peer> {
     let public_key = PublicKey::try_from(peer.public_key.as_str())
         .map_err(|e| anyhow::anyhow!("invalid AWG peer public_key: {}", e))?;
@@ -203,3 +232,32 @@ fn parse_h_range(value: &str, field: &str) -> Result<HRange> {
 }
 
 use std::net::SocketAddr;
+
+#[cfg(test)]
+mod tests {
+    use super::strip_wgquick_fields;
+
+    #[test]
+    fn strip_removes_address_mtu_dns() {
+        let raw = "\
+[Interface]
+Address = 10.8.0.1/24
+ListenPort = 51820
+PrivateKey = abc
+MTU = 1420
+DNS = 1.1.1.1
+Jc = 8
+
+[Peer]
+AllowedIPs = 10.8.0.2/32
+";
+        let stripped = strip_wgquick_fields(raw);
+        let lower = stripped.to_ascii_lowercase();
+        assert!(!lower.contains("address"));
+        assert!(!lower.contains("mtu"));
+        assert!(!lower.contains("dns ="));
+        assert!(stripped.contains("ListenPort"));
+        assert!(stripped.contains("PrivateKey"));
+        assert!(stripped.contains("Jc = 8"));
+    }
+}

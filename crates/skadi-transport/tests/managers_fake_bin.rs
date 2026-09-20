@@ -106,6 +106,7 @@ async fn awg_manager_start_and_shutdown() {
         ("AWG_GO_BINARY", Some(go_bin.to_str().unwrap())),
         ("AWG_TOOLS_BINARY", Some(tools_bin.to_str().unwrap())),
         ("AWG_UAPI_DIR", Some(socket_dir.to_str().unwrap())),
+        ("AWG_SKIP_IP_BRINGUP", Some("1")),
     ]);
 
     let manager = AwgManager::start(&config, Some(&nat))
@@ -132,6 +133,7 @@ async fn awg_client_manager_start_and_stop() {
         ("AWG_GO_BINARY", Some(go_bin.to_str().unwrap())),
         ("AWG_TOOLS_BINARY", Some(tools_bin.to_str().unwrap())),
         ("AWG_UAPI_DIR", Some(socket_dir.to_str().unwrap())),
+        ("AWG_SKIP_IP_BRINGUP", Some("1")),
     ]);
 
     let mut manager = skadi_transport::AwgClientManager::start(&config)
