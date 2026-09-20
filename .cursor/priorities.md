@@ -21,11 +21,12 @@
 - [x] Трейты `InboundHandler` / `OutboundTransport` + рефакторинг `handle_connection`
 - [x] Sync monitor `third_party/rustls-reality` (Action + Renovate + Dependabot)
 - [x] CI examples × Xray (Docker) — `examples-xray-e2e`
+- [x] IPv6 клиентские конфиги (`[host]:port`, examples) + `docs/THROTTLING.md`
 
 ## Сейчас (ближайшие задачи)
 
-1. (опционально) rebase vendored rustls 0.22.4 → 0.23.x — по issue от sync Action.
-2. IPv6 клиентские конфиги / дока по троттлингу — по необходимости.
+1. (опционально) rebase vendored rustls 0.22.4 → 0.23.x — по issue от sync Action / `UPSTREAM.md`.
+2. Расширенная crypto-agility (доп. KEM) — по необходимости.
 
 ## Позже
 
@@ -36,12 +37,13 @@
 | ~~Hy2 / TUIC client~~ | ✅ sidecar SOCKS5 |
 | ~~Hy2 / TUIC traffic e2e~~ | ✅ CI `sidecar-traffic-e2e` |
 | ~~AWG traffic e2e~~ | ✅ netns + real bins |
-| ~~Трейты `InboundHandler` / `Transport`~~ | ✅ `handshake_inbound` + `OutboundTransport` |
-| ~~Sync `third_party/rustls-reality`~~ | ✅ pin + weekly Action + Renovate/Dependabot |
-| ~~CI examples + Xray в Docker~~ | ✅ `examples-xray-e2e` |
+| ~~Трейты `InboundHandler` / `Transport`~~ | ✅ |
+| ~~Sync `third_party/rustls-reality`~~ | ✅ |
+| ~~CI examples + Xray в Docker~~ | ✅ |
+| ~~IPv6 клиентские конфиги~~ | ✅ |
+| ~~Дока по троттлингу (zapret/ByeDPI)~~ | ✅ `docs/THROTTLING.md` |
 | Rebase rustls-reality → 0.23.x | по `UPSTREAM.md` |
-| IPv6 клиентские конфиги | |
-| Дока по троттлингу (zapret/ByeDPI) | не NFQUEUE в ядре |
+| Crypto-agility (доп. KEM) | |
 
 ## Что НЕ делать сейчас
 

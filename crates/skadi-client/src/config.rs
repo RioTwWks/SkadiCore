@@ -834,11 +834,34 @@ fn parse_server_endpoint(value: &str) -> Result<Endpoint> {
 }
 
 fn split_host_port(value: &str) -> Result<(String, u16)> {
+    // IPv6: `[2001:db8::1]:443` (скобки обязательны для однозначности).
+    if let Some(rest) = value.strip_prefix('[') {
+        let (host, port_str) = rest.split_once("]:").with_context(|| {
+            format!(
+                "invalid IPv6 server address (expected [host]:port): {}",
+                value
+            )
+        })?;
+        if host.is_empty() {
+            bail!("empty server host in {}", value);
+        }
+        let port = port_str
+            .parse()
+            .with_context(|| format!("invalid server port in {}", value))?;
+        return Ok((host.to_string(), port));
+    }
+
     let (host, port_str) = value
         .rsplit_once(':')
         .with_context(|| format!("invalid server address (expected host:port): {}", value))?;
     if host.is_empty() {
         bail!("empty server host in {}", value);
+    }
+    if host.contains(':') {
+        bail!(
+            "ambiguous IPv6 address without brackets (use [host]:port): {}",
+            value
+        );
     }
     let port = port_str
         .parse()
@@ -1057,5 +1080,55 @@ uuid = "00000000-0000-0000-0000-000000000001"
 "#;
         let config: ClientConfig = toml::from_str(raw).unwrap();
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn ipv6_bracketed_remote_and_listen_parse() {
+        let raw = r#"
+[client]
+listen = "[::1]:10808"
+
+[remote]
+server = "[::1]:443"
+uuid = "b831381d-6324-4d53-ad4f-8cda48b30811"
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        config.validate().unwrap();
+        assert_eq!(
+            config.listen_addr().unwrap(),
+            "[::1]:10808".parse().unwrap()
+        );
+        match config.proxy_endpoint().unwrap() {
+            Endpoint::Ip(addr) => {
+                assert!(addr.ip().is_ipv6());
+                assert_eq!(addr.port(), 443);
+            }
+            other => panic!("expected Endpoint::Ip, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn ipv6_without_brackets_is_rejected() {
+        let err = split_host_port("2001:db8::1:443").unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("ambiguous IPv6") || msg.contains("[host]:port"),
+            "unexpected error: {msg}"
+        );
+    }
+
+    #[test]
+    fn example_client_ipv6_toml_validates() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples/client-reality-vless/client-ipv6.toml");
+        let raw = std::fs::read_to_string(&path).expect("read client-ipv6.toml");
+        // REPLACE_WITH_* не мешает parse/validate адресов и UUID.
+        let config: ClientConfig = toml::from_str(&raw).unwrap();
+        config.validate().unwrap();
+        assert!(config.listen_addr().unwrap().ip().is_ipv6());
+        assert!(matches!(
+            config.proxy_endpoint().unwrap(),
+            Endpoint::Ip(a) if a.ip().is_ipv6()
+        ));
     }
 }

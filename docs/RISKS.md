@@ -373,8 +373,17 @@ curl -x socks5://127.0.0.1:1080 https://example.com
 **Решение.** Либо полностью заворачивать IPv6 в туннель, либо блокировать IPv6 на клиенте.
 
 **Практика для клиента (не сервера):**
-- В TUN-режиме — перехватывать IPv6 и заворачивать.
+- На сервере — dual-stack `listen = ["0.0.0.0:443", "[::]:443"]`, иначе
+  IPv6-клиенты не достучатся до прокси.
+- В клиенте — `remote.server = "[IPv6]:port"` (скобки обязательны) и при
+  необходимости `client.listen = "[::1]:10808"`; см.
+  `examples/client-reality-vless/client-ipv6.toml`.
+- В TUN-режиме — перехватывать IPv6 и заворачивать (пока TUN — IPv4-only;
+  до реализации — отключать IPv6 на хосте).
 - Или отключать IPv6 на интерфейсе: `sysctl net.ipv6.conf.all.disable_ipv6=1`.
+
+Троттлинг / DPI-фрагментация — **не** в ядре SkadiCore: см. `docs/THROTTLING.md`
+(zapret / ByeDPI / SpoofDPI рядом с клиентом).
 
 ### 5.3. Split tunneling
 
