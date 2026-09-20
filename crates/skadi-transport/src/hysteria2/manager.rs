@@ -1,7 +1,7 @@
-//! Запуск внешнего `hysteria` binary.
+//! Запуск внешнего `hysteria` binary (server / client).
 
-use super::config::Hysteria2ServerConfig;
-use super::render::render_server_yaml;
+use super::config::{Hysteria2ClientConfig, Hysteria2ServerConfig};
+use super::render::{render_client_yaml, render_server_yaml};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use thiserror::Error;
@@ -97,6 +97,92 @@ impl Drop for Hysteria2Manager {
     }
 }
 
+/// Клиентский Hysteria2: `hysteria client` → локальный SOCKS5.
+pub struct Hysteria2ClientManager {
+    child: Child,
+    config_path: PathBuf,
+    socks5_listen: String,
+}
+
+impl Hysteria2ClientManager {
+    pub async fn start(config: &Hysteria2ClientConfig) -> Result<Self, Hysteria2Error> {
+        let bin = find_hysteria_binary()?;
+        let yaml =
+            render_client_yaml(config).map_err(|e| Hysteria2Error::ConfigError(e.to_string()))?;
+
+        let conf_dir = std::env::temp_dir().join("skadicore-hysteria2-client");
+        std::fs::create_dir_all(&conf_dir)
+            .map_err(|e| Hysteria2Error::ConfigError(e.to_string()))?;
+        let config_path = conf_dir.join("config.yaml");
+        std::fs::write(&config_path, &yaml)
+            .map_err(|e| Hysteria2Error::ConfigError(e.to_string()))?;
+
+        info!(
+            server = %config.server,
+            socks5 = %config.socks5_listen,
+            "starting hysteria2 client"
+        );
+
+        let mut child = Command::new(&bin)
+            .args(["client", "-c", config_path.to_str().unwrap()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| Hysteria2Error::SpawnFailed(e.to_string()))?;
+
+        wait_for_process(&mut child)?;
+
+        info!(socks5 = %config.socks5_listen, "Hysteria2 client started");
+        Ok(Self {
+            child,
+            config_path,
+            socks5_listen: config.socks5_listen.clone(),
+        })
+    }
+
+    pub async fn run_until_shutdown(
+        mut self,
+        mut shutdown: watch::Receiver<bool>,
+    ) -> Result<(), Hysteria2Error> {
+        loop {
+            if *shutdown.borrow() {
+                break;
+            }
+            if self
+                .child
+                .try_wait()
+                .map_err(|e| Hysteria2Error::SpawnFailed(e.to_string()))?
+                .is_some()
+            {
+                return Err(Hysteria2Error::EarlyExit);
+            }
+            tokio::select! {
+                _ = shutdown.changed() => {
+                    if *shutdown.borrow() {
+                        break;
+                    }
+                }
+                _ = sleep(Duration::from_millis(500)) => {}
+            }
+        }
+        self.stop();
+        Ok(())
+    }
+
+    pub fn stop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        let _ = std::fs::remove_file(&self.config_path);
+        info!(socks5 = %self.socks5_listen, "Hysteria2 client stopped");
+    }
+}
+
+impl Drop for Hysteria2ClientManager {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
 fn find_hysteria_binary() -> Result<PathBuf, Hysteria2Error> {
     if let Ok(path) = std::env::var("HYSTERIA2_BINARY") {
         let p = PathBuf::from(&path);
@@ -104,8 +190,7 @@ fn find_hysteria_binary() -> Result<PathBuf, Hysteria2Error> {
             return Ok(p);
         }
         return Err(Hysteria2Error::BinaryNotFound(format!(
-            "HYSTERIA2_BINARY={} not found",
-            path
+            "HYSTERIA2_BINARY={path} not found"
         )));
     }
     which("hysteria").ok_or_else(|| {
@@ -118,7 +203,7 @@ fn find_hysteria_binary() -> Result<PathBuf, Hysteria2Error> {
 fn which(name: &str) -> Option<PathBuf> {
     let output = Command::new("sh")
         .arg("-c")
-        .arg(format!("command -v {}", name))
+        .arg(format!("command -v {name}"))
         .output()
         .ok()?;
     if !output.status.success() {

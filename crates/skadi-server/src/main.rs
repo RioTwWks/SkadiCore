@@ -30,7 +30,7 @@ enum LogFormat {
 enum Command {
     /// Запустить сервер (по умолчанию).
     Run,
-    /// Локальный SOCKS5 → удалённый VLESS+TLS (клиентский режим).
+    /// Локальный клиент: VLESS / AWG / Hysteria2 / TUIC.
     Client,
     /// Проверить конфиг без запуска.
     CheckConfig,

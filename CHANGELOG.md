@@ -9,9 +9,10 @@
 
 ### Added
 
-### Changed
-
-### Fixed
+- **Клиентский Hysteria2** (`[hysteria2]`): `skadicore client` → `hysteria client` → локальный SOCKS5
+- **Клиентский TUIC** (`[tuic]`): `skadicore client` → `tuic-client` → локальный SOCKS5
+- Примеры `examples/client-hysteria2/`, `examples/client-tuic/`
+- Документация `[transport.hysteria2]` / `[transport.tuic]` и клиентских секций в `CONFIGURATION.md`
 
 ## [0.1.1] - 2026-09-19
 

@@ -5,8 +5,9 @@ use serde::Deserialize;
 use skadi_core::Endpoint;
 use skadi_protocol::vless::Uuid;
 use skadi_transport::{
-    AwgClientConfig, AwgObfuscationConfig, PaddingRange, RealityTlsClientConfig, TlsClientConfig,
-    TlsKexMode, XhttpClientConfig, XhttpMode,
+    AwgClientConfig, AwgObfuscationConfig, Hysteria2ClientConfig, PaddingRange,
+    RealityTlsClientConfig, TlsClientConfig, TlsKexMode, TuicClientConfig, XhttpClientConfig,
+    XhttpMode,
 };
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
@@ -19,6 +20,57 @@ pub struct ClientConfig {
     pub remote: Option<RemoteConfig>,
     #[serde(default)]
     pub awg: Option<AwgClientFileConfig>,
+    #[serde(default)]
+    pub hysteria2: Option<Hysteria2ClientFileConfig>,
+    #[serde(default)]
+    pub tuic: Option<TuicClientFileConfig>,
+}
+
+/// Клиентский Hysteria2 (`skadicore client` + `hysteria client` → SOCKS5).
+#[derive(Debug, Clone, Deserialize)]
+pub struct Hysteria2ClientFileConfig {
+    pub server: String,
+    pub password: String,
+    /// Локальный SOCKS5; по умолчанию — `client.listen` или `127.0.0.1:10808`.
+    pub socks5_listen: Option<String>,
+    pub http_listen: Option<String>,
+    pub sni: Option<String>,
+    pub ca_file: Option<String>,
+    #[serde(default)]
+    pub insecure: bool,
+    pub pin_sha256: Option<String>,
+    pub bandwidth_up: Option<String>,
+    pub bandwidth_down: Option<String>,
+}
+
+/// Клиентский TUIC (`skadicore client` + `tuic-client` → SOCKS5).
+#[derive(Debug, Clone, Deserialize)]
+pub struct TuicClientFileConfig {
+    pub server: String,
+    pub uuid: String,
+    pub password: String,
+    pub socks5_listen: Option<String>,
+    pub ip: Option<String>,
+    #[serde(default = "default_tuic_cc")]
+    pub congestion_control: String,
+    #[serde(default = "default_tuic_alpn")]
+    pub alpn: Vec<String>,
+    #[serde(default = "default_tuic_udp_mode")]
+    pub udp_relay_mode: String,
+    #[serde(default)]
+    pub allow_insecure: bool,
+}
+
+fn default_tuic_cc() -> String {
+    "bbr".to_string()
+}
+
+fn default_tuic_alpn() -> Vec<String> {
+    vec!["h3".to_string()]
+}
+
+fn default_tuic_udp_mode() -> String {
+    "native".to_string()
 }
 
 /// Клиентский режим AmneziaWG (`skadicore client` + amneziawg-go).
@@ -367,13 +419,23 @@ impl ClientConfig {
     }
 
     pub fn validate(&self) -> Result<()> {
-        let has_awg = self.awg.is_some();
-        let has_remote = self.remote.is_some();
-        if has_awg == has_remote {
-            bail!("client config: set exactly one of [remote] (VLESS) or [awg] (AmneziaWG)");
+        let modes = [
+            self.remote.is_some(),
+            self.awg.is_some(),
+            self.hysteria2.is_some(),
+            self.tuic.is_some(),
+        ];
+        let mode_count = modes.iter().filter(|&&m| m).count();
+        if mode_count != 1 {
+            bail!(
+                "client config: set exactly one of [remote] (VLESS), [awg], [hysteria2], or [tuic]"
+            );
         }
-        if self.client.listen.is_none() && !self.client.tun.enabled && !has_awg {
-            bail!("client: set client.listen (SOCKS5), client.tun.enabled = true, or [awg] mode");
+        let sidecar = self.awg.is_some() || self.hysteria2.is_some() || self.tuic.is_some();
+        if self.client.listen.is_none() && !self.client.tun.enabled && !sidecar {
+            bail!(
+                "client: set client.listen (SOCKS5), client.tun.enabled = true, or a sidecar mode ([awg]/[hysteria2]/[tuic])"
+            );
         }
         if let Some(listen) = &self.client.listen {
             parse_socket_addr(listen, "client.listen")?;
@@ -407,12 +469,55 @@ impl ClientConfig {
                 bail!("awg.allowed_ips must not be empty");
             }
         }
+        if let Some(hy2) = &self.hysteria2 {
+            parse_server_endpoint(&hy2.server)?;
+            if hy2.password.trim().is_empty() {
+                bail!("hysteria2.password must not be empty");
+            }
+            let socks = self.resolve_sidecar_socks5(hy2.socks5_listen.as_deref())?;
+            parse_socket_addr(&socks, "hysteria2.socks5_listen / client.listen")?;
+            if let Some(http) = &hy2.http_listen {
+                parse_socket_addr(http, "hysteria2.http_listen")?;
+            }
+        }
+        if let Some(tuic) = &self.tuic {
+            parse_server_endpoint(&tuic.server)?;
+            Uuid::parse(&tuic.uuid).map_err(|e| anyhow::anyhow!("tuic.uuid: {}", e))?;
+            if tuic.password.trim().is_empty() {
+                bail!("tuic.password must not be empty");
+            }
+            let socks = self.resolve_sidecar_socks5(tuic.socks5_listen.as_deref())?;
+            parse_socket_addr(&socks, "tuic.socks5_listen / client.listen")?;
+        }
+        if (self.hysteria2.is_some() || self.tuic.is_some()) && self.client.tun.enabled {
+            bail!("client.tun is not supported with [hysteria2] or [tuic] sidecar modes");
+        }
         self.client.tun.validate()?;
         Ok(())
     }
 
+    fn resolve_sidecar_socks5(&self, override_listen: Option<&str>) -> Result<String> {
+        if let Some(s) = override_listen {
+            if !s.trim().is_empty() {
+                return Ok(s.trim().to_string());
+            }
+        }
+        if let Some(listen) = &self.client.listen {
+            return Ok(listen.clone());
+        }
+        Ok("127.0.0.1:10808".to_string())
+    }
+
     pub fn awg_enabled(&self) -> bool {
         self.awg.is_some()
+    }
+
+    pub fn hysteria2_enabled(&self) -> bool {
+        self.hysteria2.is_some()
+    }
+
+    pub fn tuic_enabled(&self) -> bool {
+        self.tuic.is_some()
     }
 
     pub fn awg_runtime_config(&self) -> Result<AwgClientConfig> {
@@ -440,6 +545,40 @@ impl ClientConfig {
                 h3: awg.h3.clone(),
                 h4: awg.h4.clone(),
             },
+        })
+    }
+
+    pub fn hysteria2_runtime_config(&self) -> Result<Hysteria2ClientConfig> {
+        let hy2 = self
+            .hysteria2
+            .as_ref()
+            .context("hysteria2 section not configured")?;
+        Ok(Hysteria2ClientConfig {
+            server: hy2.server.clone(),
+            password: hy2.password.clone(),
+            socks5_listen: self.resolve_sidecar_socks5(hy2.socks5_listen.as_deref())?,
+            http_listen: hy2.http_listen.clone(),
+            sni: hy2.sni.clone(),
+            ca_file: hy2.ca_file.clone(),
+            insecure: hy2.insecure,
+            pin_sha256: hy2.pin_sha256.clone(),
+            bandwidth_up: hy2.bandwidth_up.clone(),
+            bandwidth_down: hy2.bandwidth_down.clone(),
+        })
+    }
+
+    pub fn tuic_runtime_config(&self) -> Result<TuicClientConfig> {
+        let tuic = self.tuic.as_ref().context("tuic section not configured")?;
+        Ok(TuicClientConfig {
+            server: tuic.server.clone(),
+            uuid: tuic.uuid.clone(),
+            password: tuic.password.clone(),
+            socks5_listen: self.resolve_sidecar_socks5(tuic.socks5_listen.as_deref())?,
+            ip: tuic.ip.clone(),
+            congestion_control: tuic.congestion_control.clone(),
+            alpn: tuic.alpn.clone(),
+            udp_relay_mode: tuic.udp_relay_mode.clone(),
+            allow_insecure: tuic.allow_insecure,
         })
     }
 
@@ -868,6 +1007,43 @@ enabled = true
         assert_eq!(xhttp.mode, XhttpMode::StreamOne);
         assert_eq!(xhttp.host, "reality.test");
         assert!(config.reality_tls_client_config().unwrap().alpn_http1_only);
+    }
+
+    #[test]
+    fn hysteria2_client_config_validates() {
+        let raw = r#"
+[client]
+listen = "127.0.0.1:1080"
+
+[hysteria2]
+server = "127.0.0.1:443"
+password = "secret"
+insecure = true
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        config.validate().unwrap();
+        let hy2 = config.hysteria2_runtime_config().unwrap();
+        assert_eq!(hy2.socks5_listen, "127.0.0.1:1080");
+        assert!(hy2.insecure);
+    }
+
+    #[test]
+    fn tuic_client_config_validates() {
+        let raw = r#"
+[client]
+listen = "127.0.0.1:1080"
+
+[tuic]
+server = "127.0.0.1:8443"
+uuid = "00000000-0000-0000-0000-000000000001"
+password = "secret"
+allow_insecure = true
+"#;
+        let config: ClientConfig = toml::from_str(raw).unwrap();
+        config.validate().unwrap();
+        let tuic = config.tuic_runtime_config().unwrap();
+        assert_eq!(tuic.socks5_listen, "127.0.0.1:1080");
+        assert_eq!(tuic.congestion_control, "bbr");
     }
 
     #[test]

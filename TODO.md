@@ -531,6 +531,7 @@ QUIC/UDP — другой профиль трафика, альтернатив�
 
 - [x] Hysteria2 (MVP: `[transport.hysteria2]` + hysteria binary backend)
 - [x] TUIC (MVP: `[transport.tuic]` + tuic-server binary backend)
+- [x] Hysteria2 / TUIC **client** (`[hysteria2]` / `[tuic]` → локальный SOCKS5)
 
 #### ⚡ Обход троттлинга и фрагментация (sonicdpi)
 
@@ -554,4 +555,4 @@ X25519 + ML-KEM-768 (гибрид, напр. Qeli / Chrome). Долгосроч�
 1. ~~**XHTTP-транспорт**~~ — ✅
 2. ~~**REALITY-rkn-fix**~~ — ✅
 3. ~~**AmneziaWG**~~ — ✅ MVP
-4. **Hysteria2 / TUIC**
+4. ~~**Hysteria2 / TUIC**~~ — ✅ server + client sidecar

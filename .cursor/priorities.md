@@ -1,6 +1,6 @@
 # SkadiCore — текущие приоритеты
 
-Синхронизировано с `TODO.md` (2026-09-19).
+Синхронизировано с `TODO.md` (2026-09-20).
 
 ## Выполнено (не трогать без причины)
 
@@ -13,29 +13,33 @@
 - [x] CI: fmt, clippy, test, audit, deny, miri, musl, cross-platform, tarpaulin, smoke-transports
 - [x] GitHub Releases workflow + теги **`v0.1.0`**, **`v0.1.1`**
 - [x] `CONTRIBUTING.md`, CHANGELOG Keep a Changelog, `docs/RELEASING.md`
+- [x] XHTTP server + client
+- [x] AmneziaWG / Hysteria2 / TUIC server MVP (binary backends)
+- [x] Hysteria2 / TUIC **client** sidecar modes (`skadicore client`)
 
 ## Сейчас (ближайшие задачи)
 
-1. **После merge релизного PR:** `git tag -a v0.1.1 && git push origin v0.1.1` (или Actions → Release → Run workflow).
-2. Накопить следующий `[Unreleased]` → **`v0.1.2`** по мере фич.
+1. Накопить `[Unreleased]` → **`v0.1.2`** (Hy2/TUIC clients + docs).
+2. Опционально: traffic e2e для Hy2/TUIC/AWG в CI (реальные бинарники).
 
 ## Позже
 
 | Задача | Описание |
 |--------|----------|
-| ~~XHTTP (server)~~ | ✅ stream-one + stream-up + packet-up |
-| ~~XHTTP (client)~~ | ✅ `[remote.xhttp]` + e2e REALITY |
-| ~~AmneziaWG~~ | ✅ MVP |
-| ~~Client MVP~~ | ✅ SOCKS5 → VLESS+TLS/REALITY |
-| ~~TUN~~ | ✅ Linux MVP |
+| ~~XHTTP (server/client)~~ | ✅ |
+| ~~AWG / Hy2 / TUIC server~~ | ✅ MVP binary |
+| ~~Hy2 / TUIC client~~ | ✅ sidecar SOCKS5 |
 | Трейты `InboundHandler` / `Transport` | рефакторинг `handle_client` |
 | Sync `third_party/rustls-reality` | Action / Renovate |
-| CI examples + Xray в Docker | совместимость до релиза |
+| CI examples + Xray в Docker | совместимость |
+| IPv6 клиентские конфиги | |
+| Дока по троттлингу (zapret/ByeDPI) | не NFQUEUE в ядре |
 
 ## Что НЕ делать сейчас
 
 - OpenTelemetry до стабилизации метрик Prometheus
-- NFQUEUE / sonicdpi в ядре (документировать клиентские утилиты)
+- NFQUEUE / sonicdpi в ядре
+- Нативный QUIC rewrite Hy2/TUIC (пока binary wrappers достаточны)
 
 ## При завершении задачи
 

@@ -24,7 +24,9 @@ cargo run --bin skadicore -- --config examples/tuic/server.toml
 
 ## 3. Клиент
 
-Используйте tuic-client, sing-box или Nekoray с uuid/password из конфига.
+Нативный sidecar: [`../client-tuic/`](../client-tuic/) (`skadicore client` + `tuic-client`).
+
+Либо внешний tuic-client / sing-box / Nekoray с uuid/password из конфига.
 
 ## 4. Проверка
 
