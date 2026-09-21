@@ -1119,6 +1119,37 @@ IPv6 в адресах:
 Обычный `socks5`/`--socks5` резолвит имена локально — DNS-запросы уходят провайдеру.
 SkadiCore при старте клиента выводит предупреждение об этом риске.
 
+### Секция `[client.socks5]` (auth локального SOCKS5)
+
+RFC 1929 user/pass для **локального** inbound `skadicore client` (не путать с
+UUID VLESS на сервере).
+
+```toml
+[client]
+listen = "127.0.0.1:10808"
+
+[client.socks5]
+auth = "user-pass"
+
+[[client.socks5.users]]
+username = "alice"
+password = "change-me"
+```
+
+| Поле | Тип | По умолчанию | Описание |
+|------|-----|--------------|----------|
+| `auth` | string | `"no-auth"` | `"no-auth"` или `"user-pass"` |
+| `users` | array | `[]` | Учётные записи при `user-pass` |
+
+При `auth = "user-pass"` нужен хотя бы один пользователь с непустыми
+`username` / `password`. Секция имеет смысл только вместе с `client.listen`
+(нативный SOCKS5); sidecar Hy2/TUIC/AWG используют свои локальные прокси.
+
+Если `client.listen` не loopback (`0.0.0.0` / публичный IP) и `auth = "no-auth"`,
+при старте пишется предупреждение — откроете открытый релей на машине.
+
+Пример: `examples/client-reality-vless/client.toml` (закомментированный блок).
+
 ### Секция `[client.tun]` (Linux)
 
 | Поле | Тип | Описание |

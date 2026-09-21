@@ -95,12 +95,37 @@ async fn spawn_vless_tls_server(
 }
 
 async fn socks5_connect(target_ip: Ipv4Addr, target_port: u16, proxy: std::net::SocketAddr) {
+    socks5_connect_with_auth(target_ip, target_port, proxy, None).await;
+}
+
+async fn socks5_connect_with_auth(
+    target_ip: Ipv4Addr,
+    target_port: u16,
+    proxy: std::net::SocketAddr,
+    user_pass: Option<(&str, &str)>,
+) {
     let mut stream = TcpStream::connect(proxy).await.unwrap();
 
-    stream.write_all(&[0x05, 0x01, 0x00]).await.unwrap();
-    let mut method = [0u8; 2];
-    stream.read_exact(&mut method).await.unwrap();
-    assert_eq!(method, [0x05, 0x00]);
+    if let Some((user, pass)) = user_pass {
+        stream.write_all(&[0x05, 0x01, 0x02]).await.unwrap();
+        let mut method = [0u8; 2];
+        stream.read_exact(&mut method).await.unwrap();
+        assert_eq!(method, [0x05, 0x02], "expected user-pass method");
+
+        let mut auth = vec![0x01, user.len() as u8];
+        auth.extend_from_slice(user.as_bytes());
+        auth.push(pass.len() as u8);
+        auth.extend_from_slice(pass.as_bytes());
+        stream.write_all(&auth).await.unwrap();
+        let mut status = [0u8; 2];
+        stream.read_exact(&mut status).await.unwrap();
+        assert_eq!(status, [0x01, 0x00], "SOCKS5 user-pass failed");
+    } else {
+        stream.write_all(&[0x05, 0x01, 0x00]).await.unwrap();
+        let mut method = [0u8; 2];
+        stream.read_exact(&mut method).await.unwrap();
+        assert_eq!(method, [0x05, 0x00]);
+    }
 
     let mut req = vec![0x05, 0x01, 0x00, 0x01];
     req.extend_from_slice(&target_ip.octets());
@@ -182,6 +207,86 @@ server_name = "localhost"
         echo_addr.ip().to_string().parse().unwrap(),
         echo_addr.port(),
         client_listen,
+    )
+    .await;
+
+    let _ = client_shutdown_tx.send(true);
+    let _ = client_task.await;
+    let _ = server_shutdown.send(true);
+}
+
+#[tokio::test]
+async fn client_socks5_user_pass_auth_relay() {
+    let echo_addr = spawn_echo_server().await;
+
+    let cert = generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+    let cert_pem = cert.cert.pem();
+    let dir = tempfile::tempdir().unwrap();
+    let cert_path = dir.path().join("cert.pem");
+    let key_path = dir.path().join("key.pem");
+    let ca_path = dir.path().join("ca.pem");
+    std::fs::write(&cert_path, &cert_pem).unwrap();
+    std::fs::write(&key_path, cert.key_pair.serialize_pem()).unwrap();
+    std::fs::write(&ca_path, &cert_pem).unwrap();
+
+    let proxy_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let proxy_addr = proxy_listener.local_addr().unwrap();
+    drop(proxy_listener);
+
+    let server_shutdown = spawn_vless_tls_server(proxy_addr, &cert_path, &key_path).await;
+
+    let client_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let client_listen = client_listener.local_addr().unwrap();
+    drop(client_listener);
+
+    let client_config_path = dir.path().join("client.toml");
+    let client_toml = format!(
+        r#"
+[client]
+listen = "{listen}"
+
+[client.socks5]
+auth = "user-pass"
+
+[[client.socks5.users]]
+username = "alice"
+password = "s3cret"
+
+[remote]
+server = "{server}"
+uuid = "{uuid}"
+
+[remote.tls]
+enabled = true
+ca_file = "{ca}"
+server_name = "localhost"
+"#,
+        listen = client_listen,
+        server = proxy_addr,
+        uuid = TEST_USER_ID,
+        ca = ca_path.display(),
+    );
+    std::fs::write(&client_config_path, client_toml).unwrap();
+
+    let config = skadi_client::ClientConfig::load(&client_config_path).unwrap();
+    let (client_shutdown_tx, client_shutdown_rx) = watch::channel(false);
+    let client_task = tokio::spawn(skadi_client::run(config, client_shutdown_rx));
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // Без auth — сервер отклоняет метод.
+    {
+        let mut stream = TcpStream::connect(client_listen).await.unwrap();
+        stream.write_all(&[0x05, 0x01, 0x00]).await.unwrap();
+        let mut method = [0u8; 2];
+        stream.read_exact(&mut method).await.unwrap();
+        assert_eq!(method, [0x05, 0xFF]);
+    }
+
+    socks5_connect_with_auth(
+        echo_addr.ip().to_string().parse().unwrap(),
+        echo_addr.port(),
+        client_listen,
+        Some(("alice", "s3cret")),
     )
     .await;
 
