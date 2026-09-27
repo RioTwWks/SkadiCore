@@ -10,8 +10,6 @@ use std::io;
 use pki_types::{DnsName, UnixTime};
 
 use super::hs;
-#[cfg(feature = "std")]
-use crate::WantsVerifier;
 use crate::builder::ConfigBuilder;
 #[cfg(feature = "std")]
 use crate::common_state::State;
@@ -33,8 +31,10 @@ use crate::sync::Arc;
 use crate::time_provider::DefaultTimeProvider;
 use crate::time_provider::TimeProvider;
 use crate::vecbuf::ChunkVecBuffer;
+#[cfg(feature = "std")]
+use crate::WantsVerifier;
 use crate::{
-    DistinguishedName, KeyLog, NamedGroup, WantsVersions, compress, sign, verify, versions,
+    compress, sign, verify, versions, DistinguishedName, KeyLog, NamedGroup, WantsVersions,
 };
 
 /// A trait for the ability to store server session data.

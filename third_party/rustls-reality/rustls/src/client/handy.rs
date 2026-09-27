@@ -3,7 +3,7 @@ use pki_types::ServerName;
 use crate::enums::SignatureScheme;
 use crate::msgs::persist;
 use crate::sync::Arc;
-use crate::{NamedGroup, client, sign};
+use crate::{client, sign, NamedGroup};
 
 /// An implementer of `ClientSessionStore` which does nothing.
 #[derive(Debug)]
@@ -40,7 +40,7 @@ mod cache {
 
     use crate::lock::Mutex;
     use crate::msgs::persist;
-    use crate::{NamedGroup, limited_cache};
+    use crate::{limited_cache, NamedGroup};
 
     const MAX_TLS13_TICKETS_PER_SERVER: usize = 8;
 
@@ -251,8 +251,8 @@ mod tests {
 
     use pki_types::{ServerName, UnixTime};
 
-    use super::NoClientSessionStorage;
     use super::provider::cipher_suite;
+    use super::NoClientSessionStorage;
     use crate::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
     use crate::client::{ClientSessionStore, ResolvesClientCert};
     use crate::msgs::base::PayloadU16;
@@ -264,7 +264,7 @@ mod tests {
     use crate::pki_types::CertificateDer;
     use crate::suites::SupportedCipherSuite;
     use crate::sync::Arc;
-    use crate::{DigitallySignedStruct, Error, SignatureScheme, sign};
+    use crate::{sign, DigitallySignedStruct, Error, SignatureScheme};
 
     #[test]
     fn test_noclientsessionstorage_does_nothing() {

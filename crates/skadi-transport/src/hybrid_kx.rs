@@ -47,10 +47,7 @@ impl SupportedKxGroup for X25519MlKem768 {
         X25519_MLKEM768_NAMED_GROUP
     }
 
-    fn start_and_complete(
-        &self,
-        peer_pub_key: &[u8],
-    ) -> Result<CompletedKeyExchange, Error> {
+    fn start_and_complete(&self, peer_pub_key: &[u8]) -> Result<CompletedKeyExchange, Error> {
         server_start_and_complete(peer_pub_key)
     }
 }

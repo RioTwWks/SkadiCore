@@ -7,7 +7,7 @@ use zeroize::Zeroizing;
 use crate::client::ResolvesClientCert;
 use crate::enums::{CipherSuite, ProtocolVersion};
 use crate::error::InvalidMessage;
-use crate::msgs::base::{MaybeEmpty, PayloadU8, PayloadU16};
+use crate::msgs::base::{MaybeEmpty, PayloadU16, PayloadU8};
 use crate::msgs::codec::{Codec, Reader};
 #[cfg(feature = "tls12")]
 use crate::msgs::handshake::SessionId;

@@ -6,12 +6,12 @@ use core::ops::Deref;
 
 use crate::common_state::{CommonState, Side};
 use crate::crypto::cipher::{AeadKey, Iv, MessageDecrypter, Tls13AeadAlgorithm};
-use crate::crypto::tls13::{Hkdf, HkdfExpander, OkmBlock, OutputLengthError, expand};
-use crate::crypto::{SharedSecret, hash, hmac};
+use crate::crypto::tls13::{expand, Hkdf, HkdfExpander, OkmBlock, OutputLengthError};
+use crate::crypto::{hash, hmac, SharedSecret};
 use crate::error::Error;
 use crate::msgs::message::Message;
 use crate::suites::PartiallyExtractedSecrets;
-use crate::{ConnectionTrafficSecrets, KeyLog, Tls13CipherSuite, quic};
+use crate::{quic, ConnectionTrafficSecrets, KeyLog, Tls13CipherSuite};
 
 // We express the state of a contained KeySchedule using these
 // typestates.  This means we can write code that cannot accidentally
@@ -1046,9 +1046,9 @@ mod tests {
     use super::provider::tls13::{
         TLS13_AES_128_GCM_SHA256_INTERNAL, TLS13_CHACHA20_POLY1305_SHA256_INTERNAL,
     };
-    use super::{KeySchedule, SecretKind, derive_traffic_iv, derive_traffic_key};
-    use crate::KeyLog;
+    use super::{derive_traffic_iv, derive_traffic_key, KeySchedule, SecretKind};
     use crate::msgs::enums::HashAlgorithm;
+    use crate::KeyLog;
 
     #[test]
     fn empty_hash() {
@@ -1079,11 +1079,9 @@ mod tests {
         );
 
         // a theoretical example of unsupported hash
-        assert!(
-            HashAlgorithm::SHA1
-                .hash_for_empty_input()
-                .is_none()
-        );
+        assert!(HashAlgorithm::SHA1
+            .hash_for_empty_input()
+            .is_none());
     }
 
     #[test]
@@ -1268,7 +1266,7 @@ mod benchmarks {
         use core::fmt::Debug;
 
         use super::provider::tls13::TLS13_CHACHA20_POLY1305_SHA256_INTERNAL;
-        use super::{KeySchedule, SecretKind, derive_traffic_iv, derive_traffic_key};
+        use super::{derive_traffic_iv, derive_traffic_key, KeySchedule, SecretKind};
         use crate::KeyLog;
 
         fn extract_traffic_secret(ks: &KeySchedule, kind: SecretKind) {

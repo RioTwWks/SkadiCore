@@ -79,7 +79,7 @@ mod tests {
     use crate::sign::CertifiedKey;
     use crate::sync::Arc;
     use crate::{
-        CipherSuiteCommon, SupportedCipherSuite, Tls12CipherSuite, Tls13CipherSuite, version,
+        version, CipherSuiteCommon, SupportedCipherSuite, Tls12CipherSuite, Tls13CipherSuite,
     };
 
     #[cfg(feature = "tls12")]

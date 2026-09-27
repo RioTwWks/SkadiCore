@@ -31,7 +31,7 @@ use crate::webpki::{RootCertStore, WebPkiServerVerifier};
 
 #[macro_rules_attribute::apply(bench_for_each_provider)]
 mod benchmarks {
-    use super::{Context, provider};
+    use super::{provider, Context};
 
     #[bench]
     fn reddit_cert(b: &mut test::Bencher) {

@@ -42,7 +42,7 @@ mod tests {
     use crate::sign::CertifiedKey;
     use crate::tls13::key_schedule::{derive_traffic_iv, derive_traffic_key};
     use crate::verify::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-    use crate::{DigitallySignedStruct, DistinguishedName, KeyLog, version};
+    use crate::{version, DigitallySignedStruct, DistinguishedName, KeyLog};
 
     /// Tests that session_ticket(35) extension
     /// is not sent if the client does not support TLS 1.2.
@@ -70,10 +70,9 @@ mod tests {
                 .with_no_client_auth(),
         )
         .unwrap();
-        assert!(
-            !ch.cipher_suites
-                .contains(&CipherSuite::TLS_EMPTY_RENEGOTIATION_INFO_SCSV)
-        );
+        assert!(!ch
+            .cipher_suites
+            .contains(&CipherSuite::TLS_EMPTY_RENEGOTIATION_INFO_SCSV));
     }
 
     #[test]
@@ -290,11 +289,9 @@ mod tests {
             .unwrap();
         conn.process_new_packets().unwrap();
 
-        assert!(
-            verifier
-                .seen_sha1_signature
-                .load(Ordering::SeqCst)
-        );
+        assert!(verifier
+            .seen_sha1_signature
+            .load(Ordering::SeqCst));
     }
 
     #[derive(Debug, Default)]
