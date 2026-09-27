@@ -163,7 +163,7 @@ async fn client_socks5_to_vless_tls_relay() {
     let key_path = dir.path().join("key.pem");
     let ca_path = dir.path().join("ca.pem");
     std::fs::write(&cert_path, &cert_pem).unwrap();
-    std::fs::write(&key_path, cert.key_pair.serialize_pem()).unwrap();
+    std::fs::write(&key_path, cert.signing_key.serialize_pem()).unwrap();
     std::fs::write(&ca_path, &cert_pem).unwrap();
 
     let proxy_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -226,7 +226,7 @@ async fn client_socks5_user_pass_auth_relay() {
     let key_path = dir.path().join("key.pem");
     let ca_path = dir.path().join("ca.pem");
     std::fs::write(&cert_path, &cert_pem).unwrap();
-    std::fs::write(&key_path, cert.key_pair.serialize_pem()).unwrap();
+    std::fs::write(&key_path, cert.signing_key.serialize_pem()).unwrap();
     std::fs::write(&ca_path, &cert_pem).unwrap();
 
     let proxy_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

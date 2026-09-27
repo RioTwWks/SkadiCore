@@ -8,10 +8,27 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - enhancement
-    # Path-vendored rustls не обновляется Dependabot'ом — см. UPSTREAM.toml + Renovate.
+    # Path-vendored rustls 0.22 + tonic 0.12 pin several crates until rebase.
     ignore:
       - dependency-name: rustls
         versions: ["*"]
+      # Needs rustls 0.23 (vendored fork is still 0.22).
+      - dependency-name: tokio-rustls
+        versions: [">=0.26.0"]
+      # Breaking API; coordinate with code updates.
+      - dependency-name: rand
+        versions: [">=0.9.0"]
+      - dependency-name: hkdf
+        versions: [">=0.13.0"]
+      - dependency-name: x25519-dalek
+        versions: [">=3.0.0"]
+      # Needs tonic major bump together.
+      - dependency-name: prost
+        versions: [">=0.14.0"]
+      - dependency-name: tonic
+        versions: [">=0.13.0"]
+      - dependency-name: tonic-build
+        versions: [">=0.13.0"]
 
   - package-ecosystem: github-actions
     directory: "/"

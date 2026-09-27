@@ -117,7 +117,7 @@ async fn tuic_skadi_client_socks5_echo() {
     let cert_path = dir.path().join("cert.pem");
     let key_path = dir.path().join("key.pem");
     std::fs::write(&cert_path, cert.cert.pem()).unwrap();
-    std::fs::write(&key_path, cert.key_pair.serialize_pem()).unwrap();
+    std::fs::write(&key_path, cert.signing_key.serialize_pem()).unwrap();
 
     let tcp_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let tcp_addr = tcp_listener.local_addr().unwrap();

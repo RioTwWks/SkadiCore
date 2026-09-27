@@ -49,7 +49,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin)'] }
 
 [dev-dependencies]
 skadi-client.workspace = true
-rcgen = "0.13"
+rcgen = "0.14"
 rustls.workspace = true
 rustls-pki-types.workspace = true
 tokio-rustls.workspace = true

@@ -190,7 +190,7 @@ async fn vless_over_xhttp_stream_one_and_relay() {
 
     let cert = generate_simple_self_signed(vec!["localhost".into()]).unwrap();
     let cert_pem = cert.cert.pem();
-    let key_pem = cert.key_pair.serialize_pem();
+    let key_pem = cert.signing_key.serialize_pem();
 
     let dir = tempfile::tempdir().unwrap();
     let cert_path = dir.path().join("cert.pem");

@@ -80,7 +80,7 @@ fn test_vless_config() -> VlessConfig {
 async fn vless_relay_over_tls_outbound() {
     let cert = generate_simple_self_signed(vec!["localhost".into()]).unwrap();
     let cert_pem = cert.cert.pem();
-    let key_pem = cert.key_pair.serialize_pem();
+    let key_pem = cert.signing_key.serialize_pem();
 
     let dir = tempfile::tempdir().unwrap();
     let ca_path = dir.path().join("upstream-ca.pem");
