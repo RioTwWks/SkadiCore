@@ -7,6 +7,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Dependabot triage: bump `toml` 1.1, `rcgen` 0.14, `x509-parser` 0.18, `criterion` 0.8, `metrics-exporter-prometheus` 0.18; ignore `tokio-rustls`≥0.26 / `rand`≥0.9 / `hkdf`≥0.13 / `x25519-dalek`≥3 / `prost`/`tonic` majors until rustls rebase or coordinated bump
+- **rcgen 0.14**: `CertifiedKey.key_pair` → `signing_key` in tests/helpers
+
 ### Added
 
 - **Client SOCKS5 auth** — `[client.socks5] auth = "user-pass"` + `[[client.socks5.users]]` (RFC 1929); warn if non-loopback listen without auth

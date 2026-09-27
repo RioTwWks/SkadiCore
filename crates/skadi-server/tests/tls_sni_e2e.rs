@@ -52,9 +52,9 @@ async fn sni_routes_to_matching_certificate() {
     let beta_cert = dir.path().join("beta.pem");
     let beta_key = dir.path().join("beta.key");
     std::fs::write(&alpha_cert, &pem_alpha).unwrap();
-    std::fs::write(&alpha_key, cert_alpha.key_pair.serialize_pem()).unwrap();
+    std::fs::write(&alpha_key, cert_alpha.signing_key.serialize_pem()).unwrap();
     std::fs::write(&beta_cert, &pem_beta).unwrap();
-    std::fs::write(&beta_key, cert_beta.key_pair.serialize_pem()).unwrap();
+    std::fs::write(&beta_key, cert_beta.signing_key.serialize_pem()).unwrap();
 
     let proxy_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let proxy_addr = proxy_listener.local_addr().unwrap();
@@ -150,9 +150,9 @@ async fn sni_unknown_name_falls_back_to_default_cert() {
     let named_cert = dir.path().join("named.pem");
     let named_key = dir.path().join("named.key");
     std::fs::write(&default_cert, &pem_default).unwrap();
-    std::fs::write(&default_key, cert_default.key_pair.serialize_pem()).unwrap();
+    std::fs::write(&default_key, cert_default.signing_key.serialize_pem()).unwrap();
     std::fs::write(&named_cert, &pem_named).unwrap();
-    std::fs::write(&named_key, cert_named.key_pair.serialize_pem()).unwrap();
+    std::fs::write(&named_key, cert_named.signing_key.serialize_pem()).unwrap();
 
     let proxy_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let proxy_addr = proxy_listener.local_addr().unwrap();

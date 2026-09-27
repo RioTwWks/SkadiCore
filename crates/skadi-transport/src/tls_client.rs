@@ -168,7 +168,7 @@ mod tests {
     async fn tls_outbound_connects_and_echoes() {
         let cert = generate_simple_self_signed(vec!["localhost".into()]).unwrap();
         let cert_pem = cert.cert.pem();
-        let key_pem = cert.key_pair.serialize_pem();
+        let key_pem = cert.signing_key.serialize_pem();
 
         let ca_path = std::env::temp_dir().join("skadi-tls-outbound-test-ca.pem");
         std::fs::write(&ca_path, &cert_pem).unwrap();

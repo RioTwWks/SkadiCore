@@ -23,7 +23,7 @@ thiserror = "1"
 
 # Сериализация
 serde = { version = "1", features = ["derive"] }
-toml = "0.8"
+toml = "1.1"
 
 # CLI
 clap = { version = "4", features = ["derive"] }
@@ -41,7 +41,7 @@ sha2 = "0.10"
 aes-gcm = "0.10"
 hex = "0.4"
 base64 = "0.22"
-rcgen = "0.13"
+rcgen = "0.14"
 ring = "0.17"
 
 # gRPC
@@ -51,10 +51,10 @@ tonic-build = "0.12"
 
 # Метрики
 metrics = "0.24"
-metrics-exporter-prometheus = "0.16"
+metrics-exporter-prometheus = "0.18"
 
 # Бенчмарки
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 
 # Property-based тесты
 proptest = "1"
