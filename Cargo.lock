@@ -2718,7 +2718,7 @@ name = "skadi-client"
 version = "0.1.2"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.1",
  "futures",
  "hex",
  "libc",
@@ -2742,7 +2742,7 @@ name = "skadi-config"
 version = "0.1.2"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.1",
  "hex",
  "serde",
  "skadi-core",
@@ -2781,7 +2781,7 @@ name = "skadi-server"
 version = "0.1.2"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.1",
  "clap",
  "hex",
  "metrics",
