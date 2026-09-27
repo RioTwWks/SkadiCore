@@ -28,8 +28,21 @@ impl TlsKexMode {
     }
 }
 
+/// Установить process-level `ring` CryptoProvider (идемпотентно).
+///
+/// Нужен, когда в графе зависимостей одновременно видны `ring` и `aws-lc-rs`
+/// features у rustls (тогда автовыбор падает).
+pub fn install_default_ring_provider() {
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+    INIT.call_once(|| {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    });
+}
+
 /// Собрать `CryptoProvider` для rustls с выбранным режимом KEX.
 pub fn tls_crypto_provider(mode: TlsKexMode) -> Result<Arc<CryptoProvider>> {
+    install_default_ring_provider();
     let mut provider = rustls::crypto::ring::default_provider();
     if mode == TlsKexMode::HybridPq {
         provider

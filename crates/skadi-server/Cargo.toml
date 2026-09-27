@@ -38,11 +38,8 @@ base64.workspace = true
 hex.workspace = true
 x25519-dalek.workspace = true
 rand = "0.8"
-# rustls 0.23 для tonic gRPC TLS (отдельно от workspace vendored 0.22)
-grpc-rustls = { package = "rustls", version = "0.23.45", default-features = false, features = [
-    "ring",
-    "std",
-] }
+# Vendored REALITY rustls 0.23 (also used for tonic gRPC TLS provider install).
+rustls.workspace = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin)'] }

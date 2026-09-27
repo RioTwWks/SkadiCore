@@ -16,12 +16,12 @@ Skadi держит **path-зависимость** на форк `rustls` с х�
 | Поле | Смысл |
 |------|--------|
 | `rustls.version` / `tag` | Базовая версия upstream `rustls`, от которой взято дерево |
-| `rustls.line` | Мажорная линия (`0.22`); новые фичи — только через rebase на `0.23+` |
+| `rustls.line` | Мажорная линия (`0.23`); следующий крупный шаг — `0.24+` / `1.x` |
 | `skadi.preserve` | Пути, которые нужно перенести вручную при vendor refresh |
 
-Текущая линия **0.22** upstream больше не получает релизов (последний тег
-`v/0.22.4`). Безопасность и CVE — через мониторинг advisories `rustls` /
-`rustls-webpki` и плановый rebase на актуальную `0.23.x`.
+Текущая линия **0.23** (pin `v/0.23.45`). Skadi-патчи: `reality/` + хуки в
+`client/` и `server/` (session_id seal, ServerHello inject, ED25519).
+Workspace: `tokio-rustls` 0.26 с `ring` (не default `aws-lc-rs`).
 
 ## Автоматика
 
