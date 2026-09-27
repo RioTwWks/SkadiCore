@@ -423,20 +423,10 @@ curl -x socks5://127.0.0.1:1080 https://example.com
 
 **Проблема.** Через прокси пользователь может обратиться к `localhost` или внутренним сервисам сервера.
 
-**Решение.** Фильтрация целевых адресов: блокировать `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `::1`, `fc00::/7`.
-
-```rust
-fn is_forbidden(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(v4) => {
-            v4.is_loopback() || v4.is_private() || v4.is_link_local()
-        }
-        IpAddr::V6(v6) => {
-            v6.is_loopback() || v6.is_unique_local()
-        }
-    }
-}
-```
+**Решение.** `skadi_core::is_forbidden_ip` + конфиг `outbound.allow_private` (по умолчанию `false`).
+Блокируются loopback / RFC1918 / link-local / CGNAT (`100.64/10`) / multicast /
+benchmarking, IPv6 ULA/link-local, а также IPv4-mapped (`::ffff:…`) по тем же правилам.
+См. `docs/CONFIGURATION.md` § `allow_private`.
 
 ### 6.5. gRPC API (когда появится)
 
