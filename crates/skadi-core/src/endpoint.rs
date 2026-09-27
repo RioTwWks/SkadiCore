@@ -34,10 +34,31 @@ fn is_forbidden_ipv4(ip: Ipv4Addr) -> bool {
         || ip.is_broadcast()
         || ip.is_documentation()
         || ip.is_unspecified()
+        || ip.is_multicast()
+        || is_carrier_grade_nat(ip)
+        || is_benchmarking_ipv4(ip)
         || ip.octets()[0] == 0
 }
 
+/// RFC 6598 Shared Address Space (`100.64.0.0/10`) — CGNAT / cloud metadata ranges.
+fn is_carrier_grade_nat(ip: Ipv4Addr) -> bool {
+    let octets = ip.octets();
+    octets[0] == 100 && (64..128).contains(&octets[1])
+}
+
+/// RFC 2544 benchmarking (`198.18.0.0/15`).
+fn is_benchmarking_ipv4(ip: Ipv4Addr) -> bool {
+    let octets = ip.octets();
+    octets[0] == 198 && (18..20).contains(&octets[1])
+}
+
 fn is_forbidden_ipv6(ip: Ipv6Addr) -> bool {
+    // IPv4-mapped (`::ffff:x.x.x.x`) — проверяем вложенный IPv4, иначе loopback/private
+    // обходят v6-only правила.
+    if let Some(v4) = ip.to_ipv4_mapped() {
+        return is_forbidden_ipv4(v4);
+    }
+
     ip.is_loopback()
         || ip.is_unspecified()
         || ip.is_unique_local()
@@ -85,6 +106,12 @@ mod tests {
         assert!(is_forbidden_ip("10.0.0.1".parse().unwrap()));
         assert!(is_forbidden_ip("192.168.1.1".parse().unwrap()));
         assert!(is_forbidden_ip("169.254.1.1".parse().unwrap()));
+        assert!(is_forbidden_ip("100.64.0.1".parse().unwrap()));
+        assert!(is_forbidden_ip("100.127.255.255".parse().unwrap()));
+        assert!(is_forbidden_ip("198.18.0.1".parse().unwrap()));
+        assert!(is_forbidden_ip("224.0.0.1".parse().unwrap()));
+        assert!(!is_forbidden_ip("100.63.255.255".parse().unwrap()));
+        assert!(!is_forbidden_ip("100.128.0.1".parse().unwrap()));
         assert!(!is_forbidden_ip("8.8.8.8".parse().unwrap()));
     }
 
@@ -94,6 +121,14 @@ mod tests {
         assert!(is_forbidden_ip("fd00::1".parse().unwrap()));
         assert!(is_forbidden_ip("fe80::1".parse().unwrap()));
         assert!(!is_forbidden_ip("2001:4860:4860::8888".parse().unwrap()));
+    }
+
+    #[test]
+    fn blocks_ipv4_mapped_loopback_and_private() {
+        assert!(is_forbidden_ip("::ffff:127.0.0.1".parse().unwrap()));
+        assert!(is_forbidden_ip("::ffff:10.0.0.1".parse().unwrap()));
+        assert!(is_forbidden_ip("::ffff:100.64.1.2".parse().unwrap()));
+        assert!(!is_forbidden_ip("::ffff:8.8.8.8".parse().unwrap()));
     }
 
     #[test]

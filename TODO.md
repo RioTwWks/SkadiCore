@@ -495,10 +495,10 @@ REALITY реализован, но нет тестов, которые пров�
 
 ### Приоритеты (из аудита)
 
-1. **Rate limiting на аутентификацию**
-2. **Фильтрация внутренних адресов**
-3. **`rust-toolchain.toml` и `Dockerfile`**
-4. **Property-based тесты**
+1. ~~**Rate limiting на аутентификацию**~~ — ✅ `[server.auth_rate_limit]`
+2. ~~**Фильтрация внутренних адресов**~~ — ✅ `outbound.allow_private` + `is_forbidden_ip` (CGNAT / IPv4-mapped)
+3. ~~**`rust-toolchain.toml` и `Dockerfile`**~~ — ✅
+4. ~~**Property-based тесты**~~ — ✅ `proptest`
 5. ~~**Soak-тест (24 ч)**~~ — ✅ `scripts/soak.sh`
 6. ~~**Подпись релизов**~~ — ✅ minisign
 7. ~~**IPv6 в `listen`**~~ — ✅ dual-stack

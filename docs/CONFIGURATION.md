@@ -300,8 +300,12 @@ TCP accept → TLS handshake → протокол (SOCKS5/VLESS) → upstream TC
 **Тип**: `bool`  
 **По умолчанию**: `false`
 
-Запрещает relay к loopback, private, link-local и ULA адресам (SSRF-защита).
-При `false` подключения к `127.0.0.1`, `10.x`, `192.168.x` и т.п. блокируются.
+Запрещает relay к непубличным адресам (SSRF-защита). При `false` блокируются:
+
+- IPv4: loopback, RFC1918 private, link-local (`169.254/16`), CGNAT (`100.64/10`),
+  multicast, documentation, benchmarking (`198.18/15`), `0.0.0.0/8`
+- IPv6: loopback, ULA, link-local, multicast, unspecified
+- IPv4-mapped IPv6 (`::ffff:x.x.x.x`) — те же правила, что для вложенного IPv4
 
 ```toml
 [outbound]
