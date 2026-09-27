@@ -33,7 +33,7 @@ time = "0.3"
 x509-parser = "0.18"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 tokio-util = { version = "0.7", features = ["io"] }
-ml-kem = "0.2"
+ml-kem = "0.3"
 wireguard-conf.workspace = true
 ipnet.workspace = true
 
