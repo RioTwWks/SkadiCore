@@ -11,6 +11,7 @@ use tracing::info;
 use crate::tun;
 
 pub async fn run(config: ClientConfig, mut shutdown: watch::Receiver<bool>) -> Result<()> {
+    skadi_transport::crypto::install_default_ring_provider();
     if config.awg_enabled() {
         return run_awg_client(config, shutdown).await;
     }

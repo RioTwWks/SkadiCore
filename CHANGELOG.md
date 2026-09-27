@@ -9,6 +9,7 @@
 
 ### Changed
 
+- **Vendored rustls REALITY fork → 0.23.45**; `tokio-rustls` 0.26 (`ring`); unify gRPC TLS with workspace rustls; install process-level `ring` CryptoProvider
 - **`skadi-core`**: drop unused `tokio` / `tracing`; optional feature `serde` (default on) for config types
 - Dependabot cargo wave: bump `clap` 4.6.7, `base64` 0.23, `thiserror` 2; ignore `sha2`≥0.11 / `aes-gcm`≥0.11 / `ml-kem`≥0.3 until RustCrypto/hkdf coordinated bump
 - GitHub Actions: `checkout` v7, `setup-go` v7, `upload-artifact` v7, `download-artifact` v8, `softprops/action-gh-release` v3

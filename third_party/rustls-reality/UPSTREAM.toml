@@ -6,11 +6,10 @@
 [rustls]
 repo = "https://github.com/rustls/rustls"
 # Версия в third_party/rustls-reality/rustls/Cargo.toml
-version = "0.22.4"
+version = "0.23.45"
 # Тег upstream (формат rustls: v/X.Y.Z)
-tag = "v/0.22.4"
-# Последний релиз ветки 0.22; дальше — только rebase на 0.23+
-line = "0.22"
+tag = "v/0.23.45"
+line = "0.23"
 
 [skadi]
 # Каталог path-зависимости workspace

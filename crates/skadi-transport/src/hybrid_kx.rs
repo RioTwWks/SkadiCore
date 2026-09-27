@@ -47,11 +47,8 @@ impl SupportedKxGroup for X25519MlKem768 {
         X25519_MLKEM768_NAMED_GROUP
     }
 
-    fn start_and_complete(
-        &self,
-        peer_pub_key: &[u8],
-    ) -> Option<Result<CompletedKeyExchange, Error>> {
-        Some(server_start_and_complete(peer_pub_key))
+    fn start_and_complete(&self, peer_pub_key: &[u8]) -> Result<CompletedKeyExchange, Error> {
+        server_start_and_complete(peer_pub_key)
     }
 }
 
@@ -169,7 +166,6 @@ mod tests {
 
         let completed = X25519MlKem768
             .start_and_complete(client_kx.pub_key())
-            .expect("supported")
             .expect("start_and_complete");
         assert_eq!(completed.pub_key.len(), SERVER_SHARE_LEN);
         assert_eq!(completed.secret.secret_bytes().len(), SHARED_SECRET_LEN);
@@ -185,10 +181,7 @@ mod tests {
     #[test]
     fn rejects_invalid_share_lengths() {
         let short_client = vec![0u8; 64];
-        assert!(X25519MlKem768
-            .start_and_complete(&short_client)
-            .expect("supported")
-            .is_err());
+        assert!(X25519MlKem768.start_and_complete(&short_client).is_err());
 
         let client_kx = X25519MlKem768.start().expect("start");
         assert!(client_kx.complete(&[0u8; 16]).is_err());
@@ -212,7 +205,6 @@ mod tests {
 
         let server = X25519MlKem768
             .start_and_complete(&client_pub)
-            .expect("supported")
             .expect("server start_and_complete");
 
         let client_secret = client_kx

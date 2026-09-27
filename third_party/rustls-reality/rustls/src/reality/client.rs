@@ -154,7 +154,7 @@ impl crate::verify::ServerCertVerifier for DeferredRealityServerCertVerifier {
 }
 
 pub(crate) fn apply_client_hello(
-    chp: &mut HandshakeMessagePayload,
+    chp: &mut HandshakeMessagePayload<'_>,
     client_random: &[u8; 32],
     settings: &RealityClientSettings,
 ) -> Result<(), Error> {
@@ -173,7 +173,7 @@ pub(crate) fn apply_client_hello(
     let hello_aad = zero_session_slot(&hello_raw, offset);
     let session_id = seal_session_id(&auth_key, client_random, &hello_aad, &settings.short_id)?;
 
-    if let HandshakePayload::ClientHello(ref mut hello) = chp.payload {
+    if let HandshakePayload::ClientHello(ref mut hello) = chp.0 {
         hello.session_id = SessionId::from_bytes_32(session_id);
     }
 
@@ -274,9 +274,7 @@ impl PrecomputedX25519 {
 impl ActiveKeyExchange for PrecomputedX25519 {
     fn complete(self: Box<Self>, peer_pub_key: &[u8]) -> Result<SharedSecret, Error> {
         if peer_pub_key.len() != 32 {
-            return Err(Error::PeerMisbehaved(
-                crate::error::PeerMisbehaved::InvalidKeyShare,
-            ));
+            return Err(crate::error::PeerMisbehaved::InvalidKeyShare.into());
         }
         let mut peer = [0u8; 32];
         peer.copy_from_slice(peer_pub_key);

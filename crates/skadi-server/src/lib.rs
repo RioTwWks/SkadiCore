@@ -78,6 +78,7 @@ pub async fn run_server_with_store(
     shutdown_rx: watch::Receiver<bool>,
     user_store: Arc<UserStore>,
 ) -> Result<()> {
+    skadi_transport::crypto::install_default_ring_provider();
     warn_missing_ipv6_dual_stack(&config.server.listen);
     let listeners = bind_listeners(&config.server.listen).await?;
 

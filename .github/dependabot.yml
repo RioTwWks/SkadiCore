@@ -8,13 +8,10 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - enhancement
-    # Path-vendored rustls 0.22 + tonic 0.12 pin several crates until rebase.
+    # Path-vendored rustls 0.23 + tonic 0.12 pin several crates until coordinated bump.
     ignore:
       - dependency-name: rustls
         versions: ["*"]
-      # Needs rustls 0.23 (vendored fork is still 0.22).
-      - dependency-name: tokio-rustls
-        versions: [">=0.26.0"]
       # Breaking API; coordinate with code updates.
       - dependency-name: rand
         versions: [">=0.9.0"]

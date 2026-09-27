@@ -83,13 +83,7 @@ pub async fn run_api_server(
 }
 
 fn ensure_grpc_tls_provider() -> Result<()> {
-    use std::sync::Once;
-    static INIT: Once = Once::new();
-    INIT.call_once(|| {
-        grpc_rustls::crypto::ring::default_provider()
-            .install_default()
-            .expect("rustls 0.23 crypto provider");
-    });
+    skadi_transport::crypto::install_default_ring_provider();
     Ok(())
 }
 
