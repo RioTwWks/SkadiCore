@@ -29,6 +29,13 @@ updates:
         versions: [">=0.13.0"]
       - dependency-name: tonic-build
         versions: [">=0.13.0"]
+      # RustCrypto 0.2 line — needs hkdf/ml-kem coordinated bump; vendored rustls pins aes-gcm 0.10.
+      - dependency-name: sha2
+        versions: [">=0.11.0"]
+      - dependency-name: aes-gcm
+        versions: [">=0.11.0"]
+      - dependency-name: ml-kem
+        versions: [">=0.3.0"]
 
   - package-ecosystem: github-actions
     directory: "/"

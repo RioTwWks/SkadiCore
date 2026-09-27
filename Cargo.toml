@@ -19,7 +19,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # Ошибки
 anyhow = "1"
-thiserror = "1"
+thiserror = "2"
 
 # Сериализация
 serde = { version = "1", features = ["derive"] }
@@ -40,7 +40,7 @@ hkdf = "0.12"
 sha2 = "0.10"
 aes-gcm = "0.10"
 hex = "0.4"
-base64 = "0.22"
+base64 = "0.23"
 rcgen = "0.14"
 ring = "0.17"
 
