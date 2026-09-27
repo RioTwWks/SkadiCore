@@ -3,9 +3,13 @@ name = "skadi-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Shared types and errors (no protocol/transport I/O)"
+
+[features]
+# Сериализация конфигов (`SecretString`, `UserId`). Выключите для минимального графа.
+default = ["serde"]
+serde = ["dep:serde"]
 
 [dependencies]
 thiserror.workspace = true
-serde.workspace = true
-tokio.workspace = true
-tracing.workspace = true
+serde = { workspace = true, optional = true }

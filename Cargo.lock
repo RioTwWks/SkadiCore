@@ -2757,8 +2757,6 @@ version = "0.1.2"
 dependencies = [
  "serde",
  "thiserror",
- "tokio",
- "tracing",
 ]
 
 [[package]]

@@ -293,8 +293,8 @@
 
 **Чего не хватает:** явного **`Cargo.toml` с фиксацией feature flags**. Если `skadi-core` не должен знать про `tokio`, то `tokio` там быть не должно. Если он используется только для `SocketAddr` — можно взять `std::net::SocketAddr` и не тащить весь runtime. Это важно, потому что `skadi-core` — единственный крейт, который потенциально переиспользуется в клиенте, и чем меньше у него зависимостей, тем лучше.
 
-- [ ] Убрать лишние зависимости из `skadi-core` (tokio → `std::net::SocketAddr` где возможно)
-- [ ] Зафиксировать feature flags в `Cargo.toml` для `skadi-core`
+- [x] Убрать лишние зависимости из `skadi-core` (`tokio` / `tracing` удалены; `SocketAddr` из `std`)
+- [x] Зафиксировать feature flags в `Cargo.toml` для `skadi-core` (`default = ["serde"]`)
 
 #### 1.2. Отсутствие трейтов для протоколов и транспортов
 
