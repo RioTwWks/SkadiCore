@@ -97,9 +97,9 @@ skadicore/
 
 ### Правила зависимостей
 
-- **`skadi-core`** не зависит ни от чего, кроме `thiserror`,
-  `serde`, `tracing`. Никакого `tokio::net`, никакой логики
-  протоколов.
+- **`skadi-core`** зависит только от `thiserror` и (по умолчанию)
+  `serde` (feature `serde`). Никакого `tokio` / `tracing`, никакой
+  логики протоколов.
 - **`skadi-transport`** зависит от `skadi-core` и `tokio`. Не
   знает про SOCKS5 или VLESS.
 - **`skadi-protocol`** зависит от `skadi-core` и `tokio`. Парсит

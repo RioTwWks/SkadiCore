@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Идентификатор пользователя. Для VLESS это UUID.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UserId(pub String);
 
 impl fmt::Display for UserId {

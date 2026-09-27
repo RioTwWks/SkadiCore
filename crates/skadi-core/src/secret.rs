@@ -1,6 +1,5 @@
 //! Секреты и маскирование в логах.
 
-use serde::{Deserialize, Deserializer};
 use std::fmt;
 
 pub const REDACTED: &str = "[REDACTED]";
@@ -41,10 +40,11 @@ impl fmt::Display for SecretString {
     }
 }
 
-impl<'de> Deserialize<'de> for SecretString {
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for SecretString {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: Deserializer<'de>,
+        D: serde::Deserializer<'de>,
     {
         String::deserialize(deserializer).map(SecretString::new)
     }

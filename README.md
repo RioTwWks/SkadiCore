@@ -104,7 +104,8 @@ skadicore/
 ### Принципы разделения
 
 - **`skadi-core`** не знает ничего про протоколы и транспорты. Только
-  типы: `Endpoint`, `Session`, `UserId`, `Error`.
+  типы: `Endpoint`, `Session`, `UserId`, `Error` (без `tokio` / `tracing`;
+  `serde` — optional feature, включён по умолчанию).
 - **`skadi-transport`** умеет устанавливать соединения, но не знает,
   что по ним пойдёт.
 - **`skadi-protocol`** парсит байты, но не занимается I/O напрямую.
