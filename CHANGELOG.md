@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-27
+
 ### Changed
 
 - **Vendored rustls REALITY fork → 0.23.45**; `tokio-rustls` 0.26 (`ring`); unify gRPC TLS with workspace rustls; install process-level `ring` CryptoProvider
@@ -171,7 +173,8 @@
 
 Типы секций: **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**, **Security**.
 
-[Unreleased]: https://github.com/RioTwWks/SkadiCore/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/RioTwWks/SkadiCore/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/RioTwWks/SkadiCore/releases/tag/v0.1.3
 [0.1.2]: https://github.com/RioTwWks/SkadiCore/releases/tag/v0.1.2
 [0.1.1]: https://github.com/RioTwWks/SkadiCore/releases/tag/v0.1.1
 [0.1.0]: https://github.com/RioTwWks/SkadiCore/releases/tag/v0.1.0

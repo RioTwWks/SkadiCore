@@ -1,6 +1,6 @@
 # SkadiCore — текущие приоритеты
 
-Синхронизировано с `TODO.md` (2026-09-20).
+Синхронизировано с `TODO.md` (2026-09-27).
 
 ## Выполнено (не трогать без причины)
 
@@ -11,7 +11,7 @@
 - [x] TLS inbound/outbound, REALITY inbound + **native REALITY client**, gRPC API, metrics
 - [x] Примеры конфигов: REALITY, VLESS TLS, SOCKS5 TLS, `client-reality-vless`
 - [x] CI: fmt, clippy, test, audit, deny, miri, musl, cross-platform, tarpaulin, smoke-transports
-- [x] GitHub Releases workflow + теги **`v0.1.0`**, **`v0.1.1`**, **`v0.1.2`**
+- [x] GitHub Releases workflow + теги **`v0.1.0`**, **`v0.1.1`**, **`v0.1.2`**, **`v0.1.3`**
 - [x] `CONTRIBUTING.md`, CHANGELOG Keep a Changelog, `docs/RELEASING.md`
 - [x] XHTTP server + client
 - [x] AmneziaWG / Hysteria2 / TUIC server MVP (binary backends)
@@ -22,10 +22,11 @@
 - [x] Sync monitor `third_party/rustls-reality` (Action + Renovate + Dependabot)
 - [x] CI examples × Xray (Docker) — `examples-xray-e2e`
 - [x] IPv6 клиентские конфиги (`[host]:port`, examples) + `docs/THROTTLING.md`
+- [x] Vendored rustls-reality → **0.23.45** + `tokio-rustls` 0.26 (`ring`)
 
 ## Сейчас (ближайшие задачи)
 
-1. (опционально) rebase vendored rustls 0.22.4 → 0.23.x — по issue от sync Action / `UPSTREAM.md`.
+1. После тега **`v0.1.3`**: накопить следующий `[Unreleased]`.
 2. Расширенная crypto-agility (доп. KEM) — по необходимости.
 
 ## Позже
@@ -42,7 +43,7 @@
 | ~~CI examples + Xray в Docker~~ | ✅ |
 | ~~IPv6 клиентские конфиги~~ | ✅ |
 | ~~Дока по троттлингу (zapret/ByeDPI)~~ | ✅ `docs/THROTTLING.md` |
-| Rebase rustls-reality → 0.23.x | по `UPSTREAM.md` |
+| ~~Rebase rustls-reality → 0.23.x~~ | ✅ 0.23.45 |
 | Crypto-agility (доп. KEM) | |
 
 ## Что НЕ делать сейчас
