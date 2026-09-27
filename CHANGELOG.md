@@ -9,6 +9,7 @@
 
 ### Changed
 
+- GitHub Actions: `checkout` v7, `setup-go` v7, `upload-artifact` v7, `download-artifact` v8, `softprops/action-gh-release` v3
 - Dependabot triage: bump `toml` 1.1, `rcgen` 0.14, `x509-parser` 0.18, `criterion` 0.8, `metrics-exporter-prometheus` 0.18; ignore `tokio-rustls`≥0.26 / `rand`≥0.9 / `hkdf`≥0.13 / `x25519-dalek`≥3 / `prost`/`tonic` majors until rustls rebase or coordinated bump
 - **rcgen 0.14**: `CertifiedKey.key_pair` → `signing_key` in tests/helpers
 
