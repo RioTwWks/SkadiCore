@@ -263,8 +263,7 @@ impl KeyExchangeChoice {
             return Ok(Self::Whole(our_key_share));
         }
 
-        
-let (component_group, _) = our_key_share
+        let (component_group, _) = our_key_share
             .hybrid_component()
             .ok_or(())?;
 
@@ -545,8 +544,7 @@ impl State<ClientConnectionData> for ExpectEncryptedExtensions {
             {
                 Some(params) => cx.common.quic.params = Some(params.clone().into_vec()),
                 None => {
-         
-return Err(cx
+                    return Err(cx
                         .common
                         .missing_extension(PeerMisbehaved::MissingQuicTransportParameters));
                 }
@@ -808,8 +806,7 @@ impl State<ClientConnectionData> for ExpectCertificateOrCertReq {
         m: Message<'m>,
     ) -> hs::NextStateOrError<'m>
     where
-      
-Self: 'm,
+        Self: 'm,
     {
         match m.payload {
             MessagePayload::Handshake {
@@ -1096,8 +1093,7 @@ struct ExpectCertificate {
     ech_retry_configs: Option<Vec<EchConfigPayload>>,
 }
 
-impl St
-ate<ClientConnectionData> for ExpectCertificate {
+impl State<ClientConnectionData> for ExpectCertificate {
     fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ClientContext<'_>,
@@ -1396,8 +1392,7 @@ impl State<ClientConnectionData> for ExpectFinished {
                 ClientAuthDetails::Empty {
                     auth_context_tls13: auth_context,
                 } => {
-                    emit_certificate_tls13(&mut flight, None, auth_con
-text);
+                    emit_certificate_tls13(&mut flight, None, auth_context);
                 }
                 ClientAuthDetails::Verify {
                     auth_context_tls13: auth_context,
@@ -1686,8 +1681,7 @@ impl State<ClientConnectionData> for ExpectQuicTraffic {
     fn handle<'m>(
         mut self: Box<Self>,
         cx: &mut ClientContext<'_>,
-        
-m: Message<'m>,
+        m: Message<'m>,
     ) -> hs::NextStateOrError<'m>
     where
         Self: 'm,
