@@ -17,7 +17,8 @@ enabled = false
 
 [remote.reality]
 enabled = true
-password = "EyxEK-AQ-9V-cmAzKKp25x_MwVA6riGTJ9FNnJmT9HI"
+# password = RawURL base64 публичного X25519 ключа сервера (вывод `skadicore genkey reality`)
+password = "REPLACE_WITH_XRAY_PASSWORD"
 short_id = "0123456789abcdef"
 server_name = "reality.test"
 kex_mode = "classic"

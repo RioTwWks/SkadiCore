@@ -12,8 +12,9 @@ listen = "0.0.0.0:443"
 enabled = true
 dest = "www.microsoft.com:443"
 server_names = ["www.microsoft.com"]
-# Тестовый ключ — только для локальной проверки, не для продакшена.
-private_key = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI="
+# Обязательно сгенерируйте свой ключ: cargo run --bin skadicore -- genkey reality
+# (e2e-тесты подставляют одноразовый ключ сами, см. scripts/examples-xray-docker-e2e.sh).
+private_key = "<generate-with: skadicore genkey reality>"
 short_ids = ["0123456789abcdef"]
 # fetch_impersonate_cert = true   # по умолчанию: leaf cert с dest для rkn-fix
 # impersonate_cert = "/path/to/dest-leaf.der"

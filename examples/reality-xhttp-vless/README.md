@@ -42,7 +42,7 @@ curl --socks5-hostname 127.0.0.1:10808 https://example.com
 ## 3. Share link (v2rayNG)
 
 ```
-vless://b831381d-6324-4d53-ad4f-8cda48b30811@127.0.0.1:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=EyxEK-AQ-9V-cmAzKKp25x_MwVA6riGTJ9FNnJmT9HI&sid=0123456789abcdef&spx=%2F&type=xhttp&path=%2Fxhttp&mode=stream-one#SkadiCore-REALITY-XHTTP
+vless://b831381d-6324-4d53-ad4f-8cda48b30811@127.0.0.1:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=<password-из-genkey>&sid=0123456789abcdef&spx=%2F&type=xhttp&path=%2Fxhttp&mode=stream-one#SkadiCore-REALITY-XHTTP
 ```
 
 ## 4. Автотест
