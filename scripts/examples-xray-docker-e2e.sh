@@ -216,15 +216,30 @@ stop_xray() {
   fi
 }
 
+# Сгенерировать одноразовую REALITY keypair для e2e (примеры в репозитории
+# больше не содержат статический приватный ключ).
+# stdout: "<private_key> <password>".
+gen_reality_keypair() {
+  local skadi="$1" out priv pub
+  out="$("${skadi}" genkey reality)"
+  priv="$(printf '%s\n' "${out}" | awk -F'"' '/^  private_key = /{print $2; exit}')"
+  pub="$(printf '%s\n' "${out}" | awk -F'"' '/^  password /{print $2; exit}')"
+  [[ -n "${priv}" && -n "${pub}" ]] || die "failed to parse 'genkey reality' output"
+  printf '%s %s\n' "${priv}" "${pub}"
+}
+
 patch_reality_client() {
-  local src="$1" dst="$2" proxy_port="$3" socks_port="$4"
-  python3 - "${src}" "${dst}" "${proxy_port}" "${socks_port}" <<'PY'
+  local src="$1" dst="$2" proxy_port="$3" socks_port="$4" password="$5"
+  python3 - "${src}" "${dst}" "${proxy_port}" "${socks_port}" "${password}" <<'PY'
 import json, sys
-src, dst, proxy_port, socks_port = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+src, dst, proxy_port, socks_port, password = (
+    sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), sys.argv[5],
+)
 cfg = json.load(open(src))
 cfg["inbounds"][0]["port"] = socks_port
 cfg["outbounds"][0]["settings"]["vnext"][0]["port"] = proxy_port
 cfg["outbounds"][0]["streamSettings"]["realitySettings"]["serverName"] = "reality.test"
+cfg["outbounds"][0]["streamSettings"]["realitySettings"]["password"] = password
 json.dump(cfg, open(dst, "w"), indent=2)
 PY
 }
@@ -256,11 +271,16 @@ run_reality_vless() {
 
   local server_cfg="${WORKDIR}/reality-vless-server.toml"
   local client_cfg="${WORKDIR}/reality-vless-client.json"
+  local keypair reality_priv reality_pub
+  keypair="$(gen_reality_keypair "${skadi}")"
+  reality_priv="${keypair%% *}"
+  reality_pub="${keypair##* }"
 
   sed \
     -e "s/^listen = .*/listen = \"127.0.0.1:${proxy_port}\"/" \
     -e "s|^dest = .*|dest = \"127.0.0.1:${dest_port}\"|" \
     -e "s/^server_names = .*/server_names = [\"reality.test\"]/" \
+    -e "s|^private_key = .*|private_key = \"${reality_priv}\"|" \
     "${ROOT}/examples/reality-vless/server.toml" > "${server_cfg}"
   cat >> "${server_cfg}" <<EOF
 
@@ -270,7 +290,7 @@ EOF
 
   patch_reality_client \
     "${ROOT}/examples/reality-vless/client-xray.json" \
-    "${client_cfg}" "${proxy_port}" "${socks_port}"
+    "${client_cfg}" "${proxy_port}" "${socks_port}" "${reality_pub}"
 
   start_skadi "${server_cfg}" "${skadi}"
   start_xray "${client_cfg}"
@@ -339,11 +359,16 @@ run_reality_xhttp() {
 
   local server_cfg="${WORKDIR}/reality-xhttp-server.toml"
   local client_cfg="${WORKDIR}/reality-xhttp-client.json"
+  local keypair reality_priv reality_pub
+  keypair="$(gen_reality_keypair "${skadi}")"
+  reality_priv="${keypair%% *}"
+  reality_pub="${keypair##* }"
 
   sed \
     -e "s/^listen = .*/listen = \"127.0.0.1:${proxy_port}\"/" \
     -e "s|^dest = .*|dest = \"127.0.0.1:${dest_port}\"|" \
     -e "s/^server_names = .*/server_names = [\"reality.test\"]/" \
+    -e "s|^private_key = .*|private_key = \"${reality_priv}\"|" \
     "${ROOT}/examples/reality-xhttp-vless/server.toml" > "${server_cfg}"
   cat >> "${server_cfg}" <<EOF
 
@@ -353,7 +378,7 @@ EOF
 
   patch_reality_client \
     "${ROOT}/examples/reality-xhttp-vless/client-xray.json" \
-    "${client_cfg}" "${proxy_port}" "${socks_port}"
+    "${client_cfg}" "${proxy_port}" "${socks_port}" "${reality_pub}"
 
   start_skadi "${server_cfg}" "${skadi}"
   start_xray "${client_cfg}"
