@@ -61,7 +61,7 @@ mod connection {
         /// Writes TLS messages to `wr`.
         ///
         /// See [`ConnectionCommon::write_tls()`] for more information.
-        pub fn write_tls(&mut self, wr: &mut dyn Write) -> Result<usize, io::Error> {
+        pub fn write_tls(&mut self, wr: &mut dyn io::Write) -> Result<usize, io::Error> {
             self.sendable_tls.write_to(wr)
         }
 
