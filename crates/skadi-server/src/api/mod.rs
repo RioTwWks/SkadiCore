@@ -40,7 +40,9 @@ pub async fn run_api_server(
     let grpc = SkadiApiServer::with_interceptor(service, move |req| {
         let peer = audit::peer_addr(&req);
         if let Some(limiter) = &rate_limiter {
-            if let Err(status) = limiter.check() {
+            // Лимит per-IP: флуд с одного адреса не блокирует остальных.
+            let peer_ip = req.remote_addr().map(|addr| addr.ip());
+            if let Err(status) = limiter.check(peer_ip) {
                 if audit_log {
                     audit::audit_rate_limited(peer.as_deref());
                 }
@@ -119,11 +121,21 @@ fn check_auth(token: &str, req: Request<()>, audit_log: bool) -> Result<Request<
         })?;
 
     let expected = format!("Bearer {}", token);
-    if auth_header != expected {
+    if !bearer_tokens_equal(auth_header, &expected) {
         if audit_log {
             audit::audit_auth_failure(peer.as_deref(), "invalid token");
         }
         return Err(Status::unauthenticated("invalid token"));
     }
     Ok(req)
+}
+
+/// Сравнение bearer-токенов за постоянное время (по байтам одинаковой длины).
+fn bearer_tokens_equal(provided: &str, expected: &str) -> bool {
+    use subtle::ConstantTimeEq;
+    let (a, b) = (provided.as_bytes(), expected.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    a.ct_eq(b).into()
 }
