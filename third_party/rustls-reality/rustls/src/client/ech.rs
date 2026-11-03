@@ -917,7 +917,7 @@ mod tests {
 
         assert_eq!(
             std::format!("{server_hello_encoded_before:x?}"),
-            "020000280303ffffffffffffffffffffffffffffffffffffffffffffffffffffffff001302000000",
+            "020000280303ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff001302000000",
             "beforehand eight bytes at end of Random should be 0xff here ^^^^^^^^^^^^^^^^            "
         );
         assert_eq!(
