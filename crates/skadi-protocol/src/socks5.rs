@@ -92,10 +92,19 @@ fn default_auth() -> AuthMethod {
     AuthMethod::NoAuth
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct UserCredential {
     pub username: String,
     pub password: String,
+}
+
+impl std::fmt::Debug for UserCredential {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UserCredential")
+            .field("username", &self.username)
+            .field("password", &skadi_core::REDACTED)
+            .finish()
+    }
 }
 
 impl Socks5Config {

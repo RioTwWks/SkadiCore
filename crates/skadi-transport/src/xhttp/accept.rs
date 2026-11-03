@@ -143,7 +143,7 @@ async fn handle_request(
         return Ok(common::options_response());
     }
 
-    if !req.uri().path().starts_with(path) {
+    if !path_matches(req.uri().path(), path) {
         return Ok(common::error_response(StatusCode::NOT_FOUND));
     }
 
@@ -183,6 +183,18 @@ async fn handle_request(
     }
 
     handle_stream_up(req, mode, padding, no_sse, upgrade_tx, sessions, session_id).await
+}
+
+/// Путь совпадает с префиксом XHTTP точно или по границе сегмента:
+/// `/xhttp` и `/xhttp/<sid>` матчат base `/xhttp`, но `/xhttpfoo` — нет.
+fn path_matches(request_path: &str, base_path: &str) -> bool {
+    if base_path == "/" {
+        return request_path.starts_with('/');
+    }
+    request_path == base_path
+        || request_path
+            .strip_prefix(base_path)
+            .is_some_and(|rest| rest.starts_with('/'))
 }
 
 async fn handle_stream_one(
@@ -337,7 +349,8 @@ fn streaming_response(
 ) -> Response<BoxBody> {
     let mut response = Response::new(MpscBody { rx: body_rx }.boxed_unsync());
     let headers = response.headers_mut();
-    headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());
+    // CORS не нужен: клиенты XHTTP — не браузеры, а wildcard-ACAO позволял
+    // любому origin читать ответы прокси-эндпоинта из JS.
     headers.insert("X-Accel-Buffering", "no".parse().unwrap());
     headers.insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
     if !no_sse {

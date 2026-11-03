@@ -57,14 +57,14 @@ curl --socks5-hostname [::1]:10808 https://example.com
    - UUID: `b831381d-6324-4d53-ad4f-8cda48b30811`
    - TLS: REALITY
    - SNI: `www.microsoft.com`
-   - Public Key / Password: `EyxEK-AQ-9V-cmAzKKp25x_MwVA6riGTJ9FNnJmT9HI`
+   - Public Key / Password: `<password-из-genkey>`
    - Short ID: `0123456789abcdef`
    - Fingerprint: `chrome`
 
 ## 5. v2rayNG (share link)
 
 ```
-vless://b831381d-6324-4d53-ad4f-8cda48b30811@127.0.0.1:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=EyxEK-AQ-9V-cmAzKKp25x_MwVA6riGTJ9FNnJmT9HI&sid=0123456789abcdef&spx=%2F&type=tcp#SkadiCore-REALITY
+vless://b831381d-6324-4d53-ad4f-8cda48b30811@127.0.0.1:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=<password-из-genkey>&sid=0123456789abcdef&spx=%2F&type=tcp#SkadiCore-REALITY
 ```
 
 Замените адрес, UUID и ключи на свои. Параметр `pbk` — то же значение, что

@@ -45,9 +45,6 @@ pub fn options_response() -> Response<BoxBody> {
     let mut response = Response::new(body);
     *response.status_mut() = StatusCode::OK;
     response
-        .headers_mut()
-        .insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());
-    response
 }
 
 pub fn error_response(status: StatusCode) -> Response<BoxBody> {

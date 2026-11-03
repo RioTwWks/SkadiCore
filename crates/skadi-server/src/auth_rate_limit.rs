@@ -7,11 +7,17 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tracing::debug;
 
+/// Потолок записей в карте состояний: защита от раздувания памяти
+/// при потоке неудачных аутентификаций с уникальных IP (ботнет/спуфинг).
+const MAX_TRACKED_IPS: usize = 65_536;
+
 struct IpState {
     failures: u32,
     window_start: Instant,
     blocked_until: Option<Instant>,
     ban_level: u32,
+    /// Последнее обращение — для TTL-очистки карты.
+    last_seen: Instant,
 }
 
 struct LimiterInner {
@@ -45,6 +51,11 @@ impl AuthRateLimiter {
         })
     }
 
+    /// Горизонт устаревания записи: переживает и окно подсчёта, и самый долгий бан.
+    fn retention(&self) -> Duration {
+        self.inner.window.max(self.inner.ban_max) + Duration::from_secs(60)
+    }
+
     pub fn is_blocked(&self, ip: IpAddr) -> bool {
         let mut guard = self.inner.states.lock().expect("auth rate limiter lock");
         let now = Instant::now();
@@ -52,6 +63,7 @@ impl AuthRateLimiter {
 
         match guard.get_mut(&ip) {
             Some(state) => {
+                state.last_seen = now;
                 if let Some(until) = state.blocked_until {
                     if now < until {
                         return true;
@@ -69,12 +81,35 @@ impl AuthRateLimiter {
         let now = Instant::now();
         self.cleanup_expired(&mut guard, now);
 
+        // Потолок карты: вытеснить самую старую незабаненную запись.
+        if !guard.contains_key(&ip) && guard.len() >= MAX_TRACKED_IPS {
+            let oldest = guard
+                .iter()
+                .filter(|(_, s)| s.blocked_until.is_none_or(|until| now >= until))
+                .min_by_key(|(_, s)| s.last_seen)
+                .map(|(k, _)| *k);
+            if let Some(oldest) = oldest {
+                guard.remove(&oldest);
+            } else {
+                // Все записи забанены — удалить бан с ближайшим истечением.
+                let soonest = guard
+                    .iter()
+                    .min_by_key(|(_, s)| s.blocked_until)
+                    .map(|(k, _)| *k);
+                if let Some(soonest) = soonest {
+                    guard.remove(&soonest);
+                }
+            }
+        }
+
         let state = guard.entry(ip).or_insert_with(|| IpState {
             failures: 0,
             window_start: now,
             blocked_until: None,
             ban_level: 0,
+            last_seen: now,
         });
+        state.last_seen = now;
 
         if now.duration_since(state.window_start) >= self.inner.window {
             state.window_start = now;
@@ -105,12 +140,10 @@ impl AuthRateLimiter {
         );
     }
 
+    /// Удалить записи, к которым не обращались дольше горизонта устаревания.
     fn cleanup_expired(&self, guard: &mut HashMap<IpAddr, IpState>, now: Instant) {
-        guard.retain(|_, state| {
-            let window_alive = now.duration_since(state.window_start) < self.inner.window;
-            let ban_active = state.blocked_until.is_some_and(|until| now < until);
-            window_alive || ban_active || state.failures > 0
-        });
+        let retention = self.retention();
+        guard.retain(|_, state| now.duration_since(state.last_seen) < retention);
     }
 }
 
@@ -154,5 +187,16 @@ mod tests {
             ban_max_secs: 3600,
         };
         assert!(AuthRateLimiter::from_config(&config).is_none());
+    }
+
+    #[test]
+    fn tracked_ips_map_is_bounded() {
+        let limiter = AuthRateLimiter::from_config(&test_config(5)).unwrap();
+        for i in 0..(MAX_TRACKED_IPS + 100) {
+            let ip = IpAddr::from([10, (i >> 16) as u8, (i >> 8) as u8, i as u8]);
+            limiter.record_failure(ip);
+        }
+        let guard = limiter.inner.states.lock().unwrap();
+        assert!(guard.len() <= MAX_TRACKED_IPS);
     }
 }

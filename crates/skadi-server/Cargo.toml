@@ -38,6 +38,7 @@ base64.workspace = true
 hex.workspace = true
 x25519-dalek.workspace = true
 rand = "0.8"
+subtle = "2"
 # Vendored REALITY rustls 0.23 (also used for tonic gRPC TLS provider install).
 rustls.workspace = true
 

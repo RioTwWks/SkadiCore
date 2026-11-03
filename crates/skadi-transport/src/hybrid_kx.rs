@@ -94,6 +94,7 @@ fn server_start_and_complete(client_share: &[u8]) -> Result<CompletedKeyExchange
         .diffie_hellman(&x25519_client_pk)
         .as_bytes()
         .to_vec();
+    ensure_contributory(&x25519_ss)?;
 
     let mut server_share = vec![0u8; SERVER_SHARE_LEN];
     server_share[..MLKEM_CT_LEN].copy_from_slice(mlkem_ct.as_ref());
@@ -128,8 +129,20 @@ fn client_complete(
         .diffie_hellman(&x25519_server_pk)
         .as_bytes()
         .to_vec();
+    ensure_contributory(&x25519_ss)?;
 
     concat_shared_secret(mlkem_ss.as_ref(), &x25519_ss)
+}
+
+/// Отклонить non-contributory X25519 (low-order point → all-zero shared
+/// secret), как это делает реализация X25519 в upstream rustls.
+fn ensure_contributory(x25519_ss: &[u8]) -> Result<(), Error> {
+    use subtle::ConstantTimeEq;
+    let all_zero = [0u8; X25519_LEN];
+    if x25519_ss.ct_eq(&all_zero).into() {
+        return Err(invalid_key_share());
+    }
+    Ok(())
 }
 
 fn parse_x25519_pk(bytes: &[u8]) -> Result<PublicKey, Error> {

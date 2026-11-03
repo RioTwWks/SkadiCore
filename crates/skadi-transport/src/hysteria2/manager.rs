@@ -2,6 +2,7 @@
 
 use super::config::{Hysteria2ClientConfig, Hysteria2ServerConfig};
 use super::render::{render_client_yaml, render_server_yaml};
+use crate::secure_temp::{secure_conf_dir, write_conf_file};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use thiserror::Error;
@@ -32,11 +33,11 @@ impl Hysteria2Manager {
         let yaml =
             render_server_yaml(config).map_err(|e| Hysteria2Error::ConfigError(e.to_string()))?;
 
-        let conf_dir = std::env::temp_dir().join("skadicore-hysteria2");
-        std::fs::create_dir_all(&conf_dir)
+        // Конфиг содержит пароль: каталог 0700, файл 0600 (см. secure_temp).
+        let conf_dir = secure_conf_dir("skadicore-hysteria2")
             .map_err(|e| Hysteria2Error::ConfigError(e.to_string()))?;
         let config_path = conf_dir.join("config.yaml");
-        std::fs::write(&config_path, &yaml)
+        write_conf_file(&config_path, &yaml)
             .map_err(|e| Hysteria2Error::ConfigError(e.to_string()))?;
 
         info!(listen = %config.listen, "starting hysteria2 server");
@@ -110,11 +111,11 @@ impl Hysteria2ClientManager {
         let yaml =
             render_client_yaml(config).map_err(|e| Hysteria2Error::ConfigError(e.to_string()))?;
 
-        let conf_dir = std::env::temp_dir().join("skadicore-hysteria2-client");
-        std::fs::create_dir_all(&conf_dir)
+        // Конфиг содержит пароль: каталог 0700, файл 0600 (см. secure_temp).
+        let conf_dir = secure_conf_dir("skadicore-hysteria2-client")
             .map_err(|e| Hysteria2Error::ConfigError(e.to_string()))?;
         let config_path = conf_dir.join("config.yaml");
-        std::fs::write(&config_path, &yaml)
+        write_conf_file(&config_path, &yaml)
             .map_err(|e| Hysteria2Error::ConfigError(e.to_string()))?;
 
         info!(

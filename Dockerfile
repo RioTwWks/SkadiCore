@@ -33,6 +33,10 @@ FROM scratch
 
 COPY --from=builder /build/target/x86_64-unknown-linux-musl/release/skadicore /skadicore
 
+# Непривилегированный пользователь (в scratch нет /etc/passwd — числовой UID).
+# Конфиг и сертификаты, монтируемые в контейнер, должны быть читаемы для него.
+USER 65532:65532
+
 EXPOSE 443
 
 ENTRYPOINT ["/skadicore"]

@@ -2,6 +2,7 @@
 
 use super::config::{TuicClientConfig, TuicServerConfig};
 use super::render::{render_client_json, render_server_toml};
+use crate::secure_temp::{secure_conf_dir, write_conf_file};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use thiserror::Error;
@@ -31,10 +32,11 @@ impl TuicManager {
         let bin = find_tuic_server_binary()?;
         let toml = render_server_toml(config).map_err(|e| TuicError::ConfigError(e.to_string()))?;
 
-        let conf_dir = std::env::temp_dir().join("skadicore-tuic");
-        std::fs::create_dir_all(&conf_dir).map_err(|e| TuicError::ConfigError(e.to_string()))?;
+        // Конфиг содержит uuid/пароль: каталог 0700, файл 0600 (см. secure_temp).
+        let conf_dir = secure_conf_dir("skadicore-tuic")
+            .map_err(|e| TuicError::ConfigError(e.to_string()))?;
         let config_path = conf_dir.join("config.toml");
-        std::fs::write(&config_path, &toml).map_err(|e| TuicError::ConfigError(e.to_string()))?;
+        write_conf_file(&config_path, &toml).map_err(|e| TuicError::ConfigError(e.to_string()))?;
 
         info!(listen = %config.listen, "starting TUIC server");
 
@@ -106,10 +108,11 @@ impl TuicClientManager {
         let bin = find_tuic_client_binary()?;
         let json = render_client_json(config).map_err(|e| TuicError::ConfigError(e.to_string()))?;
 
-        let conf_dir = std::env::temp_dir().join("skadicore-tuic-client");
-        std::fs::create_dir_all(&conf_dir).map_err(|e| TuicError::ConfigError(e.to_string()))?;
+        // Конфиг содержит uuid/пароль: каталог 0700, файл 0600 (см. secure_temp).
+        let conf_dir = secure_conf_dir("skadicore-tuic-client")
+            .map_err(|e| TuicError::ConfigError(e.to_string()))?;
         let config_path = conf_dir.join("config.json");
-        std::fs::write(&config_path, &json).map_err(|e| TuicError::ConfigError(e.to_string()))?;
+        write_conf_file(&config_path, &json).map_err(|e| TuicError::ConfigError(e.to_string()))?;
 
         info!(
             server = %config.server,

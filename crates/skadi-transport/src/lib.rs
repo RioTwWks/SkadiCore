@@ -11,6 +11,7 @@ mod outbound_policy;
 pub mod reality;
 pub mod reality_tls_client;
 pub mod relay;
+mod secure_temp;
 pub mod tcp;
 pub mod tls;
 pub mod tls_client;

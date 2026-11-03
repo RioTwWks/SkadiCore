@@ -36,7 +36,9 @@ pub enum RealityError {
 }
 
 /// Конфигурация REALITY-сервера.
-#[derive(Debug, Clone)]
+///
+/// `Debug` маскирует private_key — ключи не должны утекать в логи.
+#[derive(Clone)]
 pub struct RealityServerConfig {
     /// X25519 private key (32 bytes).
     pub private_key: [u8; 32],
@@ -56,6 +58,25 @@ pub struct RealityServerConfig {
     pub max_session_lifetime: Option<Duration>,
     /// Режим key exchange для REALITY TLS (после verify).
     pub kex_mode: TlsKexMode,
+}
+
+impl std::fmt::Debug for RealityServerConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RealityServerConfig")
+            .field("private_key", &skadi_core::REDACTED)
+            .field("dest", &self.dest)
+            .field("server_names", &self.server_names)
+            .field("short_ids", &self.short_ids)
+            .field(
+                "impersonate_cert",
+                &self.impersonate_cert.as_ref().map(|c| c.len()),
+            )
+            .field("connect_timeout", &self.connect_timeout)
+            .field("idle_timeout", &self.idle_timeout)
+            .field("max_session_lifetime", &self.max_session_lifetime)
+            .field("kex_mode", &self.kex_mode)
+            .finish()
+    }
 }
 
 /// REALITY inbound transport.
