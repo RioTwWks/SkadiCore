@@ -115,16 +115,21 @@ pub enum RealityClientAuthError {
     Encrypt,
 }
 
+/// Смещение session_id внутри handshake-сообщения ClientHello:
+/// 4 (handshake header) + 2 (version) + 32 (random) + 1 (sid len).
+const SESSION_ID_LEN_OFFSET: usize = 4 + 2 + 32;
+
+/// Структурное смещение session_id (от начала handshake-сообщения).
+///
+/// Заменяет поиск байтов session_id подстрокой: тот мог вернуть
+/// смещение случайного совпадения в random/extensions.
 pub fn session_id_offset_in_handshake(full_client_hello_record: &[u8]) -> Option<usize> {
-    let info = super::hello_parser::parse_client_hello(full_client_hello_record)
-        .ok()
-        .flatten()?;
     let handshake_msg = if full_client_hello_record.first() == Some(&0x16) {
         &full_client_hello_record[5..]
     } else {
         full_client_hello_record
     };
-    find_session_id_offset(handshake_msg, &info.session_id)
+    session_id_offset_structural(handshake_msg)
 }
 
 fn session_id_offset_in_hello_aad(hello_aad: &[u8]) -> Option<usize> {
@@ -133,20 +138,22 @@ fn session_id_offset_in_hello_aad(hello_aad: &[u8]) -> Option<usize> {
     } else {
         (0usize, hello_aad)
     };
-    if handshake.len() < 40 || handshake[0] != 0x01 {
-        return None;
-    }
-    Some(base + 4 + 2 + 32 + 1)
+    session_id_offset_structural(handshake).map(|offset| base + offset)
 }
 
-fn find_session_id_offset(handshake_msg: &[u8], session_id: &[u8]) -> Option<usize> {
-    if session_id.is_empty() {
+/// Проверить структуру ClientHello и вернуть смещение session_id
+/// относительно начала handshake-сообщения.
+fn session_id_offset_structural(handshake: &[u8]) -> Option<usize> {
+    if handshake.len() < SESSION_ID_LEN_OFFSET + 1 || handshake[0] != 0x01 {
         return None;
     }
-    let needle = hex::encode(session_id);
-    let hay = hex::encode(handshake_msg);
-    let pos = hay.find(&needle).map(|p| p / 2)?;
-    Some(pos)
+    // REALITY оперирует ровно 32-байтовым session_id (см. seal на клиенте
+    // и verify_client_reality на сервере).
+    let sid_len = handshake[SESSION_ID_LEN_OFFSET] as usize;
+    if sid_len != 32 || handshake.len() < SESSION_ID_LEN_OFFSET + 1 + 32 {
+        return None;
+    }
+    Some(SESSION_ID_LEN_OFFSET + 1)
 }
 
 #[cfg(test)]

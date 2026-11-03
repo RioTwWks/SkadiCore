@@ -37,16 +37,7 @@ pub fn verify_client_reality(
         full_hello
     };
     let mut aad = handshake_msg.to_vec();
-    if let Some(pos) = hex::encode(&aad)
-        .find(&hex::encode(&info.session_id))
-        .map(|p| p / 2)
-    {
-        for i in 0..32 {
-            if pos + i < aad.len() {
-                aad[pos + i] = 0;
-            }
-        }
-    }
+    zero_session_id_aad(&mut aad);
 
     let mut buf = info.session_id.clone();
     if cipher.decrypt_in_place(nonce, &aad, &mut buf).is_err() {
@@ -62,4 +53,17 @@ pub fn verify_client_reality(
         }
     }
     None
+}
+
+/// Обнулить 32-байтовый session_id в AAD ClientHello по структурному
+/// смещению (см. hello_parser): 4 (handshake header) + 2 (version)
+/// + 32 (random) + 1 (sid len). Поиск подстроки по байтам session_id
+/// мог обнулить не то смещение при коллизии с random/extensions.
+fn zero_session_id_aad(handshake_msg: &mut [u8]) {
+    const SESSION_ID_OFFSET: usize = 4 + 2 + 32 + 1;
+    if handshake_msg.len() >= SESSION_ID_OFFSET + 32 {
+        for b in &mut handshake_msg[SESSION_ID_OFFSET..SESSION_ID_OFFSET + 32] {
+            *b = 0;
+        }
+    }
 }
