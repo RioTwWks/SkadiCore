@@ -1129,6 +1129,19 @@ impl Config {
         if awg.interface.trim().is_empty() {
             bail!("transport.awg.interface must not be empty");
         }
+        // Имя интерфейса попадает в путь временного .conf и argv без shell:
+        // ограничить безопасным набором символов и лимитом IFNAMSIZ (15).
+        if awg.interface.len() > 15
+            || !awg
+                .interface
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
+        {
+            bail!(
+                "transport.awg.interface must be 1..=15 chars of [A-Za-z0-9_.-], got {:?}",
+                awg.interface
+            );
+        }
 
         if awg.peers.is_empty() {
             bail!("transport.awg.peers must contain at least one peer when awg is enabled");
