@@ -5,6 +5,7 @@ use super::nat::{apply_nat, AwgNatConfig};
 use super::render::{
     render_client_conf, render_server_conf, strip_wgquick_fields, AwgClientExport,
 };
+use crate::secure_temp::{secure_conf_dir, write_conf_file};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
@@ -50,10 +51,12 @@ impl AwgManager {
             render_server_conf(config).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
         let setconf = strip_wgquick_fields(&conf);
 
-        let conf_dir = std::env::temp_dir().join("skadicore-awg");
-        std::fs::create_dir_all(&conf_dir).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+        // Конфиг содержит приватный ключ: каталог 0700, файл 0600 (см. secure_temp).
+        let conf_dir = secure_conf_dir("skadicore-awg")
+            .map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
         let conf_path = conf_dir.join(format!("{}.conf", config.interface_name));
-        std::fs::write(&conf_path, &setconf).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+        write_conf_file(&conf_path, &setconf)
+            .map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
 
         info!(
             interface = %config.interface_name,
@@ -166,10 +169,12 @@ impl AwgClientManager {
         .map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
         let setconf = strip_wgquick_fields(&conf);
 
-        let conf_dir = std::env::temp_dir().join("skadicore-awg-client");
-        std::fs::create_dir_all(&conf_dir).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+        // Конфиг содержит приватный ключ: каталог 0700, файл 0600 (см. secure_temp).
+        let conf_dir = secure_conf_dir("skadicore-awg-client")
+            .map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
         let conf_path = conf_dir.join(format!("{}.conf", config.interface_name));
-        std::fs::write(&conf_path, &setconf).map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
+        write_conf_file(&conf_path, &setconf)
+            .map_err(|e| AwgError::SetconfFailed(e.to_string()))?;
 
         info!(
             interface = %config.interface_name,
