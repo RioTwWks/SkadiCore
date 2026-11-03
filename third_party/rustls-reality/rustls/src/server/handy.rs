@@ -290,7 +290,7 @@ mod sni_resolver {
                     server_name: &None,
                     signature_schemes: &[],
                     alpn: None,
-server_cert_types: None,
+                    server_cert_types: None,
                     client_cert_types: None,
                     cipher_suites: &[],
                     certificate_authorities: None,
